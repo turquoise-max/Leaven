@@ -40,11 +40,11 @@ export function DashboardClientLayout({
   storeName,
   storeList,
   staffList,
-  defaultLayout = [25, 75],
+  defaultLayout = [15, 85],
   navCollapsedSize = 4,
 }: DashboardLayoutProps) {
   // 우측 사이드바 상태 (기본값: true)
-  const [showRightSidebar, setShowRightSidebar] = React.useState(true)
+  const [showRightSidebar, setShowRightSidebar] = React.useState(false)
 
   const toggleRightSidebar = () => {
     setShowRightSidebar(!showRightSidebar)
@@ -53,7 +53,7 @@ export function DashboardClientLayout({
   // defaultLayout이 3개 요소라면 2개로 줄임 (이전 버전 호환성)
   const safeDefaultLayout = defaultLayout && defaultLayout.length === 3 
     ? [defaultLayout[0], defaultLayout[1] + defaultLayout[2]] 
-    : defaultLayout || [25, 75]
+    : defaultLayout || [20, 80]
 
   return (
     <div className="h-screen w-full bg-background overflow-hidden flex">
@@ -111,25 +111,14 @@ export function DashboardClientLayout({
           {/* @ts-ignore */}
           <ResizablePanelGroup
             direction="horizontal"
-            autoSaveId="layout-v8"
-            storage={{
-              getItem: (name: string) => {
-                // SSR에서 이미 defaultLayout을 처리하므로 클라이언트에서는 null을 반환하여
-                // 컴포넌트의 defaultSize prop을 사용하도록 유도합니다.
-                return null
-              },
-              setItem: (name: string, value: string) => {
-                // 쿠키에 레이아웃 저장 (1년 유효기간)
-                document.cookie = `${name}=${value}; path=/; max-age=31536000; SameSite=Lax`
-              },
-            }}
             className="h-full items-stretch"
           >
             {/* 2. Management Menu Sidebar (Resizable, Not Collapsible) */}
             <ResizablePanel
-              defaultSize={safeDefaultLayout[0]}
-              minSize={15}
-              maxSize={90}
+              /* @ts-ignore */
+              defaultSize={safeDefaultLayout[0].toString()}
+              minSize="12"
+              maxSize="50"
               collapsible={false}
               className="bg-background"
             >
@@ -143,8 +132,12 @@ export function DashboardClientLayout({
             <ResizableHandle withHandle />
 
             {/* 3. Main Content */}
-            <ResizablePanel defaultSize={safeDefaultLayout[1]} minSize={10}>
-              <div className="flex flex-col h-full min-w-0">
+            <ResizablePanel 
+              /* @ts-ignore */
+              defaultSize={safeDefaultLayout[1].toString()} 
+              minSize="10"
+            >
+              <div className="flex flex-col h-full min-w-0 overflow-hidden">
                 <Header 
                   storeName={storeName} 
                   showRightSidebar={showRightSidebar}

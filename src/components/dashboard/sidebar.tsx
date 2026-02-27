@@ -65,7 +65,7 @@ export function Sidebar({ user, role, isCollapsed = false, className }: SidebarP
   return (
     <div
       className={cn(
-        "relative flex flex-col h-full w-full bg-background transition-all duration-300",
+        "relative flex flex-col h-full w-full bg-background",
         className
       )}
     >
