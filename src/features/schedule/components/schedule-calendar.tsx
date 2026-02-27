@@ -37,9 +37,47 @@ export function ScheduleCalendar({
     extendedProps: {
       userId: event.user_id,
       memo: event.memo,
+      role: staffList.find(s => s.user_id === event.user_id)?.role || 'staff'
     },
-    backgroundColor: '#3b82f6',
+    // 기본 스타일 제거 (커스텀 렌더링 사용)
+    backgroundColor: 'transparent',
+    borderColor: 'transparent',
+    textColor: 'inherit',
   }))
+
+  const renderEventContent = (eventInfo: any) => {
+    const { event } = eventInfo
+    const role = event.extendedProps.role
+    
+    // 역할에 따른 색상 (예시)
+    let borderColor = 'border-blue-500'
+    let bgColor = 'bg-blue-50'
+    let textColor = 'text-blue-700'
+
+    if (role === 'owner') {
+      borderColor = 'border-purple-500'
+      bgColor = 'bg-purple-50'
+      textColor = 'text-purple-700'
+    } else if (role === 'manager') {
+      borderColor = 'border-indigo-500'
+      bgColor = 'bg-indigo-50'
+      textColor = 'text-indigo-700'
+    }
+
+    return (
+      <div className={`w-full h-full p-1 pl-2 border-l-4 ${borderColor} ${bgColor} ${textColor} rounded-r-sm overflow-hidden text-xs flex flex-col justify-start`}>
+        <div className="font-semibold truncate">{event.title}</div>
+        <div className="text-[10px] opacity-90 truncate">
+          {eventInfo.timeText}
+        </div>
+        {event.extendedProps.memo && (
+          <div className="mt-1 text-[10px] opacity-75 truncate italic">
+            {event.extendedProps.memo}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   const handleDateClick = (info: any) => {
     if (!canManage) return
@@ -87,7 +125,14 @@ export function ScheduleCalendar({
             center: 'title',
             right: 'dayGridMonth,timeGridWeek,timeGridDay',
           }}
+          buttonText={{
+            today: '오늘',
+            month: '월',
+            week: '주',
+            day: '일',
+          }}
           events={events}
+          eventContent={renderEventContent}
           editable={canManage}
           selectable={canManage}
           selectMirror={true}
@@ -97,7 +142,18 @@ export function ScheduleCalendar({
           slotMinTime="06:00:00"
           slotMaxTime="24:00:00"
           allDaySlot={false}
+          nowIndicator={true}
           locale="ko"
+          slotLabelFormat={{
+            hour: 'numeric',
+            minute: '2-digit',
+            omitZeroMinute: false,
+            meridiem: 'short'
+          }}
+          dayHeaderFormat={{
+            weekday: 'short',
+            day: 'numeric'
+          }}
           dateClick={handleDateClick}
           eventClick={handleEventClick}
           eventDrop={handleEventDrop}

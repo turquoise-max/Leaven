@@ -15,26 +15,32 @@ export default async function StaffManagementPage() {
   // 사용자의 매장 정보 조회
   const { data: member } = await supabase
     .from('store_members')
-    .select('store_id')
+    .select('store_id, role')
     .eq('user_id', user.id)
     .single()
 
   if (!member) redirect('/onboarding')
 
-  // 권한 체크
+  // 권한 체크 (페이지 접근 권한)
+  // TODO: 일반 직원도 목록은 볼 수 있게 하려면 이 체크를 완화해야 함
   try {
     await requirePermission(user.id, member.store_id, 'manage_staff')
   } catch (error) {
     return <div>접근 권한이 없습니다.</div>
   }
 
+  const canManage = member.role === 'owner' || member.role === 'manager'
+
   // 직원 목록 조회 (Profile 정보 포함)
   const { data: staffList } = await supabase
     .from('store_members')
     .select(`
       id,
+      user_id,
       role,
       status,
+      wage_type,
+      base_wage,
       joined_at,
       profile:profiles(full_name, email, avatar_url)
     `)
@@ -58,7 +64,11 @@ export default async function StaffManagementPage() {
         </InviteStaffDialog>
       </div>
 
-      <StaffList initialData={staffList || []} storeId={member.store_id} />
+      <StaffList 
+        initialData={staffList || []} 
+        storeId={member.store_id} 
+        canManage={canManage}
+      />
     </div>
   )
 }

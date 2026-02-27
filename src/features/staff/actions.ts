@@ -63,3 +63,40 @@ export async function inviteStaff(storeId: string, formData: FormData) {
   revalidatePath('/dashboard/staff')
   return { success: true }
 }
+
+export async function updateStaffInfo(storeId: string, targetUserId: string, formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) return { error: 'Unauthorized' }
+
+  // 1. 권한 체크
+  try {
+    await requirePermission(user.id, storeId, 'manage_staff')
+  } catch (error) {
+    return { error: '권한이 없습니다.' }
+  }
+
+  // 2. 정보 추출
+  const role = formData.get('role') as string
+  const wageType = formData.get('wageType') as string
+  const baseWage = parseInt(formData.get('baseWage') as string || '0')
+
+  // 3. 업데이트 실행
+  const { error } = await supabase
+    .from('store_members')
+    .update({
+      role: role as any, // member_role enum
+      wage_type: wageType as any, // wage_type enum
+      base_wage: baseWage,
+    })
+    .eq('store_id', storeId)
+    .eq('user_id', targetUserId)
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  revalidatePath('/dashboard/staff')
+  return { success: true }
+}

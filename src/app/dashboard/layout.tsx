@@ -1,18 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
-import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { CircleUser, Menu, Package2 } from 'lucide-react'
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
-import { logout } from '@/features/auth/actions'
+import { DashboardClientLayout } from '@/components/dashboard/dashboard-layout'
+import { cookies } from 'next/headers'
 
 export default async function DashboardLayout({
   children,
@@ -26,119 +15,68 @@ export default async function DashboardLayout({
     redirect('/login')
   }
 
+  // 사용자의 모든 매장 멤버 정보 조회 (매장 리스트용)
+  const { data: members } = await supabase
+    .from('store_members')
+    .select('role, store_id, stores(id, name)')
+    .eq('user_id', user.id)
+
+  if (!members || members.length === 0) {
+    redirect('/onboarding')
+  }
+
+  // 현재 활성화된 매장 (일단 첫 번째 매장 사용, 추후 선택 로직 개선 가능)
+  // 실제로는 URL이나 쿠키에 선택된 매장 ID를 저장하고 불러와야 함
+  const currentMember = members[0]
+  const currentStore = currentMember.stores as any
+  const storeName = currentStore?.name || 'Leaven'
+  
+  // 매장 리스트 데이터 가공
+  const storeList = members.map(m => ({
+    id: (m.stores as any).id,
+    name: (m.stores as any).name,
+    role: m.role
+  }))
+
+  // 현재 매장의 전체 직원 목록 조회 (우측 사이드바용)
+  const { data: rawStaffList } = await supabase
+    .from('store_members')
+    .select(`
+      id,
+      role,
+      status,
+      profile:profiles(full_name, email, avatar_url)
+    `)
+    .eq('store_id', currentMember.store_id)
+    .order('role', { ascending: true }) // owner -> manager -> staff 순
+
+  // 데이터 가공 (타입 맞춤)
+  const staffList = rawStaffList?.map((staff: any) => ({
+    ...staff,
+    profile: Array.isArray(staff.profile) ? staff.profile[0] : staff.profile
+  }))
+
+  // 쿠키에서 레이아웃 설정 읽기 (키 이름 변경으로 초기화 효과)
+  const cookieStore = await cookies()
+  const layout = cookieStore.get('react-resizable-panels:layout-v8')
+  
+  const defaultLayout = layout ? JSON.parse(layout.value) : undefined
+
   return (
-    <div className="flex min-h-screen w-full flex-col">
-      <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6">
-        <nav className="hidden flex-col gap-6 text-lg font-medium md:flex md:flex-row md:items-center md:gap-5 md:text-sm lg:gap-6">
-          <Link
-            href="/dashboard"
-            className="flex items-center gap-2 text-lg font-semibold md:text-base"
-          >
-            <Package2 className="h-6 w-6" />
-            <span className="sr-only">Leaven</span>
-          </Link>
-          <Link
-            href="/dashboard"
-            className="text-foreground transition-colors hover:text-foreground"
-          >
-            대시보드
-          </Link>
-          <Link
-            href="/dashboard/settings"
-            className="text-muted-foreground transition-colors hover:text-foreground"
-          >
-            매장 설정
-          </Link>
-          <Link
-            href="/dashboard/staff"
-            className="text-muted-foreground transition-colors hover:text-foreground"
-          >
-            직원 관리
-          </Link>
-          <Link
-            href="/dashboard/schedule"
-            className="text-muted-foreground transition-colors hover:text-foreground"
-          >
-            근무 일정
-          </Link>
-        </nav>
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button
-              variant="outline"
-              size="icon"
-              className="shrink-0 md:hidden"
-            >
-              <Menu className="h-5 w-5" />
-              <span className="sr-only">Toggle navigation menu</span>
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="left">
-            <nav className="grid gap-6 text-lg font-medium">
-              <Link
-                href="/dashboard"
-                className="flex items-center gap-2 text-lg font-semibold"
-              >
-                <Package2 className="h-6 w-6" />
-                <span className="sr-only">Leaven</span>
-              </Link>
-              <Link href="/dashboard" className="hover:text-foreground">
-                대시보드
-              </Link>
-              <Link
-                href="/dashboard/settings"
-                className="text-muted-foreground hover:text-foreground"
-              >
-                매장 설정
-              </Link>
-              <Link
-                href="/dashboard/staff"
-                className="text-muted-foreground hover:text-foreground"
-              >
-                직원 관리
-              </Link>
-              <Link
-                href="/dashboard/schedule"
-                className="text-muted-foreground hover:text-foreground"
-              >
-                근무 일정
-              </Link>
-            </nav>
-          </SheetContent>
-        </Sheet>
-        <div className="flex w-full items-center gap-4 md:ml-auto md:gap-2 lg:gap-4">
-          <div className="ml-auto flex-1 sm:flex-initial">
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="secondary" size="icon" className="rounded-full">
-                <CircleUser className="h-5 w-5" />
-                <span className="sr-only">Toggle user menu</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>Settings</DropdownMenuItem>
-              <DropdownMenuItem>Support</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <form
-                action={async () => {
-                  'use server'
-                  await logout()
-                }}
-              >
-                <button type="submit" className="w-full text-left">
-                  <DropdownMenuItem>Logout</DropdownMenuItem>
-                </button>
-              </form>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </header>
-      <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
-        {children}
-      </main>
-    </div>
+    <DashboardClientLayout
+      user={{
+        email: user.email!,
+        full_name: user.user_metadata.full_name,
+        avatar_url: user.user_metadata.avatar_url,
+      }}
+      role={currentMember.role}
+      storeName={storeName}
+      storeList={storeList}
+      staffList={staffList || []}
+      defaultLayout={defaultLayout}
+      navCollapsedSize={4}
+    >
+      {children}
+    </DashboardClientLayout>
   )
 }

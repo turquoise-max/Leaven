@@ -124,3 +124,110 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* FullCalendar Customization */
+@layer components {
+  .fc {
+    @apply font-sans;
+    --fc-border-color: var(--border);
+    --fc-button-text-color: var(--primary-foreground);
+    --fc-button-bg-color: var(--primary);
+    --fc-button-border-color: var(--primary);
+    --fc-button-hover-bg-color: var(--primary);
+    --fc-button-hover-border-color: var(--primary);
+    --fc-button-active-bg-color: var(--primary);
+    --fc-button-active-border-color: var(--primary);
+    --fc-today-bg-color: var(--accent);
+    --fc-page-bg-color: var(--background);
+    --fc-neutral-bg-color: var(--background);
+    --fc-list-event-hover-bg-color: var(--accent);
+  }
+
+  .fc .fc-toolbar-title {
+    @apply text-xl font-bold;
+  }
+
+  .fc .fc-button-primary {
+    @apply bg-background text-foreground border-input hover:bg-accent hover:text-accent-foreground;
+    background-color: transparent;
+    border-color: var(--input);
+    color: var(--foreground);
+    font-weight: 500;
+    text-transform: capitalize;
+    padding: 0.5rem 1rem;
+    height: 2.25rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-md);
+    transition: all 0.2s;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  }
+
+  .fc .fc-button-primary:hover {
+    @apply bg-accent text-accent-foreground;
+    border-color: var(--input);
+  }
+
+  .fc .fc-button-primary:not(:disabled).fc-button-active,
+  .fc .fc-button-primary:not(:disabled):active {
+    @apply bg-primary text-primary-foreground border-primary;
+  }
+
+  .fc .fc-button-primary:disabled {
+    @apply opacity-50 cursor-not-allowed;
+  }
+  
+  /* Remove default focus outline and add ring */
+  .fc .fc-button-primary:focus {
+    @apply ring-2 ring-ring ring-offset-2 ring-offset-background outline-none;
+    box-shadow: none;
+  }
+
+  /* Grid & Headers */
+  .fc .fc-col-header-cell {
+    @apply bg-muted/50 py-3 text-sm font-medium text-muted-foreground border-b border-border;
+  }
+  
+  .fc .fc-scrollgrid {
+    @apply border-border rounded-lg overflow-hidden;
+  }
+
+  .fc .fc-daygrid-day-frame {
+    @apply min-h-[100px];
+  }
+
+  .fc td, .fc th {
+    @apply border-border;
+  }
+
+  /* Events */
+  .fc-event {
+    @apply shadow-sm cursor-pointer transition-transform hover:scale-[1.01];
+    border: none;
+    border-radius: 4px;
+  }
+
+  /* Remove default blue background */
+  .fc-daygrid-event-dot {
+    @apply border-primary;
+  }
+  
+  /* Today Highlight */
+  .fc .fc-day-today {
+    background-color: var(--accent) !important;
+  }
+
+  /* TimeGrid Slots */
+  .fc .fc-timegrid-slot {
+    @apply h-12 border-border;
+  }
+  
+  .fc .fc-timegrid-axis {
+    @apply text-xs text-muted-foreground;
+  }
+  
+  .fc .fc-timegrid-slot-label {
+    @apply text-xs text-muted-foreground font-medium;
+  }
+}

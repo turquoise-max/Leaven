@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Table,
   TableBody,
@@ -20,11 +20,15 @@ import { Button } from '@/components/ui/button'
 import { MoreHorizontal, Shield, ShieldAlert, ShieldCheck, User } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
+import { EditStaffDialog } from './edit-staff-dialog'
 
 interface StaffMember {
   id: string
+  user_id: string
   role: 'owner' | 'manager' | 'staff'
   status: 'active' | 'invited' | 'pending_approval'
+  wage_type?: 'hourly' | 'monthly'
+  base_wage?: number
   joined_at: string
   profile: {
     full_name: string | null
@@ -34,12 +38,19 @@ interface StaffMember {
 }
 
 interface StaffListProps {
-  initialData: any[] // TODO: Type definition
+  initialData: any[]
   storeId: string
+  canManage: boolean
 }
 
-export function StaffList({ initialData }: StaffListProps) {
+export function StaffList({ initialData, storeId, canManage }: StaffListProps) {
   const [staffList, setStaffList] = useState<StaffMember[]>(initialData)
+  const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null)
+  const [dialogOpen, setDialogOpen] = useState(false)
+
+  useEffect(() => {
+    setStaffList(initialData)
+  }, [initialData])
 
   const getRoleBadge = (role: string) => {
     switch (role) {
@@ -126,9 +137,19 @@ export function StaffList({ initialData }: StaffListProps) {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                    <DropdownMenuItem>역할 변경</DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={() => {
+                        setEditingStaff(staff)
+                        setDialogOpen(true)
+                      }}
+                      disabled={!canManage}
+                    >
+                      정보 수정
+                    </DropdownMenuItem>
                     <DropdownMenuItem>근무 일정 보기</DropdownMenuItem>
-                    <DropdownMenuItem className="text-red-600">퇴사 처리</DropdownMenuItem>
+                    <DropdownMenuItem className="text-red-600" disabled={!canManage}>
+                      퇴사 처리
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </TableCell>
@@ -143,6 +164,14 @@ export function StaffList({ initialData }: StaffListProps) {
           )}
         </TableBody>
       </Table>
+
+      <EditStaffDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        staff={editingStaff}
+        storeId={storeId}
+        canManage={canManage}
+      />
     </div>
   )
 }
