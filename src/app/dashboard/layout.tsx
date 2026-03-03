@@ -65,6 +65,7 @@ export default async function DashboardLayout({
       id,
       role,
       status,
+      name,
       profile:profiles(full_name, email, avatar_url)
     `)
     .eq('store_id', currentStoreId)

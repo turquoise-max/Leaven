@@ -5,6 +5,7 @@ import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import interactionPlugin from '@fullcalendar/interaction'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { ScheduleDialog } from './schedule-dialog'
 import { updateScheduleTime } from '../actions'
@@ -23,6 +24,7 @@ export function ScheduleCalendar({
   canManage,
   storeId,
 }: ScheduleCalendarProps) {
+  const router = useRouter()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogMode, setDialogMode] = useState<'create' | 'edit'>('create')
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
@@ -81,19 +83,14 @@ export function ScheduleCalendar({
   }
 
   const handleDateClick = (info: any) => {
-    if (!canManage) return
-    setDialogMode('create')
-    
-    // 로컬 시간 기준 날짜 추출
+    // 날짜 클릭 시 해당 날짜의 업무 할당 페이지로 이동
     const date = info.date
     const year = date.getFullYear()
     const month = String(date.getMonth() + 1).padStart(2, '0')
     const day = String(date.getDate()).padStart(2, '0')
-    setSelectedDate(`${year}-${month}-${day}`)
+    const dateStr = `${year}-${month}-${day}`
     
-    setInitialTime(null)
-    setSelectedEvent(null)
-    setDialogOpen(true)
+    router.push(`/dashboard/schedule/${dateStr}`)
   }
 
   const handleSelect = (info: any) => {

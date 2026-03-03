@@ -121,17 +121,36 @@ export async function updateStaffInfo(storeId: string, targetMemberId: string, f
   }
 
   // 2. 정보 추출
+  const name = formData.get('name') as string
+  const email = formData.get('email') as string
   const role = formData.get('role') as string
   const wageType = formData.get('wageType') as string
   const baseWage = parseInt(formData.get('baseWage') as string || '0')
+  const phone = formData.get('phone') as string
+
+  // 추가: 대상 멤버가 점주인지 확인
+  const { data: targetMember } = await supabase
+    .from('store_members')
+    .select('role')
+    .eq('id', targetMemberId)
+    .single()
+  
+  // 점주는 역할 변경 불가 (항상 owner 유지)
+  let newRole = role
+  if (targetMember?.role === 'owner') {
+    newRole = 'owner'
+  }
 
   // 3. 업데이트 실행
   const { error } = await supabase
     .from('store_members')
     .update({
-      role: role as any,
+      role: newRole as any,
       wage_type: wageType as any,
       base_wage: baseWage,
+      phone: phone || null,
+      name: name || null,
+      email: email || null,
     })
     .eq('id', targetMemberId) // user_id 대신 member id(pk) 사용 권장 (수기 등록 직원은 user_id가 없으므로)
     .eq('store_id', storeId)
@@ -141,6 +160,7 @@ export async function updateStaffInfo(storeId: string, targetMemberId: string, f
   }
 
   revalidatePath('/dashboard/staff')
+  revalidatePath('/dashboard', 'layout') // 사이드바 데이터 갱신
   return { success: true }
 }
 
@@ -166,7 +186,7 @@ export async function approveRequest(storeId: string, memberId: string) {
   if (error) return { error: error.message }
 
   revalidatePath('/dashboard/staff')
-  revalidatePath('/dashboard') // 대시보드 알림 갱신
+  revalidatePath('/dashboard', 'layout') // 대시보드 알림 및 사이드바 갱신
   return { success: true }
 }
 
@@ -192,7 +212,32 @@ export async function rejectRequest(storeId: string, memberId: string) {
   if (error) return { error: error.message }
 
   revalidatePath('/dashboard/staff')
-  revalidatePath('/dashboard') // 대시보드 알림 갱신
+  revalidatePath('/dashboard', 'layout') // 대시보드 알림 및 사이드바 갱신
+  return { success: true }
+}
+
+export async function removeStaff(storeId: string, memberId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) return { error: 'Unauthorized' }
+
+  try {
+    await requirePermission(user.id, storeId, 'manage_staff')
+  } catch (error) {
+    return { error: '권한이 없습니다.' }
+  }
+
+  const { error } = await supabase
+    .from('store_members')
+    .delete()
+    .eq('id', memberId)
+    .eq('store_id', storeId)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/dashboard/staff')
+  revalidatePath('/dashboard', 'layout') // 사이드바 데이터 갱신
   return { success: true }
 }
 

@@ -4,6 +4,33 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/features/auth/permissions'
 
+// 스케줄 조회 (기간)
+export async function getSchedules(storeId: string, startDate: string, endDate: string) {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('schedules')
+    .select(`
+      id,
+      store_id,
+      user_id,
+      start_time,
+      end_time,
+      memo,
+      profile:profiles!schedules_user_id_fkey(full_name, avatar_url)
+    `)
+    .eq('store_id', storeId)
+    .gte('start_time', startDate)
+    .lte('end_time', endDate)
+
+  if (error) {
+    console.error('Error fetching schedules:', error)
+    return []
+  }
+
+  return data
+}
+
 // 스케줄 생성
 export async function createSchedule(storeId: string, formData: FormData) {
   const supabase = await createClient()

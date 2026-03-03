@@ -7,6 +7,7 @@ interface StaffMember {
   id: string
   role: 'owner' | 'manager' | 'staff'
   status: string
+  name?: string
   profile: {
     full_name: string | null
     email: string | null
@@ -44,14 +45,14 @@ export function StaffSidebar({ staffList, onClose }: StaffSidebarProps) {
               <div className="relative">
                 <Avatar className="h-8 w-8">
                   <AvatarImage src={member.profile?.avatar_url || ''} />
-                  <AvatarFallback>{member.profile?.full_name?.substring(0, 2) || 'St'}</AvatarFallback>
+                  <AvatarFallback>{(member.profile?.full_name || member.name)?.substring(0, 2) || 'St'}</AvatarFallback>
                 </Avatar>
                 {/* Status Indicator (임시: 모두 초록색) */}
                 <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-background bg-green-500" />
               </div>
               <div className="flex flex-col overflow-hidden">
                 <span className="text-sm font-medium truncate">
-                  {member.profile?.full_name || '이름 없음'}
+                  {member.profile?.full_name || member.name || '이름 없음'}
                 </span>
                 <span className="text-xs text-muted-foreground truncate">
                   {member.status === 'invited' ? '초대됨' : '온라인'}

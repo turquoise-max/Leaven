@@ -34,6 +34,21 @@ export async function updateStore(formData: FormData) {
   const address = formData.get('address') as string
   const businessNumber = formData.get('business_number') as string
   const description = formData.get('description') as string
+  const ownerName = formData.get('owner_name') as string
+  const storePhone = formData.get('store_phone') as string
+  const zipCode = formData.get('zip_code') as string
+  const addressDetail = formData.get('address_detail') as string
+  const imageUrl = formData.get('image_url') as string
+  
+  let openingHours = {}
+  try {
+    const openingHoursStr = formData.get('opening_hours') as string
+    if (openingHoursStr) {
+      openingHours = JSON.parse(openingHoursStr)
+    }
+  } catch (e) {
+    console.error('Error parsing opening hours:', e)
+  }
 
   const { error } = await supabase
     .from('stores')
@@ -42,6 +57,12 @@ export async function updateStore(formData: FormData) {
       address,
       business_number: businessNumber,
       description,
+      owner_name: ownerName,
+      store_phone: storePhone,
+      zip_code: zipCode,
+      address_detail: addressDetail,
+      opening_hours: openingHours,
+      image_url: imageUrl,
       updated_at: new Date().toISOString(),
     })
     .eq('id', storeId)

@@ -218,7 +218,26 @@ export async function joinStoreByCode(code: string, name: string, phone: string)
     }
   }
 
-  // 4. 가입 요청 (Pending Approval)
+  // 4. 수기 등록 직원 매칭 시도
+  // 이름과 전화번호가 일치하는 수기 등록 직원(user_id is null)이 있으면 해당 레코드를 승계합니다.
+  const { data: claimed, error: claimError } = await supabase.rpc('claim_manual_staff', {
+    store_id_param: storeId,
+    name_param: name,
+    phone_param: phone,
+  })
+
+  if (claimError) {
+    console.error('Claim manual staff error:', claimError)
+    // RPC 오류가 나도 일반 가입 시도로 넘어감
+  }
+
+  // 매칭 성공 시 종료
+  if (claimed) {
+    revalidatePath('/home')
+    return { success: true }
+  }
+
+  // 5. 가입 요청 (Pending Approval) - 매칭된 직원이 없을 경우
   const { error } = await supabase.from('store_members').insert({
     store_id: storeId,
     user_id: user.id,

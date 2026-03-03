@@ -6,6 +6,7 @@ import { InviteStaffDialog } from '@/features/staff/components/invite-staff-dial
 import { Button } from '@/components/ui/button'
 import { UserPlus } from 'lucide-react'
 import { cookies } from 'next/headers'
+import { StoreCodeDisplay } from '@/components/dashboard/store-code-display'
 
 export default async function StaffManagementPage() {
   const supabase = await createClient()
@@ -16,7 +17,7 @@ export default async function StaffManagementPage() {
   // 사용자의 매장 정보 조회
   const { data: members } = await supabase
     .from('store_members')
-    .select('store_id, role, status')
+    .select('store_id, role, status, store:stores(invite_code)')
     .eq('user_id', user.id)
 
   // 쿠키에서 선택된 매장 ID 가져오기
@@ -42,6 +43,7 @@ export default async function StaffManagementPage() {
   }
 
   const canManage = member.role === 'owner' || member.role === 'manager'
+  const store = member.store as any
 
   // 직원 목록 조회 (Profile 정보 포함)
   const { data: staffList } = await supabase
@@ -54,6 +56,9 @@ export default async function StaffManagementPage() {
       wage_type,
       base_wage,
       joined_at,
+      name,
+      phone,
+      email,
       profile:profiles(full_name, email, avatar_url)
     `)
     .eq('store_id', member.store_id)
@@ -63,8 +68,13 @@ export default async function StaffManagementPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-medium">직원 관리</h3>
-          <p className="text-sm text-muted-foreground">
+          <div className="flex items-center gap-3">
+            <h3 className="text-lg font-medium">직원 관리</h3>
+            {store?.invite_code && (
+              <StoreCodeDisplay code={store.invite_code} />
+            )}
+          </div>
+          <p className="text-sm text-muted-foreground mt-1">
             매장의 직원을 초대하고 권한을 관리합니다.
           </p>
         </div>

@@ -22,7 +22,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EditStaffDialog } from './edit-staff-dialog'
-import { approveRequest, rejectRequest } from '../actions'
+import { approveRequest, rejectRequest, removeStaff } from '../actions'
 import { toast } from 'sonner'
 
 interface StaffMember {
@@ -61,7 +61,27 @@ export function StaffList({ initialData, storeId, canManage }: StaffListProps) {
   }, [initialData])
 
   const pendingStaff = staffList.filter(s => s.status === 'pending_approval')
-  const activeStaff = staffList.filter(s => s.status !== 'pending_approval')
+  
+  // 역할에 따른 정렬 순서 정의 (점주 -> 매니저 -> 직원)
+  const roleOrder: Record<string, number> = {
+    owner: 0,
+    manager: 1,
+    staff: 2
+  }
+
+  const activeStaff = staffList
+    .filter(s => s.status !== 'pending_approval')
+    .sort((a, b) => {
+      // 1순위: 역할 (role)
+      const roleA = roleOrder[a.role] ?? 99
+      const roleB = roleOrder[b.role] ?? 99
+      if (roleA !== roleB) return roleA - roleB
+      
+      // 2순위: 이름 (가나다순)
+      const nameA = a.name || a.profile?.full_name || ''
+      const nameB = b.name || b.profile?.full_name || ''
+      return nameA.localeCompare(nameB)
+    })
 
   const handleApprove = async (memberId: string) => {
     setProcessingId(memberId)
@@ -93,8 +113,23 @@ export function StaffList({ initialData, storeId, canManage }: StaffListProps) {
     }
   }
 
+  const handleRemove = async (memberId: string, staffName: string) => {
+    if (!confirm(`'${staffName}' 직원을 퇴사 처리하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) return
+
+    const result = await removeStaff(storeId, memberId)
+
+    if (result.error) {
+      toast.error('퇴사 처리 실패', { description: result.error })
+    } else {
+      toast.success('퇴사 처리 완료', { description: '직원이 퇴사 처리되었습니다.' })
+      // Optimistic update
+      setStaffList(prev => prev.filter(s => s.id !== memberId))
+    }
+  }
+
   const getDisplayName = (staff: StaffMember) => {
-    return staff.profile?.full_name || staff.name || '이름 없음'
+    // 매장에서 사용하는 이름(staff.name)을 우선 표시
+    return staff.name || staff.profile?.full_name || '이름 없음'
   }
 
   const getDisplayEmail = (staff: StaffMember) => {
@@ -166,7 +201,14 @@ export function StaffList({ initialData, storeId, canManage }: StaffListProps) {
               </TableHeader>
               <TableBody>
                 {pendingStaff.map((staff) => (
-                  <TableRow key={staff.id} className="hover:bg-orange-100/50 dark:hover:bg-orange-900/20">
+                  <TableRow 
+                    key={staff.id} 
+                    className="hover:bg-orange-100/50 dark:hover:bg-orange-900/20 cursor-pointer"
+                    onClick={() => {
+                      setEditingStaff(staff)
+                      setDialogOpen(true)
+                    }}
+                  >
                     <TableCell className="font-medium">
                       {getDisplayName(staff)}
                     </TableCell>
@@ -180,7 +222,7 @@ export function StaffList({ initialData, storeId, canManage }: StaffListProps) {
                       {new Date(staff.joined_at).toLocaleDateString('ko-KR')}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
+                      <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
                         <Button 
                           size="sm" 
                           variant="outline" 
@@ -215,15 +257,22 @@ export function StaffList({ initialData, storeId, canManage }: StaffListProps) {
             <TableRow>
               <TableHead className="w-20">프로필</TableHead>
               <TableHead>이름 / 이메일</TableHead>
+              <TableHead>전화번호</TableHead>
               <TableHead>역할</TableHead>
               <TableHead>상태</TableHead>
               <TableHead>합류일</TableHead>
-              <TableHead className="text-right">관리</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {activeStaff.map((staff) => (
-              <TableRow key={staff.id}>
+              <TableRow 
+                key={staff.id} 
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => {
+                  setEditingStaff(staff)
+                  setDialogOpen(true)
+                }}
+              >
                 <TableCell>
                   <Avatar>
                     <AvatarImage src={staff.profile?.avatar_url || ''} />
@@ -236,10 +285,17 @@ export function StaffList({ initialData, storeId, canManage }: StaffListProps) {
                   <div className="flex flex-col">
                     <span className="font-medium">{getDisplayName(staff)}</span>
                     <span className="text-xs text-muted-foreground">{getDisplayEmail(staff)}</span>
-                    {getDisplayPhone(staff) && (
-                       <span className="text-xs text-muted-foreground mt-0.5">{getDisplayPhone(staff)}</span>
-                    )}
                   </div>
+                </TableCell>
+                <TableCell>
+                  {getDisplayPhone(staff) ? (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Phone className="h-3 w-3" />
+                      {getDisplayPhone(staff)}
+                    </div>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">-</span>
+                  )}
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">
@@ -250,32 +306,6 @@ export function StaffList({ initialData, storeId, canManage }: StaffListProps) {
                 <TableCell>{getStatusBadge(staff.status, staff.user_id)}</TableCell>
                 <TableCell>
                   {new Date(staff.joined_at).toLocaleDateString('ko-KR')}
-                </TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0">
-                        <span className="sr-only">Open menu</span>
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuItem 
-                        onClick={() => {
-                          setEditingStaff(staff)
-                          setDialogOpen(true)
-                        }}
-                        disabled={!canManage}
-                      >
-                        정보 수정
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>근무 일정 보기</DropdownMenuItem>
-                      <DropdownMenuItem className="text-red-600" disabled={!canManage}>
-                        퇴사 처리
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
                 </TableCell>
               </TableRow>
             ))}

@@ -182,7 +182,7 @@ export default async function HomePage() {
                       </Button>
                     ) : member.status === 'pending_approval' ? (
                       <div className="flex w-full gap-2">
-                        <Button disabled variant="outline" className="flex-1 bg-muted/50 text-muted-foreground border-orange-200 bg-orange-50/50">
+                        <Button disabled variant="outline" className="flex-1 text-muted-foreground border-orange-200 bg-orange-50/50">
                           <Loader2 className="mr-2 h-3 w-3 animate-spin" />
                           승인 대기 중...
                         </Button>
