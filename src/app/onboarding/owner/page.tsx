@@ -8,7 +8,7 @@ export default function OwnerOnboardingPage() {
     <div className="space-y-6">
       <div className="flex items-center space-x-2">
         <Button variant="ghost" size="icon" asChild>
-          <Link href="/onboarding">
+          <Link href="/home">
             <ArrowLeft className="h-4 w-4" />
           </Link>
         </Button>

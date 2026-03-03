@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { requirePermission } from '@/features/auth/permissions'
 import { ScheduleCalendar } from '@/features/schedule/components/schedule-calendar'
+import { cookies } from 'next/headers'
 
 export default async function SchedulePage() {
   const supabase = await createClient()
@@ -10,11 +11,22 @@ export default async function SchedulePage() {
   if (!user) redirect('/login')
 
   // 사용자의 매장 정보 조회
-  const { data: member } = await supabase
+  const { data: members } = await supabase
     .from('store_members')
-    .select('store_id, role')
+    .select('store_id, role, status')
     .eq('user_id', user.id)
-    .single()
+
+  // 쿠키에서 선택된 매장 ID 가져오기
+  const cookieStore = await cookies()
+  const selectedStoreId = cookieStore.get('leaven_current_store_id')?.value
+
+  // 선택된 매장 찾기
+  let member = members?.find(m => m.store_id === selectedStoreId)
+
+  // 없으면 활성 상태인 첫 번째 매장 선택
+  if (!member) {
+    member = members?.find(m => m.status === 'active') || members?.[0]
+  }
 
   if (!member) redirect('/onboarding')
 

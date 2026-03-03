@@ -61,7 +61,7 @@ export function EditStaffDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-106.25">
         <DialogHeader>
           <DialogTitle>직원 정보 수정</DialogTitle>
           <DialogDescription>

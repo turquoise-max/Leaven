@@ -24,7 +24,7 @@ export function Header({ storeName, showRightSidebar, onToggleRightSidebar }: He
   ]
 
   return (
-    <header className="flex h-14 items-center border-b bg-background px-4 lg:h-[60px]">
+    <header className="flex h-14 items-center border-b bg-background px-4 lg:h-15">
       <Sheet>
         <SheetTrigger asChild>
           <Button variant="outline" size="icon" className="shrink-0 lg:hidden mr-4">

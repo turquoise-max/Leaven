@@ -27,6 +27,7 @@ export function ScheduleCalendar({
   const [dialogMode, setDialogMode] = useState<'create' | 'edit'>('create')
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null)
+  const [initialTime, setInitialTime] = useState<{ start: string; end: string } | null>(null)
 
   // 이벤트 데이터 매핑
   const events = initialEvents.map((event) => ({
@@ -82,7 +83,35 @@ export function ScheduleCalendar({
   const handleDateClick = (info: any) => {
     if (!canManage) return
     setDialogMode('create')
-    setSelectedDate(info.dateStr)
+    
+    // 로컬 시간 기준 날짜 추출
+    const date = info.date
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    setSelectedDate(`${year}-${month}-${day}`)
+    
+    setInitialTime(null)
+    setSelectedEvent(null)
+    setDialogOpen(true)
+  }
+
+  const handleSelect = (info: any) => {
+    if (!canManage) return
+    setDialogMode('create')
+    
+    // 로컬 시간 기준 날짜 추출
+    const date = info.start
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    setSelectedDate(`${year}-${month}-${day}`)
+    
+    // 시간 정보 추출 (HH:mm)
+    const start = info.start.toTimeString().substring(0, 5)
+    const end = info.end.toTimeString().substring(0, 5)
+    setInitialTime({ start, end })
+    
     setSelectedEvent(null)
     setDialogOpen(true)
   }
@@ -93,11 +122,29 @@ export function ScheduleCalendar({
     
     setDialogMode('edit')
     setSelectedDate(null)
+    setInitialTime(null)
     setSelectedEvent(info.event)
     setDialogOpen(true)
   }
 
   const handleEventDrop = async (info: any) => {
+    if (!canManage) return
+
+    const { event } = info
+    const newStart = event.start.toISOString()
+    const newEnd = event.end.toISOString()
+
+    const result = await updateScheduleTime(storeId, event.id, newStart, newEnd)
+
+    if (result.error) {
+      toast.error('스케줄 변경 실패', { description: result.error })
+      info.revert() // 변경 취소
+    } else {
+      toast.success('스케줄 변경 완료')
+    }
+  }
+
+  const handleEventResize = async (info: any) => {
     if (!canManage) return
 
     const { event } = info
@@ -138,6 +185,7 @@ export function ScheduleCalendar({
           selectMirror={true}
           dayMaxEvents={true}
           weekends={true}
+          firstDay={1}
           height="100%"
           slotMinTime="06:00:00"
           slotMaxTime="24:00:00"
@@ -155,8 +203,10 @@ export function ScheduleCalendar({
             day: 'numeric'
           }}
           dateClick={handleDateClick}
+          select={handleSelect}
           eventClick={handleEventClick}
           eventDrop={handleEventDrop}
+          eventResize={handleEventResize}
         />
       </div>
 
@@ -168,6 +218,8 @@ export function ScheduleCalendar({
         selectedEvent={selectedEvent}
         staffList={staffList}
         storeId={storeId}
+        initialStartTime={initialTime?.start}
+        initialEndTime={initialTime?.end}
       />
     </>
   )

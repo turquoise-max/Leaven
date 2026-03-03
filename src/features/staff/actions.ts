@@ -64,7 +64,50 @@ export async function inviteStaff(storeId: string, formData: FormData) {
   return { success: true }
 }
 
-export async function updateStaffInfo(storeId: string, targetUserId: string, formData: FormData) {
+export async function createManualStaff(storeId: string, formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) return { error: 'Unauthorized' }
+
+  // 1. 권한 체크
+  try {
+    await requirePermission(user.id, storeId, 'manage_staff')
+  } catch (error) {
+    return { error: '권한이 없습니다.' }
+  }
+
+  // 2. 데이터 추출
+  const name = formData.get('name') as string
+  const email = formData.get('email') as string
+  const phone = formData.get('phone') as string
+  const role = formData.get('role') as string || 'staff'
+  const wageType = formData.get('wageType') as string || 'hourly'
+  const baseWage = parseInt(formData.get('baseWage') as string || '0')
+
+  if (!name) return { error: '이름을 입력해주세요.' }
+
+  // 3. 수기 등록 (user_id는 null)
+  const { error } = await supabase.from('store_members').insert({
+    store_id: storeId,
+    user_id: null,
+    role: role as any,
+    status: 'active', // 수기 등록은 바로 활동 상태
+    name,
+    email: email || null,
+    phone: phone || null,
+    wage_type: wageType as any,
+    base_wage: baseWage,
+    joined_at: new Date().toISOString(),
+  })
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/dashboard/staff')
+  return { success: true }
+}
+
+export async function updateStaffInfo(storeId: string, targetMemberId: string, formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -86,12 +129,12 @@ export async function updateStaffInfo(storeId: string, targetUserId: string, for
   const { error } = await supabase
     .from('store_members')
     .update({
-      role: role as any, // member_role enum
-      wage_type: wageType as any, // wage_type enum
+      role: role as any,
+      wage_type: wageType as any,
       base_wage: baseWage,
     })
+    .eq('id', targetMemberId) // user_id 대신 member id(pk) 사용 권장 (수기 등록 직원은 user_id가 없으므로)
     .eq('store_id', storeId)
-    .eq('user_id', targetUserId)
 
   if (error) {
     return { error: error.message }
@@ -99,4 +142,69 @@ export async function updateStaffInfo(storeId: string, targetUserId: string, for
 
   revalidatePath('/dashboard/staff')
   return { success: true }
+}
+
+export async function approveRequest(storeId: string, memberId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) return { error: 'Unauthorized' }
+
+  try {
+    await requirePermission(user.id, storeId, 'manage_staff')
+  } catch (error) {
+    return { error: '권한이 없습니다.' }
+  }
+
+  const { error } = await supabase
+    .from('store_members')
+    .update({ status: 'active' })
+    .eq('id', memberId)
+    .eq('store_id', storeId)
+    .eq('status', 'pending_approval')
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/dashboard/staff')
+  revalidatePath('/dashboard') // 대시보드 알림 갱신
+  return { success: true }
+}
+
+export async function rejectRequest(storeId: string, memberId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) return { error: 'Unauthorized' }
+
+  try {
+    await requirePermission(user.id, storeId, 'manage_staff')
+  } catch (error) {
+    return { error: '권한이 없습니다.' }
+  }
+
+  const { error } = await supabase
+    .from('store_members')
+    .delete()
+    .eq('id', memberId)
+    .eq('store_id', storeId)
+    .eq('status', 'pending_approval')
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/dashboard/staff')
+  revalidatePath('/dashboard') // 대시보드 알림 갱신
+  return { success: true }
+}
+
+export async function getPendingRequestsCount(storeId: string) {
+  const supabase = await createClient()
+  
+  const { count, error } = await supabase
+    .from('store_members')
+    .select('*', { count: 'exact', head: true })
+    .eq('store_id', storeId)
+    .eq('status', 'pending_approval')
+
+  if (error) return 0
+  return count || 0
 }

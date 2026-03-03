@@ -121,7 +121,7 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground break-keep;
   }
 }
 
@@ -194,7 +194,7 @@
   }
 
   .fc .fc-daygrid-day-frame {
-    @apply min-h-[100px];
+    @apply min-h-25;
   }
 
   .fc td, .fc th {

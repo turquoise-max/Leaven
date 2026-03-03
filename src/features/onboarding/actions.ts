@@ -32,5 +32,206 @@ export async function createStore(formData: FormData) {
   }
 
   revalidatePath('/', 'layout')
-  redirect('/dashboard')
+  redirect('/home') // 변경: dashboard -> home
+}
+
+// 1. 초대/소속 상태 조회 (단일 매장 호환용 - deprecated 예정)
+export async function getInvitationStatus() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) return { status: 'none' as const }
+
+  const { data: member } = await supabase
+    .from('store_members')
+    .select(`
+      id,
+      role,
+      status,
+      store:stores (
+        id,
+        name,
+        description
+      )
+    `)
+    .eq('user_id', user.id)
+    .single()
+
+  if (!member) return { status: 'none' as const }
+
+  const store = Array.isArray(member.store) ? member.store[0] : member.store
+
+  return {
+    status: member.status,
+    store: store as { id: string; name: string; description: string },
+    role: member.role,
+  }
+}
+
+// 1.1 사용자 초대 목록 조회 (New)
+export async function getUserInvitations() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) return []
+
+  const { data: invitations } = await supabase
+    .from('store_members')
+    .select(`
+      id,
+      role,
+      status,
+      invited_at:joined_at,
+      store:stores (
+        id,
+        name,
+        description
+      )
+    `)
+    .eq('user_id', user.id)
+    .eq('status', 'invited')
+    .order('joined_at', { ascending: false })
+
+  if (!invitations) return []
+
+  return invitations.map(invitation => ({
+    ...invitation,
+    store: Array.isArray(invitation.store) ? invitation.store[0] : invitation.store
+  }))
+}
+
+// 2. 초대 수락
+export async function acceptInvitation(storeId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) return { error: 'Unauthorized' }
+
+  const { error } = await supabase
+    .from('store_members')
+    .update({ status: 'active', joined_at: new Date().toISOString() })
+    .eq('store_id', storeId)
+    .eq('user_id', user.id)
+    .eq('status', 'invited')
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/home')
+  return { success: true }
+}
+
+// 2.1 초대 거절 (New)
+export async function rejectInvitation(storeId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) return { error: 'Unauthorized' }
+
+  const { error } = await supabase
+    .from('store_members')
+    .delete()
+    .eq('store_id', storeId)
+    .eq('user_id', user.id)
+    .eq('status', 'invited')
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/home')
+  return { success: true }
+}
+
+// 3. 가입 요청 취소
+export async function cancelRequest(storeId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) return { error: 'Unauthorized' }
+
+  const { error } = await supabase
+    .from('store_members')
+    .delete()
+    .eq('store_id', storeId)
+    .eq('user_id', user.id)
+    .eq('status', 'pending_approval')
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/home')
+}
+
+// 4. 매장 코드로 매장 찾기 (RPC 사용)
+export async function verifyInviteCode(code: string) {
+  const supabase = await createClient()
+  
+  const { data, error } = await supabase.rpc('verify_invite_code', { code })
+
+  if (error) return { error: error.message }
+  if (!data || data.length === 0) return { error: '유효하지 않은 매장 코드입니다.' }
+
+  return { store: data[0] }
+}
+
+// 5. 매장 코드로 가입 요청
+export async function joinStoreByCode(code: string, name: string, phone: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) return { error: 'Unauthorized' }
+
+  // 1. 매장 찾기
+  const verifyResult = await verifyInviteCode(code)
+  if (verifyResult.error || !verifyResult.store) {
+    return { error: verifyResult.error || '매장을 찾을 수 없습니다.' }
+  }
+
+  const storeId = verifyResult.store.id
+
+  // 2. 중복 신청 확인
+  const { data: existing } = await supabase
+    .from('store_members')
+    .select('id')
+    .eq('store_id', storeId)
+    .eq('user_id', user.id)
+    .single()
+
+  if (existing) {
+    return { error: '이미 해당 매장의 멤버이거나 신청 중입니다.' }
+  }
+
+  // 3. 프로필 정보 업데이트 (비어있는 경우에만)
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('full_name, phone')
+    .eq('id', user.id)
+    .single()
+
+  if (profile) {
+    const updates: { full_name?: string; phone?: string } = {}
+    if (!profile.full_name) updates.full_name = name
+    if (!profile.phone) updates.phone = phone
+
+    if (Object.keys(updates).length > 0) {
+      await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', user.id)
+    }
+  }
+
+  // 4. 가입 요청 (Pending Approval)
+  const { error } = await supabase.from('store_members').insert({
+    store_id: storeId,
+    user_id: user.id,
+    role: 'staff',
+    status: 'pending_approval',
+    name,
+    phone,
+    email: user.email,
+    joined_at: new Date().toISOString(),
+  })
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/home')
+  return { success: true }
 }

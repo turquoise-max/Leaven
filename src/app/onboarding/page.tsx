@@ -1,63 +1,43 @@
-import Link from 'next/link'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Store, Users } from 'lucide-react'
+import { redirect } from 'next/navigation'
+import { getInvitationStatus } from '@/features/onboarding/actions'
+import { PendingApproval } from './components/pending-approval'
+import { RoleSelection } from './components/role-selection'
+import { InvitationOverlay } from './components/invitation-overlay'
 
-export default function OnboardingPage() {
-  return (
-    <div className="space-y-6">
-      <div className="text-center">
-        <h1 className="text-3xl font-bold tracking-tight">Welcome to Leaven</h1>
-        <p className="mt-2 text-gray-500 dark:text-gray-400">
-          서비스 이용을 위해 역할을 선택해주세요.
-        </p>
+export default async function OnboardingPage() {
+  const { status, store, role } = await getInvitationStatus()
+
+  // 1. 이미 활성 멤버인 경우 대시보드로 이동
+  if (status === 'active') {
+    redirect('/dashboard')
+  }
+
+  // 2. 초대받은 상태인 경우 (오버레이 표시)
+  if (status === 'invited' && store) {
+    return (
+      <>
+        <RoleSelection />
+        <InvitationOverlay 
+          storeId={store.id} 
+          storeName={store.name} 
+          role={role || 'staff'}
+        />
+      </>
+    )
+  }
+
+  // 3. 승인 대기 중인 경우
+  if (status === 'pending_approval' && store) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <PendingApproval 
+          storeId={store.id} 
+          storeName={store.name} 
+        />
       </div>
+    )
+  }
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Link href="/onboarding/owner" className="block h-full">
-          <Card className="h-full cursor-pointer transition-all hover:border-primary hover:shadow-md">
-            <CardHeader>
-              <Store className="mb-2 h-8 w-8 text-primary" />
-              <CardTitle>점주 (Owner)</CardTitle>
-              <CardDescription>
-                매장을 등록하고 직원을 관리합니다.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ul className="list-disc pl-4 text-sm text-gray-500 space-y-1">
-                <li>매장 정보 관리</li>
-                <li>직원 스케줄링</li>
-                <li>매출 및 재고 관리</li>
-              </ul>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/onboarding/staff" className="block h-full">
-          <Card className="h-full cursor-pointer transition-all hover:border-primary hover:shadow-md">
-            <CardHeader>
-              <Users className="mb-2 h-8 w-8 text-primary" />
-              <CardTitle>직원 (Staff)</CardTitle>
-              <CardDescription>
-                근무 스케줄을 확인하고 업무를 관리합니다.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ul className="list-disc pl-4 text-sm text-gray-500 space-y-1">
-                <li>근무 일정 확인</li>
-                <li>급여 명세서 조회</li>
-                <li>업무 체크리스트</li>
-              </ul>
-            </CardContent>
-          </Card>
-        </Link>
-      </div>
-    </div>
-  )
+  // 4. 소속 없음 (기본 화면) -> 홈으로 이동하여 매장 생성/참여 유도
+  redirect('/home')
 }

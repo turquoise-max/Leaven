@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { createSchedule, deleteSchedule } from '../actions'
+import { createSchedule, deleteSchedule, updateSchedule } from '../actions'
 import { toast } from 'sonner'
 import { useState, useEffect } from 'react'
 
@@ -31,6 +31,8 @@ interface ScheduleDialogProps {
   selectedEvent: any | null
   staffList: any[]
   storeId: string
+  initialStartTime?: string
+  initialEndTime?: string
 }
 
 export function ScheduleDialog({
@@ -41,6 +43,8 @@ export function ScheduleDialog({
   selectedEvent,
   staffList,
   storeId,
+  initialStartTime,
+  initialEndTime,
 }: ScheduleDialogProps) {
   const [loading, setLoading] = useState(false)
   const [date, setDate] = useState('')
@@ -51,9 +55,10 @@ export function ScheduleDialog({
   useEffect(() => {
     if (open) {
       if (mode === 'create' && selectedDate) {
-        setDate(selectedDate)
-        setStartTime('09:00')
-        setEndTime('18:00')
+        // 날짜만 추출 (YYYY-MM-DD)
+        setDate(selectedDate.split('T')[0])
+        setStartTime(initialStartTime || '09:00')
+        setEndTime(initialEndTime || '18:00')
         setUserId('')
       } else if (mode === 'edit' && selectedEvent) {
         // ISO string에서 날짜와 시간 추출
@@ -66,20 +71,25 @@ export function ScheduleDialog({
         setUserId(selectedEvent.extendedProps.userId)
       }
     }
-  }, [open, mode, selectedDate, selectedEvent])
+  }, [open, mode, selectedDate, selectedEvent, initialStartTime, initialEndTime])
 
   async function handleSubmit(formData: FormData) {
+    setLoading(true)
+    let result
+    
     if (mode === 'create') {
-      setLoading(true)
-      const result = await createSchedule(storeId, formData)
-      setLoading(false)
+      result = await createSchedule(storeId, formData)
+    } else {
+      result = await updateSchedule(storeId, selectedEvent.id, formData)
+    }
+    
+    setLoading(false)
 
-      if (result.error) {
-        toast.error('스케줄 생성 실패', { description: result.error })
-      } else {
-        toast.success('스케줄 생성 완료')
-        onOpenChange(false)
-      }
+    if (result.error) {
+      toast.error(mode === 'create' ? '스케줄 생성 실패' : '스케줄 수정 실패', { description: result.error })
+    } else {
+      toast.success(mode === 'create' ? '스케줄 생성 완료' : '스케줄 수정 완료')
+      onOpenChange(false)
     }
   }
 
@@ -101,13 +111,13 @@ export function ScheduleDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-106.25">
         <DialogHeader>
-          <DialogTitle>{mode === 'create' ? '근무 일정 추가' : '근무 일정 상세'}</DialogTitle>
+          <DialogTitle>{mode === 'create' ? '근무 일정 추가' : '근무 일정 수정'}</DialogTitle>
           <DialogDescription>
             {mode === 'create' 
               ? '새로운 근무 일정을 등록합니다.' 
-              : '등록된 근무 일정을 확인하거나 삭제합니다.'}
+              : '등록된 근무 일정을 수정하거나 삭제합니다.'}
           </DialogDescription>
         </DialogHeader>
         
@@ -123,7 +133,6 @@ export function ScheduleDialog({
                   name="userId" 
                   value={userId} 
                   onValueChange={setUserId} 
-                  disabled={mode === 'edit'}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="직원 선택" />
@@ -153,7 +162,6 @@ export function ScheduleDialog({
                 onChange={(e) => setDate(e.target.value)}
                 className="col-span-3"
                 required
-                disabled={mode === 'edit'}
               />
             </div>
 
@@ -170,7 +178,6 @@ export function ScheduleDialog({
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
                   required
-                  disabled={mode === 'edit'}
                 />
                 <span>~</span>
                 <Input
@@ -180,7 +187,6 @@ export function ScheduleDialog({
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
                   required
-                  disabled={mode === 'edit'}
                 />
               </div>
             </div>
@@ -196,7 +202,6 @@ export function ScheduleDialog({
                 placeholder="특이사항 입력"
                 className="col-span-3"
                 defaultValue={selectedEvent?.extendedProps?.memo || ''}
-                disabled={mode === 'edit'}
               />
             </div>
           </div>
@@ -216,11 +221,9 @@ export function ScheduleDialog({
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 취소
               </Button>
-              {mode === 'create' && (
-                <Button type="submit" disabled={loading}>
-                  등록
-                </Button>
-              )}
+              <Button type="submit" disabled={loading}>
+                {mode === 'create' ? '등록' : '수정'}
+              </Button>
             </div>
           </DialogFooter>
         </form>

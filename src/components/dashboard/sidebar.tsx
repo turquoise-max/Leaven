@@ -111,7 +111,7 @@ export function Sidebar({ user, role, isCollapsed = false, className }: SidebarP
                   item.active ? "bg-muted text-foreground" : "text-muted-foreground"
                 )}
               >
-                <item.icon className="h-4 w-4 flex-shrink-0" />
+                <item.icon className="h-4 w-4 shrink-0" />
                 <span className="truncate">{item.title}</span>
               </Link>
             )
