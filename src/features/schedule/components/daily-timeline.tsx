@@ -44,7 +44,13 @@ export function DailyTimeline({ date, schedules, tasks, assignments, storeId }: 
     if (!over) return
 
     // Droppable ID format: "userId-hour" (e.g., "user123-14")
-    const [userId, hourStr] = (over.id as string).split('-')
+    // UUID contains hyphens, so we need to split by the last hyphen
+    const overId = over.id as string
+    const lastHyphenIndex = overId.lastIndexOf('-')
+    if (lastHyphenIndex === -1) return
+
+    const userId = overId.substring(0, lastHyphenIndex)
+    const hourStr = overId.substring(lastHyphenIndex + 1)
     const hour = parseInt(hourStr)
 
     if (!userId || isNaN(hour)) return

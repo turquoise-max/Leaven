@@ -52,6 +52,7 @@ export interface AssignTaskInput {
   assigned_date: string
   start_time: string
   estimated_minutes: number
+  schedule_id?: string
 }
 
 export async function getTasks(storeId: string) {
@@ -170,7 +171,8 @@ export async function assignTask(input: AssignTaskInput) {
       assigned_date: input.assigned_date,
       start_time: input.start_time,
       end_time: end_time,
-      status: 'pending'
+      status: 'pending',
+      schedule_id: input.schedule_id
     }])
     .select()
     .single()
@@ -181,6 +183,7 @@ export async function assignTask(input: AssignTaskInput) {
   }
 
   revalidatePath(`/dashboard/schedule/${input.assigned_date}`)
+  revalidatePath('/dashboard/schedule')
   return { data }
 }
 
@@ -198,5 +201,27 @@ export async function unassignTask(assignmentId: string, date: string) {
   }
 
   revalidatePath(`/dashboard/schedule/${date}`)
+  revalidatePath('/dashboard/schedule')
   return { success: true }
+}
+
+export async function getTaskAssignmentsBySchedule(storeId: string, scheduleId: string) {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('task_assignments')
+    .select(`
+      *,
+      task:tasks(*),
+      user:profiles(full_name)
+    `)
+    .eq('store_id', storeId)
+    .eq('schedule_id', scheduleId)
+
+  if (error) {
+    console.error('Error fetching task assignments by schedule:', error)
+    return []
+  }
+
+  return data as TaskAssignment[]
 }

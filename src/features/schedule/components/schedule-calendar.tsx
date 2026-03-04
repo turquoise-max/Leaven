@@ -6,9 +6,8 @@ import timeGridPlugin from '@fullcalendar/timegrid'
 import interactionPlugin from '@fullcalendar/interaction'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Button } from '@/components/ui/button'
 import { ScheduleDialog } from './schedule-dialog'
-import { updateScheduleTime } from '../actions'
+import { updateScheduleTime } from '@/features/schedule/actions'
 import { toast } from 'sonner'
 
 interface ScheduleCalendarProps {
@@ -29,30 +28,34 @@ export function ScheduleCalendar({
   const [dialogMode, setDialogMode] = useState<'create' | 'edit'>('create')
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null)
-  const [initialTime, setInitialTime] = useState<{ start: string; end: string } | null>(null)
+  const [initialTime, setInitialTime] = useState<{ start: string; end: string } | undefined>(undefined)
 
   // 이벤트 데이터 매핑
-  const events = initialEvents.map((event) => ({
-    id: event.id,
-    title: event.profile?.full_name || '미지정',
-    start: event.start_time,
-    end: event.end_time,
-    extendedProps: {
-      userId: event.user_id,
-      memo: event.memo,
-      role: staffList.find(s => s.user_id === event.user_id)?.role || 'staff'
-    },
-    // 기본 스타일 제거 (커스텀 렌더링 사용)
-    backgroundColor: 'transparent',
-    borderColor: 'transparent',
-    textColor: 'inherit',
-  }))
+  const events = initialEvents.map((event) => {
+    const role = staffList.find(s => s.user_id === event.user_id)?.role || 'staff'
+    
+    return {
+      id: event.id,
+      title: event.profile?.full_name || '미지정',
+      start: event.start_time,
+      end: event.end_time,
+      extendedProps: {
+        userId: event.user_id,
+        memo: event.memo,
+        role: role
+      },
+      // 기본 스타일 제거 (커스텀 렌더링 사용)
+      backgroundColor: 'transparent',
+      borderColor: 'transparent',
+      textColor: 'inherit',
+    }
+  })
 
   const renderEventContent = (eventInfo: any) => {
     const { event } = eventInfo
     const role = event.extendedProps.role
     
-    // 역할에 따른 색상 (예시)
+    // 역할에 따른 색상 (예시) - 이전 로직 복구
     let borderColor = 'border-blue-500'
     let bgColor = 'bg-blue-50'
     let textColor = 'text-blue-700'
@@ -95,19 +98,28 @@ export function ScheduleCalendar({
 
   const handleSelect = (info: any) => {
     if (!canManage) return
-    setDialogMode('create')
     
     // 로컬 시간 기준 날짜 추출
     const date = info.start
     const year = date.getFullYear()
     const month = String(date.getMonth() + 1).padStart(2, '0')
     const day = String(date.getDate()).padStart(2, '0')
-    setSelectedDate(`${year}-${month}-${day}`)
+    const dateStr = `${year}-${month}-${day}`
+    
+    setSelectedDate(dateStr)
+    setDialogMode('create')
     
     // 시간 정보 추출 (HH:mm)
-    const start = info.start.toTimeString().substring(0, 5)
-    const end = info.end.toTimeString().substring(0, 5)
-    setInitialTime({ start, end })
+    const startStr = info.startStr
+    const endStr = info.endStr
+
+    if (startStr.includes('T')) {
+       const start = new Date(startStr).toTimeString().substring(0, 5)
+       const end = new Date(endStr).toTimeString().substring(0, 5)
+       setInitialTime({ start, end })
+    } else {
+       setInitialTime(undefined)
+    }
     
     setSelectedEvent(null)
     setDialogOpen(true)
@@ -119,7 +131,7 @@ export function ScheduleCalendar({
     
     setDialogMode('edit')
     setSelectedDate(null)
-    setInitialTime(null)
+    setInitialTime(undefined)
     setSelectedEvent(info.event)
     setDialogOpen(true)
   }

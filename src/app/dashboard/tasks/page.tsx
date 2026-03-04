@@ -60,7 +60,7 @@ export default async function TasksPage() {
     <div className="flex flex-col gap-6 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">업무 관리 (Task Pool)</h1>
+          <h1 className="text-3xl font-bold tracking-tight">업무 관리</h1>
           <p className="text-muted-foreground">
             매장에서 수행해야 할 업무 목록을 정의하고 관리합니다.
           </p>
