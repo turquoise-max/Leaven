@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { MoreHorizontal, Pencil, Trash2, Clock, AlertTriangle } from 'lucide-react'
+import { MoreHorizontal, Pencil, Trash2, Clock, Calendar, Briefcase, AlertTriangle, Filter, Users } from 'lucide-react'
 import { Task, deleteTask } from '../actions'
 import { toast } from 'sonner'
 import {
@@ -30,14 +30,28 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Input } from '@/components/ui/input'
 
 interface TaskListProps {
   tasks: Task[]
+  roles: any[]
 }
 
-export function TaskList({ tasks }: TaskListProps) {
+export function TaskList({ tasks, roles }: TaskListProps) {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  
+  // Filters
+  const [typeFilter, setTypeFilter] = useState<string>('all')
+  const [roleFilter, setRoleFilter] = useState<string>('all')
+  const [searchQuery, setSearchQuery] = useState('')
 
   const handleDelete = async () => {
     if (!deleteId) return
@@ -58,82 +72,263 @@ export function TaskList({ tasks }: TaskListProps) {
     }
   }
 
-  if (tasks.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center h-48 border-2 border-dashed rounded-lg bg-muted/50">
-        <p className="text-muted-foreground text-sm">등록된 업무가 없습니다.</p>
-        <p className="text-muted-foreground text-xs mt-1">새로운 업무를 추가해보세요.</p>
-      </div>
-    )
+  // Helper to get role info
+  const getRoleInfo = (roleId: string | null) => {
+    if (!roleId) return null
+    return roles.find(r => r.id === roleId)
+  }
+
+  // Helper to format repeat pattern
+  const formatRepeatPattern = (pattern: any) => {
+    if (!pattern) return '반복'
+    
+    switch (pattern.type) {
+      case 'daily':
+        return '매일'
+      case 'weekly':
+        const days = ['일', '월', '화', '수', '목', '금', '토']
+        if (!pattern.days || pattern.days.length === 0) return '매주'
+        if (pattern.days.length === 7) return '매일'
+        return `매주 ${pattern.days.map((d: number) => days[d]).join(', ')}`
+      case 'monthly':
+        return `매월 ${pattern.date}일`
+      case 'hourly':
+        return `${pattern.interval}시간 간격`
+      default:
+        return '반복'
+    }
+  }
+
+  // Extract unique roles for filter (from available roles)
+  const filterRoles = roles
+
+  // Filter tasks
+  const filteredTasks = tasks.filter(task => {
+    // Type Filter
+    if (typeFilter !== 'all' && task.task_type !== typeFilter) return false
+    
+    // Role Filter
+    if (roleFilter !== 'all') {
+      if (roleFilter === 'unassigned' && task.assigned_role_id) return false
+      if (roleFilter !== 'unassigned' && task.assigned_role_id !== roleFilter) return false
+    }
+
+    // Search Filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase()
+      return (
+        task.title.toLowerCase().includes(query) ||
+        (task.description?.toLowerCase().includes(query) || false)
+      )
+    }
+
+    return true
+  })
+
+  // Sort tasks: Time specific (by time) -> Always -> Recurring
+  const sortedTasks = [...filteredTasks].sort((a, b) => {
+    // 1. Critical first
+    if (a.is_critical !== b.is_critical) return a.is_critical ? -1 : 1
+    
+    // 2. Type order
+    const typeOrder = { time_specific: 0, always: 1, recurring: 2 }
+    if (a.task_type !== b.task_type) {
+      return typeOrder[a.task_type] - typeOrder[b.task_type]
+    }
+
+    // 3. Time order (for time_specific)
+    if (a.task_type === 'time_specific' && a.start_time && b.start_time) {
+      return a.start_time.localeCompare(b.start_time)
+    }
+
+    return 0
+  })
+
+  const getTypeIcon = (type: string) => {
+    switch (type) {
+      case 'time_specific': return <Clock className="w-4 h-4 text-blue-500" />
+      case 'recurring': return <Calendar className="w-4 h-4 text-green-500" />
+      case 'always': return <Briefcase className="w-4 h-4 text-orange-500" />
+      default: return <Clock className="w-4 h-4" />
+    }
+  }
+
+  const getTypeName = (type: string) => {
+    switch (type) {
+      case 'time_specific': return '특정 시간'
+      case 'recurring': return '반복 업무'
+      case 'always': return '상시 업무'
+      default: return type
+    }
   }
 
   return (
-    <>
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[300px]">업무명</TableHead>
-              <TableHead>중요도</TableHead>
-              <TableHead>예상 소요 시간</TableHead>
-              <TableHead className="text-right">관리</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {tasks.map((task) => (
-              <TableRow key={task.id}>
-                <TableCell>
-                  <div className="flex flex-col">
-                    <span className="font-medium">{task.title}</span>
-                    {task.description && (
-                      <span className="text-xs text-muted-foreground truncate max-w-[250px]">
-                        {task.description}
-                      </span>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  {task.is_critical && (
-                    <Badge variant="destructive" className="flex w-fit items-center gap-1">
-                      <AlertTriangle className="w-3 h-3" />
-                      Critical
-                    </Badge>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-1 text-muted-foreground text-sm">
-                    <Clock className="w-3 h-3" />
-                    {task.estimated_minutes}분
-                  </div>
-                </TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreHorizontal className="w-4 h-4" />
-                        <span className="sr-only">메뉴 열기</span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem disabled>
-                        <Pencil className="w-4 h-4 mr-2" />
-                        수정 (준비중)
-                      </DropdownMenuItem>
-                      <DropdownMenuItem 
-                        className="text-red-600 focus:text-red-600"
-                        onClick={() => setDeleteId(task.id)}
-                      >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        삭제
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+    <div className="space-y-4">
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-4 justify-between">
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue placeholder="업무 유형" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">모든 유형</SelectItem>
+              <SelectItem value="time_specific">특정 시간</SelectItem>
+              <SelectItem value="always">상시 업무</SelectItem>
+              <SelectItem value="recurring">반복 업무</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={roleFilter} onValueChange={setRoleFilter}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue placeholder="담당 역할" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">모든 역할</SelectItem>
+              <SelectItem value="unassigned">공통 (미지정)</SelectItem>
+              {filterRoles.map(role => (
+                <SelectItem key={role.id} value={role.id}>{role.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        
+        <div className="w-full sm:w-[200px]">
+           <Input 
+             placeholder="업무 검색..." 
+             value={searchQuery}
+             onChange={(e) => setSearchQuery(e.target.value)}
+           />
+        </div>
       </div>
+
+      {sortedTasks.length === 0 ? (
+        <div className="flex flex-col items-center justify-center h-48 border-2 border-dashed rounded-lg bg-muted/50">
+          <p className="text-muted-foreground text-sm">조건에 맞는 업무가 없습니다.</p>
+          {(typeFilter !== 'all' || roleFilter !== 'all' || searchQuery) && (
+            <Button 
+              variant="link" 
+              onClick={() => {
+                setTypeFilter('all')
+                setRoleFilter('all')
+                setSearchQuery('')
+              }}
+              className="mt-2"
+            >
+              필터 초기화
+            </Button>
+          )}
+        </div>
+      ) : (
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[50px]"></TableHead>
+                <TableHead className="w-[250px]">업무명</TableHead>
+                <TableHead>유형 / 시간</TableHead>
+                <TableHead>담당 역할</TableHead>
+                <TableHead className="text-right">관리</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sortedTasks.map((task) => {
+                const roleInfo = getRoleInfo(task.assigned_role_id)
+                
+                return (
+                  <TableRow key={task.id}>
+                    <TableCell>
+                      <div className="flex items-center justify-center" title={getTypeName(task.task_type)}>
+                        {getTypeIcon(task.task_type)}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{task.title}</span>
+                          {task.is_critical && (
+                            <Badge variant="destructive" className="px-1 py-0 text-[10px] h-4">
+                              중요
+                            </Badge>
+                          )}
+                        </div>
+                        {task.description && (
+                          <span className="text-xs text-muted-foreground truncate max-w-[200px]">
+                            {task.description}
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-1 text-sm">
+                        <span className="font-medium text-xs text-muted-foreground">
+                          {getTypeName(task.task_type)}
+                        </span>
+                        {task.task_type === 'time_specific' && task.start_time && (
+                          <span className="font-medium">
+                            {task.start_time.slice(0, 5)} ~ {task.end_time?.slice(0, 5)}
+                          </span>
+                        )}
+                        {task.task_type === 'recurring' && (
+                           <span className="text-xs font-medium">
+                             {formatRepeatPattern(task.repeat_pattern)}
+                           </span>
+                        )}
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+                          <Clock className="w-3 h-3" />
+                          {task.estimated_minutes}분
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {roleInfo ? (
+                        <Badge 
+                          variant="outline" 
+                          style={{ 
+                            borderColor: roleInfo.color, 
+                            color: roleInfo.color,
+                            backgroundColor: `${roleInfo.color}10` 
+                          }}
+                        >
+                          {roleInfo.name}
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="text-muted-foreground">
+                          <Users className="w-3 h-3 mr-1" />
+                          전체
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="w-4 h-4" />
+                            <span className="sr-only">메뉴 열기</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem disabled>
+                            <Pencil className="w-4 h-4 mr-2" />
+                            수정
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            className="text-red-600 focus:text-red-600"
+                            onClick={() => setDeleteId(task.id)}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            삭제
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
       <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent>
@@ -158,6 +353,6 @@ export function TaskList({ tasks }: TaskListProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </div>
   )
 }

@@ -57,7 +57,7 @@ export function Sidebar({ user, role, isCollapsed = false, className }: SidebarP
           icon: CalendarDays,
         },
         {
-          title: '업무 관리',
+          title: '업무표',
           href: '/dashboard/tasks',
           icon: CheckSquare,
         }
@@ -151,50 +151,68 @@ export function Sidebar({ user, role, isCollapsed = false, className }: SidebarP
       <div className="border-t p-4">
         <div className={cn(
           "flex items-center gap-3",
-          isCollapsed ? "justify-center flex-col" : "justify-between"
+          isCollapsed ? "justify-center" : "mb-4"
         )}>
-          <div className={cn(
-            "flex items-center gap-3 overflow-hidden",
-            isCollapsed && "justify-center"
-          )}>
-            <Avatar className="h-9 w-9 border">
-              <AvatarImage src={user.avatar_url || ''} />
-              <AvatarFallback>{user.full_name?.substring(0, 2) || 'Me'}</AvatarFallback>
-            </Avatar>
-            {!isCollapsed && (
-              <div className="flex flex-col truncate">
-                <span className="text-sm font-medium truncate">{user.full_name}</span>
-                <span className="text-xs text-muted-foreground capitalize truncate">{role}</span>
-              </div>
-            )}
-          </div>
-          
-          {!isCollapsed ? (
+          <Avatar className="h-9 w-9 border shrink-0">
+            <AvatarImage src={user.avatar_url || ''} />
+            <AvatarFallback>{user.full_name?.substring(0, 2) || 'Me'}</AvatarFallback>
+          </Avatar>
+          {!isCollapsed && (
+            <div className="flex flex-col overflow-hidden">
+              <span className="text-sm font-medium truncate">{user.full_name}</span>
+              <span className="text-xs text-muted-foreground capitalize truncate">{role}</span>
+            </div>
+          )}
+        </div>
+        
+        {!isCollapsed ? (
+           <div className="flex gap-2">
+             <Link href="/account?next=/dashboard" className="flex-1">
+               <Button variant="outline" size="sm" className="w-full h-8 text-xs font-normal">
+                 <Settings className="mr-2 h-3.5 w-3.5" />
+                 계정 설정
+               </Button>
+             </Link>
              <form action={async () => {
                await logout()
-             }}>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive">
-                <LogOut className="h-4 w-4" />
-                <span className="sr-only">Log out</span>
-              </Button>
-            </form>
-          ) : (
+             }} className="flex-1">
+               <Button variant="outline" size="sm" className="w-full h-8 text-xs font-normal text-destructive hover:text-destructive hover:bg-destructive/10">
+                 <LogOut className="mr-2 h-3.5 w-3.5" />
+                 로그아웃
+               </Button>
+             </form>
+           </div>
+        ) : (
+           <div className="flex flex-col gap-2 mt-4 items-center border-t pt-4 w-full">
              <TooltipProvider delayDuration={0}>
+               <Tooltip>
+                 <TooltipTrigger asChild>
+                   <Link href="/account?next=/dashboard">
+                     <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                       <Settings className="h-4 w-4" />
+                       <span className="sr-only">계정 설정</span>
+                     </Button>
+                   </Link>
+                 </TooltipTrigger>
+                 <TooltipContent side="right">계정 설정</TooltipContent>
+               </Tooltip>
+               
                <Tooltip>
                  <TooltipTrigger asChild>
                    <form action={async () => {
                      await logout()
-                   }} className="mt-2">
+                   }}>
                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive">
                        <LogOut className="h-4 w-4" />
+                       <span className="sr-only">로그아웃</span>
                      </Button>
                    </form>
                  </TooltipTrigger>
-                 <TooltipContent side="right">Log out</TooltipContent>
+                 <TooltipContent side="right">로그아웃</TooltipContent>
                </Tooltip>
              </TooltipProvider>
-          )}
-        </div>
+           </div>
+        )}
       </div>
     </div>
   )

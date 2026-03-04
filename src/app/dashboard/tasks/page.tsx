@@ -3,13 +3,17 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { getTasks } from '@/features/tasks/actions'
+import { getStoreRoles } from '@/features/store/actions'
 import { TaskList } from '@/features/tasks/components/task-list'
 import { CreateTaskDialog } from '@/features/tasks/components/create-task-dialog'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { TaskCalendar } from '@/features/tasks/components/task-calendar'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { CalendarDays, List } from 'lucide-react'
+import { Card, CardContent } from '@/components/ui/card'
 
 export const metadata: Metadata = {
-  title: '업무 관리 | Leaven',
-  description: '매장의 업무 목록을 관리합니다.',
+  title: '업무표 | Leaven',
+  description: '매장의 업무를 관리합니다.',
 }
 
 export default async function TasksPage() {
@@ -53,32 +57,48 @@ export default async function TasksPage() {
      redirect('/onboarding')
   }
 
-  // 업무 목록 조회
-  const tasks = await getTasks(store.id)
+  // 업무 목록 및 역할 조회
+  const [tasks, roles] = await Promise.all([
+    getTasks(store.id),
+    getStoreRoles(store.id)
+  ])
 
   return (
-    <div className="flex flex-col gap-6 p-6">
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col gap-6 h-[calc(100vh-4rem)]">
+      <div className="flex items-center justify-between shrink-0">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">업무 관리</h1>
+          <h1 className="text-3xl font-bold tracking-tight">업무표</h1>
           <p className="text-muted-foreground">
-            매장에서 수행해야 할 업무 목록을 정의하고 관리합니다.
+            시간대별 업무 흐름을 관리하고 할당합니다.
           </p>
         </div>
         <CreateTaskDialog storeId={store.id} />
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>업무 목록</CardTitle>
-          <CardDescription>
-            총 {tasks.length}개의 업무가 등록되어 있습니다.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <TaskList tasks={tasks} />
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="calendar" className="flex-1 flex flex-col overflow-hidden">
+        <TabsList className="grid w-[300px] grid-cols-2 shrink-0">
+          <TabsTrigger value="calendar" className="flex items-center gap-2">
+            <CalendarDays className="w-4 h-4" />
+            업무표
+          </TabsTrigger>
+          <TabsTrigger value="list" className="flex items-center gap-2">
+            <List className="w-4 h-4" />
+            업무 목록
+          </TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="calendar" className="flex-1 overflow-hidden mt-4">
+          <Card className="h-full border-0 shadow-none sm:border sm:shadow-sm">
+            <CardContent className="p-0 h-full">
+              <TaskCalendar tasks={tasks} roles={roles} openingHours={store.opening_hours} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="list" className="flex-1 overflow-auto mt-4">
+          <TaskList tasks={tasks} roles={roles} />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

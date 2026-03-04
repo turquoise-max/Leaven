@@ -5,6 +5,8 @@ import { redirect } from 'next/navigation'
 import { getPendingRequestsCount } from '@/features/staff/actions'
 import Link from 'next/link'
 import { cookies } from 'next/headers'
+import { getTasks } from '@/features/tasks/actions'
+import { CurrentTasks } from '@/features/tasks/components/current-tasks'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,10 +19,9 @@ export default async function DashboardPage() {
   }
 
   // 사용자의 매장 정보 조회 (Store Member 테이블 조인)
-  // .single()을 제거하여 여러 매장이 있는 경우에도 에러가 발생하지 않도록 수정
   const { data: members, error } = await supabase
     .from('store_members')
-    .select('role, status, store:stores(*)')
+    .select('role, role_id, status, store:stores(*)')
     .eq('user_id', user.id)
 
   if (error) {
@@ -56,15 +57,21 @@ export default async function DashboardPage() {
   const store = Array.isArray(storeData) ? storeData[0] : storeData
   
   if (!store) {
-     // store 정보가 없는 경우 (RLS 등으로 인해)
      redirect('/onboarding')
   }
 
-  const pendingCount = await getPendingRequestsCount(store.id)
+  // 병렬로 데이터 조회
+  const [pendingCount, tasks] = await Promise.all([
+    getPendingRequestsCount(store.id),
+    getTasks(store.id)
+  ])
+
+  // 관리자 여부 확인
+  const isManager = activeMember.role === 'owner' || activeMember.role === 'manager'
 
   return (
-    <div className="flex flex-col gap-8">
-      {pendingCount > 0 && (
+    <div className="flex flex-col gap-8 h-full">
+      {pendingCount > 0 && isManager && (
         <div className="bg-yellow-50 dark:bg-yellow-950/30 border-l-4 border-yellow-400 p-4 rounded-r-md flex items-center justify-between shadow-sm">
           <div className="flex items-center">
             <Bell className="h-5 w-5 text-yellow-600 dark:text-yellow-400 mr-3" />
@@ -88,55 +95,81 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">총 매출</CardTitle>
-            <CreditCard className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">₩0</div>
-            <p className="text-xs text-muted-foreground">
-              지난 달 대비 +0%
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">활성 직원</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">0명</div>
-            <p className="text-xs text-muted-foreground">
-              현재 근무 중: 0명
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">오늘 주문</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">0건</div>
-            <p className="text-xs text-muted-foreground">
-              지난 시간 대비 +0%
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">매장 상태</CardTitle>
-            <Store className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">영업 중</div>
-            <p className="text-xs text-muted-foreground">
-              마감 예정: 22:00
-            </p>
-          </CardContent>
-        </Card>
+      <div className="grid gap-6 md:grid-cols-12 h-full">
+        {/* Main Content: Stats & Current Tasks */}
+        <div className="md:col-span-8 lg:col-span-8 flex flex-col gap-6">
+          
+          {/* Stats Cards (Moved Here) */}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+             <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">매장 상태</CardTitle>
+                  <Store className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">영업 중</div>
+                  <p className="text-xs text-muted-foreground">
+                    마감 예정: 22:00
+                  </p>
+                </CardContent>
+              </Card>
+
+              {isManager && (
+                <>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">활성 직원</CardTitle>
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">0명</div>
+                      <p className="text-xs text-muted-foreground">
+                        현재 근무 중: 0명
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">오늘 주문</CardTitle>
+                      <Activity className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">0건</div>
+                      <p className="text-xs text-muted-foreground">
+                        지난 시간 대비 +0%
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">총 매출</CardTitle>
+                      <CreditCard className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">₩0</div>
+                      <p className="text-xs text-muted-foreground">
+                        지난 달 대비 +0%
+                      </p>
+                    </CardContent>
+                  </Card>
+                </>
+              )}
+          </div>
+
+          {/* Current Tasks */}
+          <div className="min-h-[400px]">
+            <CurrentTasks 
+              tasks={tasks} 
+              userRole={activeMember.role}
+              roleId={activeMember.role_id}
+            />
+          </div>
+        </div>
+
+        {/* Sidebar: Calendar or Other Info (Right) */}
+        <div className="md:col-span-4 lg:col-span-4 flex flex-col gap-4">
+           {/* Future: Mini Calendar or Announcements */}
+        </div>
       </div>
     </div>
   )

@@ -4,6 +4,45 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/features/auth/permissions'
 
+// 직원 목록 조회 (역할 정보 포함)
+export async function getStaffList(storeId: string) {
+  const supabase = await createClient()
+
+  // 1. 직원 목록 조회 (역할 정보 포함)
+  const { data, error } = await supabase
+    .from('store_members')
+    .select(`
+      *,
+      profile:profiles(full_name, email, avatar_url),
+      role_info:store_roles(id, name, color, priority, is_system)
+    `)
+    .eq('store_id', storeId)
+    
+  if (error) {
+    console.error('Error fetching staff list:', error)
+    return []
+  }
+  
+  // 데이터 가공 및 정렬
+  const staffList = data.map(member => ({
+    ...member,
+    profile: Array.isArray(member.profile) ? member.profile[0] : member.profile,
+    role_info: Array.isArray(member.role_info) ? member.role_info[0] : member.role_info
+  })).sort((a, b) => {
+    // 1. Priority (Descending)
+    const priorityA = a.role_info?.priority ?? -1
+    const priorityB = b.role_info?.priority ?? -1
+    if (priorityA !== priorityB) return priorityB - priorityA
+    
+    // 2. Name (Ascending)
+    const nameA = a.profile?.full_name || a.name || ''
+    const nameB = b.profile?.full_name || b.name || ''
+    return nameA.localeCompare(nameB)
+  })
+
+  return staffList
+}
+
 export async function inviteStaff(storeId: string, formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -20,6 +59,8 @@ export async function inviteStaff(storeId: string, formData: FormData) {
   }
 
   const email = formData.get('email') as string
+  const roleId = formData.get('roleId') as string // roleId 추가
+  
   if (!email) {
     return { error: '이메일을 입력해주세요.' }
   }
@@ -48,10 +89,29 @@ export async function inviteStaff(storeId: string, formData: FormData) {
   }
 
   // 4. 멤버 추가 (초대 상태)
+  // roleId가 없으면 staff 역할 찾아서 넣어야 함 (기본값)
+  let targetRoleId = roleId
+  let targetRoleName = 'staff' // Legacy fallback
+  
+  if (!targetRoleId) {
+    const { data: defaultRole } = await supabase
+      .from('store_roles')
+      .select('id, name')
+      .eq('store_id', storeId)
+      .eq('name', '직원') // 기본 역할 이름 가정
+      .single()
+      
+    if (defaultRole) {
+      targetRoleId = defaultRole.id
+      // targetRoleName = defaultRole.name // DB에는 role 컬럼이 ENUM일 수 있으므로 주의. role 컬럼은 legacy.
+    }
+  }
+
   const { error } = await supabase.from('store_members').insert({
     store_id: storeId,
     user_id: profile.id,
-    role: 'staff',
+    role: 'staff', // Legacy column - keep as 'staff' for now or handle correctly
+    role_id: targetRoleId || null,
     status: 'invited',
     joined_at: new Date().toISOString(),
   })
@@ -61,6 +121,7 @@ export async function inviteStaff(storeId: string, formData: FormData) {
   }
 
   revalidatePath('/dashboard/staff')
+  revalidatePath('/dashboard', 'layout')
   return { success: true }
 }
 
@@ -81,9 +142,11 @@ export async function createManualStaff(storeId: string, formData: FormData) {
   const name = formData.get('name') as string
   const email = formData.get('email') as string
   const phone = formData.get('phone') as string
-  const role = formData.get('role') as string || 'staff'
+  const roleId = formData.get('roleId') as string // roleId 사용
   const wageType = formData.get('wageType') as string || 'hourly'
   const baseWage = parseInt(formData.get('baseWage') as string || '0')
+  const workHours = formData.get('workHours') as string
+  const hiredAt = formData.get('hiredAt') as string
 
   if (!name) return { error: '이름을 입력해주세요.' }
 
@@ -91,19 +154,23 @@ export async function createManualStaff(storeId: string, formData: FormData) {
   const { error } = await supabase.from('store_members').insert({
     store_id: storeId,
     user_id: null,
-    role: role as any,
+    role: 'staff', // Legacy
+    role_id: roleId || null,
     status: 'active', // 수기 등록은 바로 활동 상태
     name,
     email: email || null,
     phone: phone || null,
     wage_type: wageType as any,
     base_wage: baseWage,
+    work_hours: workHours || null,
+    hired_at: hiredAt ? new Date(hiredAt).toISOString() : null,
     joined_at: new Date().toISOString(),
   })
 
   if (error) return { error: error.message }
 
   revalidatePath('/dashboard/staff')
+  revalidatePath('/dashboard', 'layout')
   return { success: true }
 }
 
@@ -123,45 +190,58 @@ export async function updateStaffInfo(storeId: string, targetMemberId: string, f
   // 2. 정보 추출
   const name = formData.get('name') as string
   const email = formData.get('email') as string
-  const role = formData.get('role') as string
+  const roleId = formData.get('roleId') as string // roleId 사용
   const wageType = formData.get('wageType') as string
   const baseWage = parseInt(formData.get('baseWage') as string || '0')
   const phone = formData.get('phone') as string
-
-  // 추가: 대상 멤버가 점주인지 확인
+  const workHours = formData.get('workHours') as string
+  const hiredAt = formData.get('hiredAt') as string
+  
+  // 추가: 대상 멤버가 점주인지 확인 (점주 역할 변경 불가)
   const { data: targetMember } = await supabase
     .from('store_members')
-    .select('role')
+    .select('role, role_id, role_info:store_roles(is_system, name)') // role_info 조인
     .eq('id', targetMemberId)
     .single()
   
   // 점주는 역할 변경 불가 (항상 owner 유지)
-  let newRole = role
+  // role_info가 배열일 수 있으므로 처리 필요
+  const roleInfo = Array.isArray(targetMember?.role_info) ? targetMember?.role_info[0] : targetMember?.role_info
+  
+  // role 컬럼이 'owner'이거나, system role 이름이 '점주'인 경우 등
+  let newRoleId = roleId
   if (targetMember?.role === 'owner') {
-    newRole = 'owner'
+    // 점주는 역할 변경 불가 -> 기존 role_id 유지
+    newRoleId = targetMember.role_id
   }
 
   // 3. 업데이트 실행
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('store_members')
     .update({
-      role: newRole as any,
+      role_id: newRoleId,
+      // role: ... // Legacy role update logic needed if we want to sync
       wage_type: wageType as any,
       base_wage: baseWage,
+      work_hours: workHours || null,
+      hired_at: hiredAt || null, // 이미 YYYY-MM-DD 형식이므로 그대로 저장
       phone: phone || null,
       name: name || null,
       email: email || null,
     })
     .eq('id', targetMemberId) // user_id 대신 member id(pk) 사용 권장 (수기 등록 직원은 user_id가 없으므로)
     .eq('store_id', storeId)
+    .select()
+    .single()
 
   if (error) {
+    console.error('Update staff error:', error)
     return { error: error.message }
   }
 
   revalidatePath('/dashboard/staff')
   revalidatePath('/dashboard', 'layout') // 사이드바 데이터 갱신
-  return { success: true }
+  return { success: true, data }
 }
 
 export async function approveRequest(storeId: string, memberId: string) {

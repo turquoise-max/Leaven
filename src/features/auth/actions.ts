@@ -23,19 +23,61 @@ export async function login(formData: FormData) {
   redirect('/home')
 }
 
+export async function updatePasswordSettings(formData: FormData) {
+  const supabase = await createClient()
+  const password = formData.get('password') as string
+  const passwordConfirm = formData.get('passwordConfirm') as string
+
+  if (password !== passwordConfirm) {
+    return { error: '비밀번호가 일치하지 않습니다.' }
+  }
+
+  const { error } = await supabase.auth.updateUser({
+    password: password,
+  })
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  revalidatePath('/', 'layout')
+  return { message: '비밀번호가 변경되었습니다.' }
+}
+
+export async function updateProfile(formData: FormData) {
+  const supabase = await createClient()
+  const fullName = formData.get('fullName') as string
+
+  const { error } = await supabase.auth.updateUser({
+    data: { full_name: fullName },
+  })
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  revalidatePath('/', 'layout')
+  return { message: '프로필이 업데이트되었습니다.' }
+}
+
 export async function signup(formData: FormData) {
   const supabase = await createClient()
   const origin = (await headers()).get('origin')
 
-  const data = {
-    email: formData.get('email') as string,
-    password: formData.get('password') as string,
-  }
+  const email = formData.get('email') as string
+  const password = formData.get('password') as string
+  const fullName = formData.get('fullName') as string
+  // const phone = formData.get('phone') as string
 
   const { error } = await supabase.auth.signUp({
-    ...data,
+    email,
+    password,
     options: {
       emailRedirectTo: `${origin}/auth/callback`,
+      data: {
+        full_name: fullName,
+        // phone: phone || null,
+      },
     },
   })
 
@@ -77,4 +119,41 @@ export async function logout() {
 
   revalidatePath('/', 'layout')
   redirect('/login')
+}
+
+export async function resetPassword(formData: FormData) {
+  const supabase = await createClient()
+  const origin = (await headers()).get('origin')
+  const email = formData.get('email') as string
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${origin}/auth/callback?next=/update-password`,
+  })
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  return { message: 'Check email to continue sign in process' }
+}
+
+export async function updatePassword(formData: FormData) {
+  const supabase = await createClient()
+  const password = formData.get('password') as string
+  const passwordConfirm = formData.get('passwordConfirm') as string
+
+  if (password !== passwordConfirm) {
+    return { error: '비밀번호가 일치하지 않습니다.' }
+  }
+
+  const { error } = await supabase.auth.updateUser({
+    password: password,
+  })
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  revalidatePath('/', 'layout')
+  redirect('/home')
 }

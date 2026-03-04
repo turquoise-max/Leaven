@@ -11,38 +11,14 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { createSchedule, deleteSchedule, updateSchedule } from '../actions'
+import { Checkbox } from '@/components/ui/checkbox'
+// import { ScrollArea } from '@/components/ui/scroll-area'
+import { createSchedule, deleteSchedule, updateSchedule } from '@/features/schedule/actions'
 import { toast } from 'sonner'
-import { useState, useEffect, useId } from 'react'
-import { Task, TaskAssignment, getTasks, getTaskAssignmentsBySchedule, assignTask, unassignTask } from '@/features/tasks/actions'
-import { 
-  DndContext, 
-  DragEndEvent, 
-  DragOverlay, 
-  useDraggable, 
-  useDroppable, 
-  DragStartEvent,
-  useSensor,
-  useSensors,
-  MouseSensor,
-  TouchSensor,
-  PointerSensor,
-  pointerWithin
-} from '@dnd-kit/core'
-import { snapCenterToCursor } from '@dnd-kit/modifiers'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import { ScrollArea } from '@/components/ui/scroll-area'
+import { useState, useEffect } from 'react'
 import { Badge } from '@/components/ui/badge'
-import { Clock, GripVertical, X } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { Separator } from '@/components/ui/separator'
 
 interface ScheduleDialogProps {
   open: boolean
@@ -71,75 +47,135 @@ export function ScheduleDialog({
   const [date, setDate] = useState('')
   const [startTime, setStartTime] = useState('09:00')
   const [endTime, setEndTime] = useState('18:00')
-  const [userId, setUserId] = useState('')
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([])
+  const [memo, setMemo] = useState('')
+  const [title, setTitle] = useState('')
+  const [color, setColor] = useState('')
   
-  // Task Management States
-  const [tasks, setTasks] = useState<Task[]>([])
-  const [assignments, setAssignments] = useState<TaskAssignment[]>([])
-  const [activeTask, setActiveTask] = useState<Task | null>(null)
-  const dndContextId = useId()
+  // Recurring States
+  const [isRecurring, setIsRecurring] = useState(false)
+  const [repeatEndDate, setRepeatEndDate] = useState('')
+  const [repeatDays, setRepeatDays] = useState<number[]>([]) // 0: Sun, 1: Mon, ...
 
-  // Sensors for better drag handling
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8, // 8px move required to start drag
-      },
-    }),
-    useSensor(TouchSensor),
-    useSensor(MouseSensor)
-  )
+  const daysOfWeek = [
+    { label: '일', value: 0 },
+    { label: '월', value: 1 },
+    { label: '화', value: 2 },
+    { label: '수', value: 3 },
+    { label: '목', value: 4 },
+    { label: '금', value: 5 },
+    { label: '토', value: 6 },
+  ]
+
+  const SCHEDULE_COLORS = [
+    { label: '기본', value: '' },
+    { label: '빨강', value: '#EF4444' },
+    { label: '주황', value: '#F97316' },
+    { label: '노랑', value: '#EAB308' },
+    { label: '초록', value: '#22C55E' },
+    { label: '파랑', value: '#3B82F6' },
+    { label: '보라', value: '#A855F7' },
+    { label: '분홍', value: '#EC4899' },
+    { label: '회색', value: '#6B7280' },
+  ]
 
   useEffect(() => {
     if (open) {
       if (mode === 'create' && selectedDate) {
         // 날짜만 추출 (YYYY-MM-DD)
-        setDate(selectedDate.split('T')[0])
+        const dateStr = selectedDate.split('T')[0]
+        setDate(dateStr)
         setStartTime(initialStartTime || '09:00')
         setEndTime(initialEndTime || '18:00')
-        setUserId('')
-        setAssignments([]) // Reset assignments
+        setSelectedUserIds([])
+        setMemo('')
+        setTitle('')
+        setColor('')
+        
+        // 반복 설정 초기화
+        setIsRecurring(false)
+        setRepeatEndDate('') // 기본값 없음
+        
+        // 기본 요일 선택 (선택된 날짜의 요일 하나만 선택)
+        const day = new Date(dateStr).getDay()
+        setRepeatDays([day])
+
       } else if (mode === 'edit' && selectedEvent) {
-        // ISO string에서 날짜와 시간 추출
-        const start = new Date(selectedEvent.start)
-        const end = new Date(selectedEvent.end)
+        // ISO string에서 날짜와 시간 추출 (FullCalendar 객체일 수도 있고, DB 원본일 수도 있음)
+        const startVal = selectedEvent.start || selectedEvent.start_time
+        const endVal = selectedEvent.end || selectedEvent.end_time
         
-        setDate(start.toISOString().split('T')[0])
-        setStartTime(start.toTimeString().substring(0, 5))
-        setEndTime(end.toTimeString().substring(0, 5))
-        setUserId(selectedEvent.extendedProps.userId)
+        if (!startVal || !endVal) return
+
+        const start = new Date(startVal)
+        const end = new Date(endVal)
         
-        // Fetch assignments for this schedule
-        fetchAssignments(selectedEvent.id)
+        if (isNaN(start.getTime()) || isNaN(end.getTime())) return
+
+        // toISOString()은 UTC 기준으로 변환되므로 날짜가 하루 밀릴 수 있음
+        // 로컬 시간 기준으로 날짜 문자열 생성 (YYYY-MM-DD)
+        const year = start.getFullYear()
+        const month = String(start.getMonth() + 1).padStart(2, '0')
+        const day = String(start.getDate()).padStart(2, '0')
+        setDate(`${year}-${month}-${day}`)
+        
+        // 시간 설정 (HH:mm)
+        const startHour = String(start.getHours()).padStart(2, '0')
+        const startMinute = String(start.getMinutes()).padStart(2, '0')
+        setStartTime(`${startHour}:${startMinute}`)
+        
+        const endHour = String(end.getHours()).padStart(2, '0')
+        const endMinute = String(end.getMinutes()).padStart(2, '0')
+        setEndTime(`${endHour}:${endMinute}`)
+        
+        // 다중 멤버 매핑
+        const members = selectedEvent.schedule_members || []
+        const userIds = members.map((m: any) => m.user_id)
+        setSelectedUserIds(userIds)
+        
+        const memo = selectedEvent.memo || selectedEvent.extendedProps?.memo || ''
+        setMemo(memo)
+        
+        setTitle(selectedEvent.title || '')
+        setColor(selectedEvent.color || selectedEvent.extendedProps?.color || '')
+        
+        // 편집 모드에서는 반복 설정 비활성화 (개별 수정만 지원)
+        setIsRecurring(false)
       }
-
-      // Fetch tasks (Task Pool)
-      fetchTasks()
     }
-  }, [open, mode, selectedDate, selectedEvent, initialStartTime, initialEndTime, storeId])
+  }, [open, mode, selectedDate, selectedEvent, initialStartTime, initialEndTime])
 
-  const fetchTasks = async () => {
-    try {
-      const data = await getTasks(storeId)
-      setTasks(data)
-    } catch (error) {
-      console.error('Failed to fetch tasks:', error)
-      toast.error('업무 목록을 불러오지 못했습니다.')
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    
+    if (selectedUserIds.length === 0) {
+      toast.error('직원을 최소 1명 이상 선택해주세요.')
+      return
     }
-  }
 
-  const fetchAssignments = async (scheduleId: string) => {
-    try {
-      const data = await getTaskAssignmentsBySchedule(storeId, scheduleId)
-      setAssignments(data)
-    } catch (error) {
-      console.error('Failed to fetch assignments:', error)
-      toast.error('할당된 업무를 불러오지 못했습니다.')
-    }
-  }
-
-  async function handleSubmit(formData: FormData) {
     setLoading(true)
+    const formData = new FormData(e.currentTarget)
+    
+    // 수동으로 데이터 추가 (JSON 변환 필요)
+    formData.set('userIds', JSON.stringify(selectedUserIds))
+    formData.set('repeatDays', JSON.stringify(repeatDays))
+    formData.set('color', color)
+    
+    // Checkbox는 체크 안되면 폼에 포함 안되므로 수동 처리
+    if (isRecurring) {
+        formData.set('isRecurring', 'on')
+        if (!repeatEndDate) {
+            toast.error('반복 종료일을 선택해주세요.')
+            setLoading(false)
+            return
+        }
+        if (repeatDays.length === 0) {
+            toast.error('반복할 요일을 선택해주세요.')
+            setLoading(false)
+            return
+        }
+    }
+
     let result
     
     if (mode === 'create') {
@@ -153,7 +189,8 @@ export function ScheduleDialog({
     if (result.error) {
       toast.error(mode === 'create' ? '스케줄 생성 실패' : '스케줄 수정 실패', { description: result.error })
     } else {
-      toast.success(mode === 'create' ? '스케줄 생성 완료' : '스케줄 수정 완료')
+      const count = (result as any).count || 1
+      toast.success(mode === 'create' ? `${count}개의 스케줄이 생성되었습니다.` : '스케줄 수정 완료')
       onOpenChange(false)
     }
   }
@@ -174,216 +211,251 @@ export function ScheduleDialog({
     }
   }
 
-  // DND Handlers
-  const handleDragStart = (event: DragStartEvent) => {
-    const { active } = event
-    const task = tasks.find(t => t.id === active.id)
-    if (task) setActiveTask(task)
+  const toggleUser = (userId: string) => {
+    // 생성/편집 모드 모두 다중 선택 가능
+    setSelectedUserIds(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    )
   }
 
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event
-    setActiveTask(null)
-
-    if (!over || mode !== 'edit' || !selectedEvent) {
-      if (mode === 'create') {
-         toast.warning('스케줄을 먼저 생성한 후 업무를 배정해주세요.')
-      }
-      return
-    }
-
-    if (over.id === 'assignments-area') {
-      const task = tasks.find(t => t.id === active.id)
-      if (!task) return
-
-      // Optimistic update could go here, but for now we'll wait for server
-      
-      const result = await assignTask({
-        store_id: storeId,
-        task_id: task.id,
-        user_id: userId,
-        assigned_date: date,
-        start_time: startTime,
-        estimated_minutes: task.estimated_minutes,
-        schedule_id: selectedEvent.id
-      })
-
-      if (result?.error) {
-        toast.error('업무 할당 실패', { description: result.error })
-      } else {
-        toast.success(`${task.title} 할당 완료`)
-        fetchAssignments(selectedEvent.id) // Refresh assignments
-      }
-    }
+  const toggleDay = (dayValue: number) => {
+      setRepeatDays(prev => 
+          prev.includes(dayValue)
+            ? prev.filter(d => d !== dayValue)
+            : [...prev, dayValue]
+      )
   }
-
-  const handleUnassign = async (assignmentId: string) => {
-    if (!confirm('업무 할당을 취소하시겠습니까?')) return
-
-    const result = await unassignTask(assignmentId, date)
-    if (result?.error) {
-      toast.error('할당 취소 실패', { description: result.error })
-    } else {
-      toast.success('할당이 취소되었습니다.')
-      if (selectedEvent) fetchAssignments(selectedEvent.id)
-    }
-  }
-
-  // Content Wrapper based on mode
-  const ContentWrapper = mode === 'edit' ? DndContext : 'div'
-  const wrapperProps = mode === 'edit' ? {
-    id: dndContextId,
-    sensors: sensors,
-    collisionDetection: pointerWithin,
-    onDragStart: handleDragStart,
-    onDragEnd: handleDragEnd
-  } : {}
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={cn(
-        "transition-all duration-300 max-h-[90vh] flex flex-col",
-        mode === 'edit' ? "sm:max-w-[900px]" : "sm:max-w-[500px]"
-      )}>
+      <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{mode === 'create' ? '근무 일정 추가' : '근무 일정 수정 및 업무 할당'}</DialogTitle>
+          <DialogTitle>{mode === 'create' ? '근무 일정 추가' : '근무 일정 수정'}</DialogTitle>
           <DialogDescription>
             {mode === 'create' 
-              ? '새로운 근무 일정을 등록합니다. 업무 할당은 일정 생성 후 가능합니다.' 
-              : '근무 일정을 수정하고 해당 시간에 수행할 업무를 배정합니다.'}
+              ? '여러 직원에게 반복되는 근무 일정을 한 번에 배정할 수 있습니다.' 
+              : '선택한 근무 일정을 수정합니다.'}
           </DialogDescription>
         </DialogHeader>
         
-        {/* @ts-ignore - Dynamic component props issue */}
-        <ContentWrapper {...wrapperProps} className="flex-1 overflow-hidden">
-          <div className={cn(
-            "grid gap-6 h-full overflow-hidden",
-            mode === 'edit' ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1"
-          )}>
-            {/* Left Column: Schedule Form & Assigned Tasks */}
-            <div className="flex flex-col gap-4 h-full overflow-hidden">
-              <ScrollArea className="flex-1 pr-4">
-                <form id="schedule-form" action={handleSubmit} className="grid gap-4 py-4">
-                  {/* 직원 선택 */}
-                  <div className="grid gap-2">
-                    <Label htmlFor="userId">직원</Label>
-                    <Select 
-                      name="userId" 
-                      value={userId} 
-                      onValueChange={setUserId} 
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="직원 선택" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {staffList.map((staff) => (
-                          <SelectItem key={staff.user_id} value={staff.user_id}>
-                            {staff.profile?.full_name || staff.profile?.email} ({staff.role})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <input type="hidden" name="userId" value={userId} />
-                  </div>
-
-                  {/* 날짜 */}
-                  <div className="grid gap-2">
-                    <Label htmlFor="date">날짜</Label>
-                    <Input
-                      id="date"
-                      name="date"
-                      type="date"
-                      value={date}
-                      onChange={(e) => setDate(e.target.value)}
-                      required
-                    />
-                  </div>
-
-                  {/* 시간 */}
-                  <div className="grid gap-2">
-                    <Label htmlFor="startTime">시간</Label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        id="startTime"
-                        name="startTime"
-                        type="time"
-                        value={startTime}
-                        onChange={(e) => setStartTime(e.target.value)}
-                        required
-                      />
-                      <span>~</span>
-                      <Input
-                        id="endTime"
-                        name="endTime"
-                        type="time"
-                        value={endTime}
-                        onChange={(e) => setEndTime(e.target.value)}
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  {/* 메모 */}
-                  <div className="grid gap-2">
-                    <Label htmlFor="memo">메모</Label>
-                    <Textarea
-                      id="memo"
-                      name="memo"
-                      placeholder="특이사항 입력"
-                      className="min-h-[100px]"
-                      defaultValue={selectedEvent?.extendedProps?.memo || ''}
-                    />
-                  </div>
-                </form>
-              </ScrollArea>
-
-              {/* Assigned Tasks Area (Only in Edit Mode) */}
-              {mode === 'edit' && (
-                <div className="flex flex-col gap-2 h-[200px] min-h-[200px] border-t pt-4">
-                  <Label className="text-sm font-medium">할당된 업무</Label>
-                  <AssignmentsArea 
-                    assignments={assignments} 
-                    onUnassign={handleUnassign}
-                  />
-                </div>
-              )}
+        <form id="schedule-form" onSubmit={handleSubmit} className="grid gap-6 py-4">
+          
+          {/* 1. 스케줄 정보 */}
+          <div className="grid gap-4">
+            <h3 className="text-sm font-medium text-muted-foreground mb-1">근무 정보</h3>
+            <div className="grid gap-2">
+              <Label htmlFor="title">근무 명칭 (선택)</Label>
+              <Input
+                id="title"
+                name="title"
+                placeholder="예: 오전 근무, 오픈 조"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
             </div>
 
-            {/* Right Column: Task Pool (Only in Edit Mode) */}
-            {mode === 'edit' && (
-              <div className="flex flex-col gap-2 h-full overflow-hidden border-l pl-6">
-                <Label className="text-sm font-medium">업무 목록 (드래그하여 할당)</Label>
-                <Card className="flex-1 overflow-hidden bg-muted/30">
-                  <ScrollArea className="h-full p-3">
-                    <div className="space-y-2">
-                      {tasks.map(task => (
-                        <DraggableTask key={task.id} task={task} />
-                      ))}
-                      {tasks.length === 0 && (
-                          <div className="text-center text-muted-foreground py-4 text-xs">
-                            등록된 업무가 없습니다.
-                          </div>
-                      )}
-                    </div>
-                  </ScrollArea>
-                </Card>
+            <div className="grid gap-2">
+               <Label>색상</Label>
+               <div className="flex flex-wrap gap-2">
+                  {SCHEDULE_COLORS.map((c) => (
+                      <div
+                        key={c.value}
+                        onClick={() => setColor(c.value)}
+                        className={`
+                            w-6 h-6 rounded-full cursor-pointer border flex items-center justify-center
+                            ${color === c.value ? 'ring-2 ring-primary ring-offset-1' : 'hover:opacity-80'}
+                        `}
+                        style={{ backgroundColor: c.value || '#ffffff' }}
+                        title={c.label}
+                      >
+                         {!c.value && <span className="text-[10px] text-muted-foreground">기본</span>}
+                      </div>
+                  ))}
+               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+               <div className="grid gap-2">
+                <Label htmlFor="date">시작일</Label>
+                <Input
+                  id="date"
+                  name="date"
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  required
+                />
               </div>
-            )}
+              <div className="grid gap-2">
+                <Label>시간</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="startTime"
+                    name="startTime"
+                    type="time"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                    required
+                  />
+                  <span>~</span>
+                  <Input
+                    id="endTime"
+                    name="endTime"
+                    type="time"
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+            </div>
           </div>
 
-          {mode === 'edit' && (
-            <DragOverlay modifiers={[snapCenterToCursor]} zIndex={9999} dropAnimation={null}>
-              {activeTask ? (
-                  <div className="w-[200px] p-2 bg-background border rounded-md shadow-xl cursor-grabbing opacity-90 ring-2 ring-primary">
-                    <span className="font-medium text-xs">{activeTask.title}</span>
+          <Separator />
+
+          {/* 2. 반복 설정 (생성 모드일 때만) */}
+          {mode === 'create' && (
+            <div className="grid gap-4">
+               <div className="flex items-center gap-2">
+                  <Checkbox 
+                    id="isRecurring" 
+                    name="isRecurring" 
+                    checked={isRecurring}
+                    onCheckedChange={(checked) => setIsRecurring(checked as boolean)}
+                  />
+                  <Label htmlFor="isRecurring" className="font-medium cursor-pointer">반복 설정</Label>
+               </div>
+
+               {isRecurring && (
+                  <div className="pl-6 grid gap-4">
+                      <div className="grid gap-2">
+                          <Label>반복 요일</Label>
+                          <div className="flex gap-2">
+                              {daysOfWeek.map((day) => (
+                                  <div 
+                                    key={day.value}
+                                    onClick={() => toggleDay(day.value)}
+                                    className={`
+                                        w-8 h-8 rounded-full flex items-center justify-center text-xs cursor-pointer border transition-colors
+                                        ${repeatDays.includes(day.value) 
+                                            ? 'bg-primary text-primary-foreground border-primary' 
+                                            : 'bg-background hover:bg-muted'
+                                        }
+                                    `}
+                                  >
+                                      {day.label}
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
+                      <div className="grid gap-2">
+                          <Label htmlFor="repeatEndDate">반복 종료일</Label>
+                          <Input
+                            id="repeatEndDate"
+                            name="repeatEndDate"
+                            type="date"
+                            value={repeatEndDate}
+                            onChange={(e) => setRepeatEndDate(e.target.value)}
+                            min={date} // 시작일 이후여야 함
+                          />
+                      </div>
                   </div>
-              ) : null}
-            </DragOverlay>
+               )}
+            </div>
           )}
-        </ContentWrapper>
+
+          <Separator />
+
+          {/* 3. 직원 선택 */}
+          <div className="grid gap-2">
+            <div className="flex items-center justify-between">
+                <Label>배정 대상 직원</Label>
+                <Button 
+                    type="button" 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-6 text-xs"
+                    onClick={() => {
+                        if (selectedUserIds.length === staffList.length) {
+                            setSelectedUserIds([])
+                        } else {
+                            setSelectedUserIds(staffList.map(s => s.user_id))
+                        }
+                    }}
+                >
+                    {selectedUserIds.length === staffList.length ? '전체 해제' : '전체 선택'}
+                </Button>
+            </div>
+            
+            <div className="h-[150px] border rounded-md p-2 overflow-y-auto">
+                <div className="space-y-1">
+                    {staffList.map((staff) => (
+                        <div 
+                            key={staff.user_id}
+                            className={`
+                                flex items-center justify-between p-2 rounded-md transition-colors text-sm
+                                ${selectedUserIds.includes(staff.user_id) ? 'bg-primary/10' : 'hover:bg-muted'}
+                            `}
+                        >
+                             <div className="flex items-center gap-3 flex-1">
+                                <Checkbox 
+                                    checked={selectedUserIds.includes(staff.user_id)}
+                                    onCheckedChange={() => toggleUser(staff.user_id)}
+                                    id={`staff-${staff.user_id}`}
+                                />
+                                <div 
+                                    className="flex flex-col cursor-pointer flex-1"
+                                    onClick={() => toggleUser(staff.user_id)}
+                                >
+                                    <span className="font-medium">{staff.profile?.full_name || staff.profile?.email}</span>
+                                    <span className="text-xs text-muted-foreground">{staff.profile?.email}</span>
+                                </div>
+                             </div>
+                             
+                             <div 
+                                className="cursor-pointer pl-2"
+                                onClick={() => toggleUser(staff.user_id)}
+                             >
+                                {staff.role_info ? (
+                                    <Badge 
+                                        variant="outline" 
+                                        className="text-[10px] h-5 px-1.5" 
+                                        style={{ 
+                                        borderColor: staff.role_info.color, 
+                                        color: staff.role_info.color,
+                                        backgroundColor: `${staff.role_info.color}10`
+                                        }}
+                                    >
+                                        {staff.role_info.name}
+                                    </Badge>
+                                ) : (
+                                    <span className="text-muted-foreground text-xs">({staff.role})</span>
+                                )}
+                             </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+          </div>
+
+          {/* 4. 메모 */}
+          <div className="grid gap-2">
+            <Label htmlFor="memo">메모</Label>
+            <Textarea
+              id="memo"
+              name="memo"
+              placeholder="특이사항 입력"
+              className="min-h-[80px]"
+              value={memo}
+              onChange={(e) => setMemo(e.target.value)}
+            />
+          </div>
+        </form>
 
         <DialogFooter className="flex justify-between sm:justify-between pt-4 border-t">
-          {mode === 'edit' && (
+          {mode === 'edit' ? (
             <Button 
               type="button" 
               variant="destructive" 
@@ -392,12 +464,11 @@ export function ScheduleDialog({
             >
               삭제
             </Button>
-          )}
+          ) : <div></div>}
           <div className="flex gap-2 ml-auto">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               취소
             </Button>
-            {/* Submit button linked to form */}
             <Button type="submit" form="schedule-form" disabled={loading}>
               {mode === 'create' ? '등록' : '수정'}
             </Button>
@@ -405,79 +476,5 @@ export function ScheduleDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
-}
-
-// Droppable Assignments Area
-function AssignmentsArea({ assignments, onUnassign }: { assignments: TaskAssignment[], onUnassign: (id: string) => void }) {
-  const { setNodeRef, isOver } = useDroppable({ id: 'assignments-area' })
-
-  return (
-    <Card 
-      ref={setNodeRef}
-      className={cn(
-        "flex-1 overflow-hidden transition-colors border-dashed",
-        isOver ? "bg-primary/10 border-primary" : "bg-background"
-      )}
-    >
-      <ScrollArea className="h-full p-3">
-        {assignments.length === 0 ? (
-          <div className="h-full flex items-center justify-center text-muted-foreground text-xs">
-            여기로 업무를 드래그하세요
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {assignments.map(assignment => (
-              <div 
-                key={assignment.id} 
-                className="flex items-center justify-between p-2 rounded-md bg-primary/10 border border-primary/20 text-xs"
-              >
-                <div className="flex items-center gap-2 truncate">
-                  <Badge variant={assignment.status === 'completed' ? 'secondary' : 'outline'} className="text-[10px] px-1 h-4">
-                    {assignment.start_time?.slice(0, 5)}
-                  </Badge>
-                  <span className="truncate font-medium">{assignment.task?.title}</span>
-                </div>
-                <button
-                  onClick={() => onUnassign(assignment.id)}
-                  className="text-muted-foreground hover:text-red-500 transition-colors p-1"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </ScrollArea>
-    </Card>
-  )
-}
-
-// Draggable Task Item
-function DraggableTask({ task }: { task: Task }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: task.id,
-  })
-
-  if (isDragging) {
-      return <div ref={setNodeRef} className="opacity-30 p-2 border rounded-md bg-muted h-[40px]" />
-  }
-
-  return (
-    <div
-      ref={setNodeRef}
-      {...listeners}
-      {...attributes}
-      className="p-2 bg-card border rounded-md shadow-sm cursor-grab hover:border-primary/50 transition-colors group text-xs flex items-center justify-between"
-    >
-      <div className="flex items-center gap-2 truncate">
-        <GripVertical className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-        <span className="truncate">{task.title}</span>
-      </div>
-      <div className="flex items-center gap-1 text-[10px] text-muted-foreground shrink-0">
-        <Clock className="w-3 h-3" />
-        {task.estimated_minutes}m
-      </div>
-    </div>
   )
 }

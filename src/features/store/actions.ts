@@ -133,3 +133,20 @@ export async function deleteStore(storeId: string) {
   revalidatePath('/dashboard')
   return { success: true }
 }
+
+export async function getStoreRoles(storeId: string) {
+  const supabase = await createClient()
+  
+  const { data, error } = await supabase
+    .from('store_roles')
+    .select('*')
+    .eq('store_id', storeId)
+    .order('priority', { ascending: false })
+    
+  if (error) {
+    console.error('Error fetching store roles:', error)
+    return []
+  }
+  
+  return data
+}

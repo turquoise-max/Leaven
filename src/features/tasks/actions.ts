@@ -12,6 +12,15 @@ export interface Task {
   estimated_minutes: number
   created_at: string
   updated_at: string
+  task_type: 'time_specific' | 'recurring' | 'always'
+  start_time: string | null
+  end_time: string | null
+  repeat_pattern: any | null
+  assigned_role_id: string | null
+  role?: {
+    name: string
+    color: string
+  }
 }
 
 export interface TaskAssignment {
@@ -35,6 +44,11 @@ export interface CreateTaskInput {
   description?: string
   is_critical?: boolean
   estimated_minutes?: number
+  task_type?: 'time_specific' | 'recurring' | 'always'
+  start_time?: string | null
+  end_time?: string | null
+  repeat_pattern?: any
+  assigned_role_id?: string | null
 }
 
 export interface UpdateTaskInput {
@@ -43,6 +57,11 @@ export interface UpdateTaskInput {
   description?: string
   is_critical?: boolean
   estimated_minutes?: number
+  task_type?: 'time_specific' | 'recurring' | 'always'
+  start_time?: string | null
+  end_time?: string | null
+  repeat_pattern?: any
+  assigned_role_id?: string | null
 }
 
 export interface AssignTaskInput {
@@ -58,6 +77,8 @@ export interface AssignTaskInput {
 export async function getTasks(storeId: string) {
   const supabase = await createClient()
 
+  // TODO: Restore relationship query once DB migration is applied
+  // role:store_roles(name, color)
   const { data, error } = await supabase
     .from('tasks')
     .select('*')
@@ -77,7 +98,18 @@ export async function createTask(input: CreateTaskInput) {
 
   const { data, error } = await supabase
     .from('tasks')
-    .insert([input])
+    .insert([{
+      store_id: input.store_id,
+      title: input.title,
+      description: input.description,
+      is_critical: input.is_critical,
+      estimated_minutes: input.estimated_minutes,
+      task_type: input.task_type || 'time_specific',
+      start_time: input.start_time,
+      end_time: input.end_time,
+      repeat_pattern: input.repeat_pattern,
+      assigned_role_id: input.assigned_role_id
+    }])
     .select()
     .single()
 

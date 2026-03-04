@@ -13,7 +13,7 @@ export default async function SchedulePage() {
   // 사용자의 매장 정보 조회
   const { data: members } = await supabase
     .from('store_members')
-    .select('store_id, role, status')
+    .select('store_id, role, status, store:stores(opening_hours)')
     .eq('user_id', user.id)
 
   // 쿠키에서 선택된 매장 ID 가져오기
@@ -46,24 +46,40 @@ export default async function SchedulePage() {
       start_time,
       end_time,
       memo,
-      user_id,
-      profile:profiles(full_name, email)
+      title,
+      color,
+      schedule_members (
+        user_id,
+        profile:profiles (full_name, email)
+      ),
+      task_assignments(
+        id,
+        task:tasks(title)
+      )
     `)
     .eq('store_id', member.store_id)
 
   // 매장의 직원 목록 조회 (스케줄 할당용)
-  const { data: staffList } = await supabase
+  const { data: rawStaffList } = await supabase
     .from('store_members')
     .select(`
       user_id,
       role,
-      profile:profiles(id, full_name, email)
+      profile:profiles(id, full_name, email),
+      role_info:store_roles(id, name, color, priority)
     `)
     .eq('store_id', member.store_id)
     .neq('status', 'invited') // 초대중인 멤버 제외
 
+  const staffList = rawStaffList?.map((staff: any) => ({
+    ...staff,
+    role_info: Array.isArray(staff.role_info) ? staff.role_info[0] : staff.role_info
+  }))
+
   // 권한 정보 (매니저 이상만 편집 가능)
   const canManage = member.role === 'owner' || member.role === 'manager'
+  const store = member.store as any
+  const openingHours = store?.opening_hours || {}
 
   return (
     <div className="h-[calc(100vh-100px)] flex flex-col space-y-4">
@@ -82,6 +98,7 @@ export default async function SchedulePage() {
           staffList={staffList || []}
           canManage={canManage}
           storeId={member.store_id}
+          openingHours={openingHours}
         />
       </div>
     </div>

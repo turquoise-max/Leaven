@@ -15,13 +15,13 @@ export const getStoreMemberRole = cache(async (userId: string, storeId: string) 
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('store_members')
-    .select('role')
+    .select('role, role_id')
     .eq('user_id', userId)
     .eq('store_id', storeId)
     .single()
   
   if (error || !data) return null
-  return data.role
+  return data // Returns { role: string, role_id: string | null }
 })
 
 export async function hasPermission(
@@ -29,22 +29,41 @@ export async function hasPermission(
   storeId: string,
   permission: PermissionCode
 ): Promise<boolean> {
-  const role = await getStoreMemberRole(userId, storeId)
+  const member = await getStoreMemberRole(userId, storeId)
   
-  if (!role) return false
-  if (role === 'owner') return true // Owner는 모든 권한을 가짐 (DB 조회 줄이기 위한 최적화)
+  if (!member) return false
+  
+  // 1. Owner always has full permissions
+  if (member.role === 'owner') return true 
 
   const supabase = await createClient()
   
-  // role_permissions 테이블 조회
-  const { data } = await supabase
-    .from('role_permissions')
-    .select('permission_code')
-    .eq('role', role)
-    .eq('permission_code', permission)
-    .single()
+  // 2. Check permission via new store_role_permissions table (if role_id exists)
+  if (member.role_id) {
+    const { data } = await supabase
+      .from('store_role_permissions')
+      .select('permission_code')
+      .eq('role_id', member.role_id)
+      .eq('permission_code', permission)
+      .single()
 
-  return !!data
+    if (data) return true
+  }
+
+  // 3. Fallback: Check legacy role_permissions table
+  // This ensures backward compatibility if migration hasn't run fully or for system roles
+  if (member.role) {
+    const { data } = await supabase
+      .from('role_permissions')
+      .select('permission_code')
+      .eq('role', member.role)
+      .eq('permission_code', permission)
+      .single()
+
+    if (data) return true
+  }
+
+  return false
 }
 
 export async function requirePermission(

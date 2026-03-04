@@ -9,15 +9,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
-import { MoreHorizontal, Shield, ShieldAlert, ShieldCheck, User, Check, X, UserPlus, Phone } from 'lucide-react'
+import { Shield, ShieldAlert, ShieldCheck, User, Check, X, UserPlus, Phone } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -25,13 +18,23 @@ import { EditStaffDialog } from './edit-staff-dialog'
 import { approveRequest, rejectRequest, removeStaff } from '../actions'
 import { toast } from 'sonner'
 
+interface RoleInfo {
+  id: string
+  name: string
+  color: string
+  priority: number
+  is_system: boolean
+}
+
 interface StaffMember {
   id: string
   user_id: string | null
-  role: 'owner' | 'manager' | 'staff'
+  role: string // Legacy role string
   status: 'active' | 'invited' | 'pending_approval'
   wage_type?: 'hourly' | 'monthly'
   base_wage?: number
+  work_hours?: string
+  hired_at?: string
   joined_at: string
   name: string | null // 수기 등록 이름
   email: string | null // 수기 등록 이메일
@@ -42,6 +45,7 @@ interface StaffMember {
     phone: string | null
     avatar_url: string | null
   } | null
+  role_info?: RoleInfo
 }
 
 interface StaffListProps {
@@ -62,20 +66,13 @@ export function StaffList({ initialData, storeId, canManage }: StaffListProps) {
 
   const pendingStaff = staffList.filter(s => s.status === 'pending_approval')
   
-  // 역할에 따른 정렬 순서 정의 (점주 -> 매니저 -> 직원)
-  const roleOrder: Record<string, number> = {
-    owner: 0,
-    manager: 1,
-    staff: 2
-  }
-
   const activeStaff = staffList
     .filter(s => s.status !== 'pending_approval')
     .sort((a, b) => {
-      // 1순위: 역할 (role)
-      const roleA = roleOrder[a.role] ?? 99
-      const roleB = roleOrder[b.role] ?? 99
-      if (roleA !== roleB) return roleA - roleB
+      // 1순위: 우선순위 (priority 높은 순)
+      const priorityA = a.role_info?.priority ?? (a.role === 'owner' ? 100 : (a.role === 'manager' ? 50 : 0))
+      const priorityB = b.role_info?.priority ?? (b.role === 'owner' ? 100 : (b.role === 'manager' ? 50 : 0))
+      if (priorityA !== priorityB) return priorityB - priorityA
       
       // 2순위: 이름 (가나다순)
       const nameA = a.name || a.profile?.full_name || ''
@@ -140,15 +137,23 @@ export function StaffList({ initialData, storeId, canManage }: StaffListProps) {
     return staff.profile?.phone || staff.phone || ''
   }
 
-  const getRoleBadge = (role: string) => {
-    switch (role) {
-      case 'owner':
-        return <Badge className="bg-purple-500 hover:bg-purple-600">점주</Badge>
-      case 'manager':
-        return <Badge className="bg-blue-500 hover:bg-blue-600">매니저</Badge>
-      default:
-        return <Badge variant="secondary">직원</Badge>
-    }
+  const getRoleBadge = (staff: StaffMember) => {
+    const roleName = staff.role_info?.name || (staff.role === 'owner' ? '점주' : (staff.role === 'manager' ? '매니저' : '직원'))
+    const roleColor = staff.role_info?.color || (staff.role === 'owner' ? '#7c3aed' : (staff.role === 'manager' ? '#4f46e5' : '#808080'))
+
+    return (
+      <Badge 
+        variant="outline"
+        style={{ 
+          backgroundColor: roleColor, 
+          color: '#ffffff',
+          borderColor: roleColor 
+        }}
+        className="hover:opacity-90 transition-opacity border-0"
+      >
+        {roleName}
+      </Badge>
+    )
   }
 
   const getStatusBadge = (status: string, userId: string | null) => {
@@ -168,15 +173,18 @@ export function StaffList({ initialData, storeId, canManage }: StaffListProps) {
     }
   }
 
-  const getRoleIcon = (role: string) => {
-     switch (role) {
-      case 'owner':
-        return <ShieldAlert className="h-4 w-4 text-purple-500" />
-      case 'manager':
-        return <ShieldCheck className="h-4 w-4 text-blue-500" />
-      default:
-        return <User className="h-4 w-4 text-gray-500" />
-    }
+  const getRoleIcon = (staff: StaffMember) => {
+    const isSystem = staff.role_info?.is_system
+    const roleName = staff.role_info?.name || staff.role
+    const roleColor = staff.role_info?.color || '#808080'
+
+     if (roleName === '점주' || roleName === 'owner' || (isSystem && roleName === 'Owner')) {
+        return <ShieldAlert className="h-4 w-4" style={{ color: roleColor }} />
+     }
+     if (roleName === '매니저' || roleName === 'manager' || (isSystem && roleName === 'Manager')) {
+        return <ShieldCheck className="h-4 w-4" style={{ color: roleColor }} />
+     }
+     return <User className="h-4 w-4" style={{ color: roleColor }} />
   }
 
   return (
@@ -256,11 +264,13 @@ export function StaffList({ initialData, storeId, canManage }: StaffListProps) {
           <TableHeader>
             <TableRow>
               <TableHead className="w-20">프로필</TableHead>
+              <TableHead>역할</TableHead>
               <TableHead>이름 / 이메일</TableHead>
               <TableHead>전화번호</TableHead>
-              <TableHead>역할</TableHead>
+              <TableHead>근무 시간</TableHead>
+              <TableHead>시급/월급</TableHead>
+              <TableHead>입사일</TableHead>
               <TableHead>상태</TableHead>
-              <TableHead>합류일</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -282,6 +292,12 @@ export function StaffList({ initialData, storeId, canManage }: StaffListProps) {
                   </Avatar>
                 </TableCell>
                 <TableCell>
+                  <div className="flex items-center gap-2">
+                    {getRoleIcon(staff)}
+                    {getRoleBadge(staff)}
+                  </div>
+                </TableCell>
+                <TableCell>
                   <div className="flex flex-col">
                     <span className="font-medium">{getDisplayName(staff)}</span>
                     <span className="text-xs text-muted-foreground">{getDisplayEmail(staff)}</span>
@@ -298,20 +314,31 @@ export function StaffList({ initialData, storeId, canManage }: StaffListProps) {
                   )}
                 </TableCell>
                 <TableCell>
-                  <div className="flex items-center gap-2">
-                    {getRoleIcon(staff.role)}
-                    {getRoleBadge(staff.role)}
-                  </div>
+                    <span className="text-sm">{staff.work_hours || '-'}</span>
+                </TableCell>
+                <TableCell>
+                    <div className="flex flex-col text-sm">
+                        <span className="text-muted-foreground text-xs">
+                            {staff.wage_type === 'monthly' ? '월급' : '시급'}
+                        </span>
+                        <span>
+                            {staff.base_wage ? staff.base_wage.toLocaleString() + '원' : '-'}
+                        </span>
+                    </div>
+                </TableCell>
+                <TableCell>
+                  {staff.hired_at ? (
+                    <span>{new Date(staff.hired_at).toLocaleDateString('ko-KR')}</span>
+                  ) : (
+                    <span className="text-muted-foreground">-</span>
+                  )}
                 </TableCell>
                 <TableCell>{getStatusBadge(staff.status, staff.user_id)}</TableCell>
-                <TableCell>
-                  {new Date(staff.joined_at).toLocaleDateString('ko-KR')}
-                </TableCell>
               </TableRow>
             ))}
             {activeStaff.length === 0 && (
                <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
                   등록된 직원이 없습니다.
                 </TableCell>
               </TableRow>

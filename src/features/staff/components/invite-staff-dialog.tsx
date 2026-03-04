@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { getStoreRoles } from '@/features/store/actions'
 
 interface InviteStaffDialogProps {
   children: React.ReactNode
@@ -32,6 +33,17 @@ interface InviteStaffDialogProps {
 export function InviteStaffDialog({ children, storeId }: InviteStaffDialogProps) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [roles, setRoles] = useState<any[]>([])
+
+  // Load roles when dialog opens
+  useEffect(() => {
+    if (storeId && open) {
+      getStoreRoles(storeId).then(setRoles)
+    }
+  }, [storeId, open])
+
+  // 기본 역할 ID 찾기 (직원)
+  const defaultRoleId = roles.find(r => r.name === '직원' || r.name === 'Staff')?.id || roles[0]?.id
 
   // 1. 초대하기 핸들러
   async function handleInviteSubmit(formData: FormData) {
@@ -72,7 +84,7 @@ export function InviteStaffDialog({ children, storeId }: InviteStaffDialogProps)
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="sm:max-w-125">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>직원 추가</DialogTitle>
           <DialogDescription>
@@ -98,10 +110,33 @@ export function InviteStaffDialog({ children, storeId }: InviteStaffDialogProps)
                   placeholder="staff@example.com"
                   required
                 />
-                <p className="text-sm text-muted-foreground">
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="inviteRole">역할</Label>
+                <Select name="roleId" defaultValue={defaultRoleId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="역할 선택" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {roles.filter(r => r.name !== '점주' && r.name !== 'Owner').map((role) => (
+                      <SelectItem key={role.id} value={role.id}>
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="w-2 h-2 rounded-full" 
+                            style={{ backgroundColor: role.color }}
+                          />
+                          {role.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-sm text-muted-foreground mt-1">
                   직원이 가입 후 이메일을 확인하여 수락하면 목록에 추가됩니다.
                 </p>
               </div>
+
               <DialogFooter>
                 <Button type="submit" disabled={loading}>
                   {loading ? '전송 중...' : '초대 메일 발송'}
@@ -119,14 +154,23 @@ export function InviteStaffDialog({ children, storeId }: InviteStaffDialogProps)
                   <Input id="name" name="name" placeholder="홍길동" required />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="role">직책</Label>
-                  <Select name="role" defaultValue="staff">
+                  <Label htmlFor="role">역할</Label>
+                  <Select name="roleId" defaultValue={defaultRoleId}>
                     <SelectTrigger>
-                      <SelectValue placeholder="직책 선택" />
+                      <SelectValue placeholder="역할 선택" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="staff">직원 (Staff)</SelectItem>
-                      <SelectItem value="manager">매니저 (Manager)</SelectItem>
+                      {roles.filter(r => r.name !== '점주' && r.name !== 'Owner').map((role) => (
+                        <SelectItem key={role.id} value={role.id}>
+                          <div className="flex items-center gap-2">
+                            <div 
+                              className="w-2 h-2 rounded-full" 
+                              style={{ backgroundColor: role.color }}
+                            />
+                            {role.name}
+                          </div>
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -135,6 +179,11 @@ export function InviteStaffDialog({ children, storeId }: InviteStaffDialogProps)
               <div className="space-y-2">
                 <Label htmlFor="phone">전화번호 (선택)</Label>
                 <Input id="phone" name="phone" placeholder="010-1234-5678" />
+              </div>
+              
+              <div className="space-y-2">
+                 <Label htmlFor="emailManual">이메일 (선택)</Label>
+                 <Input id="emailManual" name="email" type="email" placeholder="staff@example.com" />
               </div>
 
               <div className="grid grid-cols-2 gap-4">

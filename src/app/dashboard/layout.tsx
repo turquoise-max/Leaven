@@ -66,15 +66,16 @@ export default async function DashboardLayout({
       role,
       status,
       name,
-      profile:profiles(full_name, email, avatar_url)
+      profile:profiles(full_name, email, avatar_url),
+      role_info:store_roles(id, name, color, priority, is_system)
     `)
     .eq('store_id', currentStoreId)
-    .order('role', { ascending: true }) // owner -> manager -> staff 순
-
+    
   // 데이터 가공 (타입 맞춤)
   const staffList = rawStaffList?.map((staff: any) => ({
     ...staff,
-    profile: Array.isArray(staff.profile) ? staff.profile[0] : staff.profile
+    profile: Array.isArray(staff.profile) ? staff.profile[0] : staff.profile,
+    role_info: Array.isArray(staff.role_info) ? staff.role_info[0] : staff.role_info
   }))
 
   // 쿠키에서 레이아웃 설정 읽기 (키 이름 변경으로 초기화 효과)

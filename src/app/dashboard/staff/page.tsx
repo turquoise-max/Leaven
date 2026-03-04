@@ -7,6 +7,9 @@ import { Button } from '@/components/ui/button'
 import { UserPlus } from 'lucide-react'
 import { cookies } from 'next/headers'
 import { StoreCodeDisplay } from '@/components/dashboard/store-code-display'
+import { getStaffList } from '@/features/staff/actions'
+
+export const dynamic = 'force-dynamic'
 
 export default async function StaffManagementPage() {
   const supabase = await createClient()
@@ -45,24 +48,8 @@ export default async function StaffManagementPage() {
   const canManage = member.role === 'owner' || member.role === 'manager'
   const store = member.store as any
 
-  // 직원 목록 조회 (Profile 정보 포함)
-  const { data: staffList } = await supabase
-    .from('store_members')
-    .select(`
-      id,
-      user_id,
-      role,
-      status,
-      wage_type,
-      base_wage,
-      joined_at,
-      name,
-      phone,
-      email,
-      profile:profiles(full_name, email, avatar_url)
-    `)
-    .eq('store_id', member.store_id)
-    .order('joined_at', { ascending: false })
+  // 직원 목록 조회
+  const staffList = await getStaffList(member.store_id)
 
   return (
     <div className="space-y-6">
