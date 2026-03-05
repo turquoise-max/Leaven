@@ -4,17 +4,194 @@ import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import interactionPlugin from '@fullcalendar/interaction'
-import rrulePlugin from '@fullcalendar/rrule'
-import { Task } from '../actions'
-import { useMemo } from 'react'
+import { Task, updateTask } from '../actions'
+import { useMemo, useState } from 'react'
+import { CheckCircle2, Clock, Circle } from 'lucide-react'
+import { EditTaskDialog } from './edit-task-dialog'
+import { CreateTaskDialog } from './create-task-dialog'
+import { EventClickArg, EventDropArg } from '@fullcalendar/core'
+import { EventResizeDoneArg } from '@fullcalendar/interaction'
+import { TaskFormData } from './task-form'
+import { toast } from 'sonner'
+import { toKSTISOString, revertKSTToUTC } from '@/lib/date-utils'
+
+const buttonText = {
+  today: '오늘',
+  month: '월',
+  week: '주',
+  day: '일',
+}
+
+const slotLabelFormat = {
+  hour: 'numeric' as const,
+  minute: '2-digit' as const,
+  omitZeroMinute: false,
+  meridiem: 'short' as const
+}
+
+const dayHeaderFormat = {
+  weekday: 'short' as const,
+  day: 'numeric' as const
+}
 
 interface TaskCalendarProps {
   tasks: Task[]
   roles: any[]
   openingHours?: any
+  storeId: string
 }
 
-export function TaskCalendar({ tasks, roles, openingHours }: TaskCalendarProps) {
+export function TaskCalendar({ tasks, roles, openingHours, storeId }: TaskCalendarProps) {
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null)
+  const [isEditOpen, setIsEditOpen] = useState(false)
+  const [isCreateOpen, setIsCreateOpen] = useState(false)
+  const [initialTaskData, setInitialTaskData] = useState<Partial<TaskFormData>>({})
+
+  const handleEventClick = (info: EventClickArg) => {
+    const task = info.event.extendedProps.originalTask
+    if (task) {
+        setSelectedTask(task)
+        setIsEditOpen(true)
+    }
+  }
+
+  const handleDateSelect = (info: any) => {
+    const startStr = info.startStr // ISO string
+    const endStr = info.endStr
+
+    if (startStr.includes('T')) {
+      // 시간 선택 시 (TimeGrid)
+      const start = startStr.split('T')[1].substring(0, 5)
+      const end = endStr.split('T')[1].substring(0, 5)
+      
+      setInitialTaskData({
+        task_type: 'scheduled',
+        start_date: startStr.split('T')[0],
+        end_date: startStr.split('T')[0],
+        start_time: start,
+        end_time: end,
+      })
+    } else {
+      // 날짜만 선택 시 (Month View 등) -> 기본값만 설정
+      setInitialTaskData({
+        task_type: 'scheduled',
+        start_date: startStr,
+        end_date: startStr,
+        start_time: '09:00',
+        end_time: '10:00',
+      })
+    }
+    setIsCreateOpen(true)
+  }
+
+  const handleDateClick = (info: any) => {
+    // 빈 공간 클릭 시
+    if (info.dateStr.includes('T')) {
+       const [dateStr, timeStr] = info.dateStr.split('T')
+       const start = timeStr.substring(0, 5)
+       // 기본 1시간
+       const [h, m] = start.split(':').map(Number)
+       const endH = (h + 1) % 24
+       const end = `${String(endH).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+
+       setInitialTaskData({
+         task_type: 'scheduled',
+         start_date: dateStr,
+         end_date: dateStr,
+         start_time: start,
+         end_time: end,
+       })
+       setIsCreateOpen(true)
+    }
+  }
+
+  const handleEventDrop = async (info: EventDropArg) => {
+    const task = info.event.extendedProps.originalTask
+    if (!task) return
+
+    // scheduled 업무만 드래그 가능 (상시 업무는 날짜 이동만 가능하지만, 여기서는 허용)
+    // always 업무도 이동 가능하게 하려면 로직 필요.
+    // 여기서는 둘 다 허용.
+
+    const newStart = info.event.start
+    const newEnd = info.event.end
+
+    if (!newStart) {
+        info.revert()
+        return
+    }
+    
+    // 만약 end가 없으면 (allDay 이동 시 등), start + 1시간? 
+    // always 업무는 end가 없을 수 있음 (allDay).
+    // scheduled 업무는 end가 있어야 함. FullCalendar가 자동으로 계산해서 줄 수도 있음.
+    
+    // toKSTISOString으로 인해 캘린더 상의 시간은 이미 9시간이 더해진 "가짜 시간"입니다.
+    // 따라서 저장할 때는 다시 9시간을 빼서 "진짜 UTC 시간"으로 되돌려야 합니다.
+    const startIso = revertKSTToUTC(newStart)
+    const endIso = newEnd ? revertKSTToUTC(newEnd) : null
+
+    try {
+        const result = await updateTask({
+            id: task.id,
+            start_time: startIso,
+            end_time: endIso
+        })
+
+        if (result?.error) {
+            toast.error('업무 이동 실패', { description: result.error as string })
+            info.revert()
+        } else {
+            toast.success('업무 시간이 변경되었습니다.')
+        }
+    } catch (error) {
+        console.error(error)
+        toast.error('오류가 발생했습니다.')
+        info.revert()
+    }
+  }
+
+  const handleEventResize = async (info: EventResizeDoneArg) => {
+    const task = info.event.extendedProps.originalTask
+    if (!task) return
+
+    if (task.task_type !== 'scheduled') {
+        info.revert()
+        return
+    }
+
+    const newStart = info.event.start
+    const newEnd = info.event.end
+
+    if (!newStart || !newEnd) {
+        info.revert()
+        return
+    }
+
+    // toKSTISOString으로 인해 캘린더 상의 시간은 이미 9시간이 더해진 "가짜 시간"입니다.
+    // 따라서 저장할 때는 다시 9시간을 빼서 "진짜 UTC 시간"으로 되돌려야 합니다.
+    const startIso = revertKSTToUTC(newStart)
+    const endIso = revertKSTToUTC(newEnd)
+
+    try {
+        const result = await updateTask({
+            id: task.id,
+            start_time: startIso,
+            end_time: endIso
+        })
+
+        if (result?.error) {
+            toast.error('업무 시간 변경 실패', { description: result.error as string })
+            info.revert()
+        } else {
+            toast.success('업무 시간이 변경되었습니다.')
+        }
+    } catch (error) {
+        console.error(error)
+        toast.error('오류가 발생했습니다.')
+        info.revert()
+    }
+  }
+
   // 운영 시간 범위 계산 (Memoized)
   const { minTime, maxTime } = useMemo(() => {
     let min = '06:00:00'
@@ -68,8 +245,15 @@ export function TaskCalendar({ tasks, roles, openingHours }: TaskCalendarProps) 
     return tasks.map(task => {
       // Role color mapping
       const role = roles.find(r => r.id === task.assigned_role_id)
-      const color = role ? role.color : '#808080'
+      let color = role ? role.color : '#808080'
       const title = `${task.title} (${role ? role.name : '전체'})`
+      
+      // 상태에 따른 색상 (상시 업무 제외)
+      if (task.task_type !== 'always') {
+          if (task.status === 'done') color = '#22c55e' // Green-500
+          else if (task.status === 'in_progress') color = '#3b82f6' // Blue-500
+          else color = '#6b7280' // Gray-500 (Todo)
+      }
 
       // Base event object
       const baseEvent = {
@@ -77,98 +261,37 @@ export function TaskCalendar({ tasks, roles, openingHours }: TaskCalendarProps) 
         title: title,
         backgroundColor: color,
         borderColor: color,
-        textColor: '#fff', // Adjust based on background color if needed
+        textColor: '#fff',
         extendedProps: {
           description: task.description,
           roleName: role ? role.name : '전체',
           isCritical: task.is_critical,
-          taskType: task.task_type
-        }
+          taskType: task.task_type,
+          status: task.status,
+          checklist: task.checklist,
+          originalTask: task
+        },
+        editable: true // 모든 업무 드래그/리사이즈 허용 (개별 레코드이므로)
       }
 
       // Handle 'always' tasks
       if (task.task_type === 'always') {
+        // 상시 업무는 날짜 기준, 시간 없음 -> All Day
         return {
           ...baseEvent,
-          allDay: true, // Show in all-day section
-          // Always tasks repeat daily
-          rrule: {
-            freq: 'daily',
-            interval: 1
-          }
+          start: toKSTISOString(task.start_time || ''), // ISO String (Date part used by FC for allDay)
+          allDay: true,
+          // 상시 업무는 리사이즈 불가 (시간이 없으므로)
+          durationEditable: false 
         }
       }
 
-      // Handle 'time_specific' (Assume daily if no specific date logic provided yet)
-      // If we want time_specific to be one-off, we need a date field in DB. 
-      // Currently, schema supports pattern-based tasks. 
-      // So time_specific without repeat_pattern effectively means "Daily at this time" 
-      // or we treat it as recurring daily.
-      if (task.task_type === 'time_specific') {
-        if (!task.start_time || !task.end_time) return null
-
-        // Convert HH:MM:SS to hours/minutes for duration calculation if needed
-        // But rrule handles time via dtstart if we set it, or we can just use startTime/endTime of FC?
-        // FC rrule plugin uses 'dtstart' inside rrule string or object? 
-        // Actually, for simple time recurrence, we can use groupId or startTime/endTime properties 
-        // combined with daysOfWeek if it was simple weekly. But for rrule plugin:
-        
+      // Handle 'scheduled' tasks
+      if (task.task_type === 'scheduled') {
         return {
           ...baseEvent,
-          rrule: {
-            freq: 'daily',
-            interval: 1,
-            dtstart: `2024-01-01T${task.start_time}`, // Arbitrary past date
-          },
-          duration: calculateDuration(task.start_time, task.end_time)
-        }
-      }
-
-      // Handle 'recurring' tasks
-      if (task.task_type === 'recurring' && task.repeat_pattern) {
-        const pattern = task.repeat_pattern
-        const rruleObj: any = {
-          dtstart: `2024-01-01T${task.start_time || '09:00:00'}`,
-        }
-
-        if (pattern.type === 'daily') {
-          rruleObj.freq = 'daily'
-          rruleObj.interval = pattern.interval || 1
-        } else if (pattern.type === 'weekly') {
-          rruleObj.freq = 'weekly'
-          rruleObj.interval = pattern.interval || 1
-          // Convert 0-6 (Sun-Sat) to RRule format if needed, or FC rrule handles integers?
-          // FC rrule expects 'byweekday': [ 'mo', 'tu' ] or integers [0, 1] (0=MO in RRule?? No, 0=MO in FC?)
-          // RRule lib: 0=MO, 6=SU? Wait. JS Date: 0=Sun. 
-          // RRule: RRule.MO, etc. 
-          // Let's check FC docs. FC rrule plugin accepts object similar to RRule object.
-          // In RRule object, byweekday is [ RRule.MO, ... ]. 
-          // We need to map our 0(Sun)-6(Sat) to RRule constants.
-          if (pattern.days) {
-             rruleObj.byweekday = pattern.days.map((d: number) => {
-                // Map 0(Sun)..6(Sat) -> RRule.SU..RRule.SA
-                // RRule constants are objects, but FC plugin might accept strings 'su','mo'...
-                const map = ['su', 'mo', 'tu', 'we', 'th', 'fr', 'sa']
-                return map[d]
-             })
-          }
-        } else if (pattern.type === 'monthly') {
-          rruleObj.freq = 'monthly'
-          rruleObj.interval = pattern.interval || 1
-          if (pattern.date) {
-            rruleObj.bymonthday = [pattern.date]
-          }
-        } else if (pattern.type === 'hourly') {
-           // Hourly recurrence is tricky in calendar view (too many events).
-           // Maybe just show as all-day with note?
-           rruleObj.freq = 'daily' 
-           baseEvent.title = `[${pattern.interval}시간 간격] ${baseEvent.title}`
-        }
-
-        return {
-          ...baseEvent,
-          rrule: rruleObj,
-          duration: task.start_time && task.end_time ? calculateDuration(task.start_time, task.end_time) : '01:00'
+          start: toKSTISOString(task.start_time || ''), // UTC -> KST 변환 (Z 제거)
+          end: toKSTISOString(task.end_time || '')
         }
       }
 
@@ -176,6 +299,7 @@ export function TaskCalendar({ tasks, roles, openingHours }: TaskCalendarProps) 
     }).filter(Boolean)
   }, [tasks, roles])
 
+  // Duration calculation helper
   function calculateDuration(start: string, end: string) {
     const [h1, m1] = start.split(':').map(Number)
     const [h2, m2] = end.split(':').map(Number)
@@ -187,13 +311,28 @@ export function TaskCalendar({ tasks, roles, openingHours }: TaskCalendarProps) 
   }
 
   const renderEventContent = (eventInfo: any) => {
+    const { status, taskType } = eventInfo.event.extendedProps
+    
     return (
-      <div className="p-1 overflow-hidden h-full flex flex-col">
-        <div className="font-semibold text-xs truncate">
-          {eventInfo.event.title}
+      <div className="p-1 overflow-hidden h-full flex flex-col justify-between">
+        <div className="flex items-start gap-1">
+            {taskType !== 'always' && (
+                <div className="mt-0.5">
+                    {status === 'done' ? (
+                        <CheckCircle2 className="w-3 h-3" />
+                    ) : status === 'in_progress' ? (
+                        <Clock className="w-3 h-3" />
+                    ) : (
+                        <Circle className="w-3 h-3" />
+                    )}
+                </div>
+            )}
+            <div className="font-semibold text-xs truncate leading-tight">
+            {eventInfo.event.title}
+            </div>
         </div>
         {eventInfo.timeText && (
-          <div className="text-[10px] opacity-80">
+          <div className="text-[10px] opacity-80 mt-auto text-right">
             {eventInfo.timeText}
           </div>
         )}
@@ -204,7 +343,7 @@ export function TaskCalendar({ tasks, roles, openingHours }: TaskCalendarProps) 
   return (
     <div className="h-full w-full">
       <FullCalendar
-        plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, rrulePlugin]}
+        plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
         initialView="timeGridWeek"
         headerToolbar={{
           left: 'prev,next today',
@@ -213,13 +352,41 @@ export function TaskCalendar({ tasks, roles, openingHours }: TaskCalendarProps) 
         }}
         events={events as any}
         eventContent={renderEventContent}
+        eventClick={handleEventClick}
+        select={handleDateSelect}
+        dateClick={handleDateClick}
+        eventDrop={handleEventDrop}
+        eventResize={handleEventResize}
+        editable={true} // 전체적으로 켜두고 개별 이벤트에서 제어 (또는 여기서 true면 모든 이벤트가 editable이 됨. 개별 설정이 우선)
+        selectable={true}
+        selectMirror={true}
         nowIndicator={true}
         allDaySlot={true}
         slotMinTime={minTime}
         slotMaxTime={maxTime}
         height="100%"
         locale="ko"
+        timeZone="Asia/Seoul"
         weekends={true}
+        firstDay={1}
+        buttonText={buttonText}
+        slotLabelFormat={slotLabelFormat}
+        dayHeaderFormat={dayHeaderFormat}
+      />
+      
+      <EditTaskDialog 
+        task={selectedTask}
+        open={isEditOpen}
+        onOpenChange={setIsEditOpen}
+        storeId={storeId}
+      />
+
+      <CreateTaskDialog
+        storeId={storeId}
+        open={isCreateOpen}
+        onOpenChange={setIsCreateOpen}
+        initialValues={initialTaskData}
+        trigger={null} // Hide default trigger
       />
     </div>
   )

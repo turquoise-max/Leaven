@@ -90,7 +90,12 @@ export default async function TasksPage() {
         <TabsContent value="calendar" className="flex-1 overflow-hidden mt-4">
           <Card className="h-full border-0 shadow-none sm:border sm:shadow-sm">
             <CardContent className="p-0 h-full">
-              <TaskCalendar tasks={tasks} roles={roles} openingHours={store.opening_hours} />
+              <TaskCalendar 
+                tasks={tasks} 
+                roles={roles} 
+                openingHours={store.opening_hours} 
+                storeId={store.id}
+              />
             </CardContent>
           </Card>
         </TabsContent>

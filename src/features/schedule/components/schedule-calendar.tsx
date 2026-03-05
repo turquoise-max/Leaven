@@ -10,6 +10,7 @@ import { ScheduleDialog } from './schedule-dialog'
 import { updateScheduleTime } from '@/features/schedule/actions'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
+import { toKSTISOString, revertKSTToUTC } from '@/lib/date-utils'
 
 interface ScheduleCalendarProps {
   initialEvents: any[]
@@ -26,17 +27,6 @@ function hexToRgba(hex: string, alpha: number) {
   const b = parseInt(hex.slice(5, 7), 16)
   if (isNaN(r) || isNaN(g) || isNaN(b)) return `rgba(128, 128, 128, ${alpha})`
   return `rgba(${r}, ${g}, ${b}, ${alpha})`
-}
-
-// UTC 시간을 KST 시간 문자열로 변환 (FullCalendar 표시용)
-// 예: "2024-03-04T22:00:00Z" (UTC) -> "2024-03-05T07:00:00" (KST, Z 제거)
-function convertUTCToKSTString(dateStr: string) {
-  if (!dateStr) return ''
-  const date = new Date(dateStr)
-  // UTC 시간에 9시간을 더해 KST 시간 생성
-  const kstDate = new Date(date.getTime() + 9 * 60 * 60 * 1000)
-  // ISO String으로 변환 후 'Z'를 제거하여 "로컬 시간"처럼 보이게 함
-  return kstDate.toISOString().replace('Z', '')
 }
 
 // Static Options (Prevent Re-render)
@@ -199,8 +189,8 @@ export function ScheduleCalendar({
       return {
         id: event.id,
         title: event.title || '근무',
-        start: convertUTCToKSTString(event.start_time),
-        end: convertUTCToKSTString(event.end_time),
+        start: toKSTISOString(event.start_time), // UTC -> KST 변환 (Z 제거)
+        end: toKSTISOString(event.end_time),
         backgroundColor: 'transparent',
         borderColor: 'transparent',
         textColor: 'inherit',
@@ -296,8 +286,10 @@ export function ScheduleCalendar({
   const handleEventDrop = useCallback(async (info: any) => {
     if (!canManage) return
 
-    const newStart = info.event.start.toISOString()
-    const newEnd = info.event.end.toISOString()
+    // toKSTISOString으로 인해 캘린더 상의 시간은 "가짜 시간(UTC+9)"입니다.
+    // 저장 시 다시 원래의 UTC 시간으로 되돌려야 합니다.
+    const newStart = revertKSTToUTC(info.event.start)
+    const newEnd = revertKSTToUTC(info.event.end)
     const scheduleId = info.event.id
     
     const result = await updateScheduleTime(storeId, scheduleId, newStart, newEnd)
@@ -313,8 +305,10 @@ export function ScheduleCalendar({
   const handleEventResize = useCallback(async (info: any) => {
     if (!canManage) return
 
-    const newStart = info.event.start.toISOString()
-    const newEnd = info.event.end.toISOString()
+    // toKSTISOString으로 인해 캘린더 상의 시간은 "가짜 시간(UTC+9)"입니다.
+    // 저장 시 다시 원래의 UTC 시간으로 되돌려야 합니다.
+    const newStart = revertKSTToUTC(info.event.start)
+    const newEnd = revertKSTToUTC(info.event.end)
     const scheduleId = info.event.id
 
     const result = await updateScheduleTime(storeId, scheduleId, newStart, newEnd)

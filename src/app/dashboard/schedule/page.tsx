@@ -39,7 +39,7 @@ export default async function SchedulePage() {
 
   // 매장의 스케줄 데이터 조회 (초기 데이터)
   // TODO: 날짜 범위 필터링 필요 (현재는 전체 조회)
-  const { data: schedules } = await supabase
+  const { data: schedules, error: schedulesError } = await supabase
     .from('schedules')
     .select(`
       id,
@@ -58,6 +58,15 @@ export default async function SchedulePage() {
       )
     `)
     .eq('store_id', member.store_id)
+
+  if (schedulesError) {
+    console.error('[SchedulePage] Error fetching schedules:', schedulesError)
+  } else {
+    console.log(`[SchedulePage] Fetched ${schedules?.length || 0} schedules for store ${member.store_id}`)
+    if (schedules && schedules.length > 0) {
+      console.log('[SchedulePage] First schedule:', schedules[0])
+    }
+  }
 
   // 매장의 직원 목록 조회 (스케줄 할당용)
   const { data: rawStaffList } = await supabase

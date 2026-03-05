@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { cookies } from 'next/headers'
 import { getTasks } from '@/features/tasks/actions'
 import { CurrentTasks } from '@/features/tasks/components/current-tasks'
+import { getCurrentSchedule } from '@/features/schedule/actions'
 
 export const dynamic = 'force-dynamic'
 
@@ -61,9 +62,10 @@ export default async function DashboardPage() {
   }
 
   // 병렬로 데이터 조회
-  const [pendingCount, tasks] = await Promise.all([
+  const [pendingCount, tasks, currentSchedule] = await Promise.all([
     getPendingRequestsCount(store.id),
-    getTasks(store.id)
+    getTasks(store.id),
+    getCurrentSchedule(store.id)
   ])
 
   // 관리자 여부 확인
@@ -162,6 +164,7 @@ export default async function DashboardPage() {
               tasks={tasks} 
               userRole={activeMember.role}
               roleId={activeMember.role_id}
+              currentSchedule={currentSchedule}
             />
           </div>
         </div>

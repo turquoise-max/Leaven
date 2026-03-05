@@ -38,15 +38,19 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Input } from '@/components/ui/input'
+import { EditTaskDialog } from './edit-task-dialog'
 
 interface TaskListProps {
   tasks: Task[]
   roles: any[]
+  storeId: string
 }
 
-export function TaskList({ tasks, roles }: TaskListProps) {
+export function TaskList({ tasks, roles, storeId }: TaskListProps) {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [editingTask, setEditingTask] = useState<Task | null>(null)
+  const [isEditOpen, setIsEditOpen] = useState(false)
   
   // Filters
   const [typeFilter, setTypeFilter] = useState<string>('all')
@@ -60,16 +64,21 @@ export function TaskList({ tasks, roles }: TaskListProps) {
     try {
       const result = await deleteTask(deleteId)
       if (result?.error) {
-        toast.error('삭제 실패', { description: result.error })
+        toast.error('삭제 실패', { description: result.error as string })
       } else {
         toast.success('업무가 삭제되었습니다.')
+        setDeleteId(null)
       }
     } catch (error) {
       toast.error('오류가 발생했습니다.')
     } finally {
       setIsDeleting(false)
-      setDeleteId(null)
     }
+  }
+
+  const handleEditClick = (task: Task) => {
+      setEditingTask(task)
+      setIsEditOpen(true)
   }
 
   // Helper to get role info
@@ -78,30 +87,6 @@ export function TaskList({ tasks, roles }: TaskListProps) {
     return roles.find(r => r.id === roleId)
   }
 
-  // Helper to format repeat pattern
-  const formatRepeatPattern = (pattern: any) => {
-    if (!pattern) return '반복'
-    
-    switch (pattern.type) {
-      case 'daily':
-        return '매일'
-      case 'weekly':
-        const days = ['일', '월', '화', '수', '목', '금', '토']
-        if (!pattern.days || pattern.days.length === 0) return '매주'
-        if (pattern.days.length === 7) return '매일'
-        return `매주 ${pattern.days.map((d: number) => days[d]).join(', ')}`
-      case 'monthly':
-        return `매월 ${pattern.date}일`
-      case 'hourly':
-        return `${pattern.interval}시간 간격`
-      default:
-        return '반복'
-    }
-  }
-
-  // Extract unique roles for filter (from available roles)
-  const filterRoles = roles
-
   // Filter tasks
   const filteredTasks = tasks.filter(task => {
     // Type Filter
@@ -109,8 +94,19 @@ export function TaskList({ tasks, roles }: TaskListProps) {
     
     // Role Filter
     if (roleFilter !== 'all') {
-      if (roleFilter === 'unassigned' && task.assigned_role_id) return false
-      if (roleFilter !== 'unassigned' && task.assigned_role_id !== roleFilter) return false
+      const roleIds = task.assigned_role_ids || (task.assigned_role_id ? [task.assigned_role_id] : ['all'])
+      
+      if (roleFilter === 'unassigned') {
+          // 'unassigned' means 'all' employees (no specific role)
+          return roleIds.includes('all')
+      } else {
+          // Check if the filtered role is included in the task's assigned roles
+          // If task is assigned to 'all', it should probably show up for any role filter? 
+          // Or strictly match? Let's say if I filter for 'Barista', I want tasks assigned to Barista.
+          // Tasks assigned to 'all' also apply to Barista, so maybe include them?
+          // For now, let's stick to strict assignment filtering.
+          return roleIds.includes(roleFilter)
+      }
     }
 
     // Search Filter
@@ -125,19 +121,19 @@ export function TaskList({ tasks, roles }: TaskListProps) {
     return true
   })
 
-  // Sort tasks: Time specific (by time) -> Always -> Recurring
+  // Sort tasks
   const sortedTasks = [...filteredTasks].sort((a, b) => {
     // 1. Critical first
     if (a.is_critical !== b.is_critical) return a.is_critical ? -1 : 1
     
     // 2. Type order
-    const typeOrder = { time_specific: 0, always: 1, recurring: 2 }
+    const typeOrder = { scheduled: 0, always: 1 }
     if (a.task_type !== b.task_type) {
-      return typeOrder[a.task_type] - typeOrder[b.task_type]
+      return (typeOrder[a.task_type] || 2) - (typeOrder[b.task_type] || 2)
     }
 
-    // 3. Time order (for time_specific)
-    if (a.task_type === 'time_specific' && a.start_time && b.start_time) {
+    // 3. Time order (for scheduled)
+    if (a.task_type === 'scheduled' && a.start_time && b.start_time) {
       return a.start_time.localeCompare(b.start_time)
     }
 
@@ -146,8 +142,7 @@ export function TaskList({ tasks, roles }: TaskListProps) {
 
   const getTypeIcon = (type: string) => {
     switch (type) {
-      case 'time_specific': return <Clock className="w-4 h-4 text-blue-500" />
-      case 'recurring': return <Calendar className="w-4 h-4 text-green-500" />
+      case 'scheduled': return <Clock className="w-4 h-4 text-blue-500" />
       case 'always': return <Briefcase className="w-4 h-4 text-orange-500" />
       default: return <Clock className="w-4 h-4" />
     }
@@ -155,11 +150,20 @@ export function TaskList({ tasks, roles }: TaskListProps) {
 
   const getTypeName = (type: string) => {
     switch (type) {
-      case 'time_specific': return '특정 시간'
-      case 'recurring': return '반복 업무'
+      case 'scheduled': return '일반 업무'
       case 'always': return '상시 업무'
       default: return type
     }
+  }
+
+  const formatTime = (isoString: string | null) => {
+      if (!isoString) return '-'
+      return new Date(isoString).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+  }
+
+  const formatDate = (isoString: string | null) => {
+      if (!isoString) return '-'
+      return new Date(isoString).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })
   }
 
   return (
@@ -173,9 +177,8 @@ export function TaskList({ tasks, roles }: TaskListProps) {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">모든 유형</SelectItem>
-              <SelectItem value="time_specific">특정 시간</SelectItem>
+              <SelectItem value="scheduled">일반 업무</SelectItem>
               <SelectItem value="always">상시 업무</SelectItem>
-              <SelectItem value="recurring">반복 업무</SelectItem>
             </SelectContent>
           </Select>
 
@@ -186,7 +189,7 @@ export function TaskList({ tasks, roles }: TaskListProps) {
             <SelectContent>
               <SelectItem value="all">모든 역할</SelectItem>
               <SelectItem value="unassigned">공통 (미지정)</SelectItem>
-              {filterRoles.map(role => (
+              {roles.map(role => (
                 <SelectItem key={role.id} value={role.id}>{role.name}</SelectItem>
               ))}
             </SelectContent>
@@ -227,14 +230,16 @@ export function TaskList({ tasks, roles }: TaskListProps) {
                 <TableHead className="w-[50px]"></TableHead>
                 <TableHead className="w-[250px]">업무명</TableHead>
                 <TableHead>유형 / 시간</TableHead>
+                <TableHead>날짜</TableHead>
                 <TableHead>담당 역할</TableHead>
                 <TableHead className="text-right">관리</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {sortedTasks.map((task) => {
-                const roleInfo = getRoleInfo(task.assigned_role_id)
-                
+                const roleIds = task.assigned_role_ids || (task.assigned_role_id ? [task.assigned_role_id] : ['all'])
+                const isAll = roleIds.includes('all') || roleIds.length === 0
+
                 return (
                   <TableRow key={task.id}>
                     <TableCell>
@@ -264,15 +269,10 @@ export function TaskList({ tasks, roles }: TaskListProps) {
                         <span className="font-medium text-xs text-muted-foreground">
                           {getTypeName(task.task_type)}
                         </span>
-                        {task.task_type === 'time_specific' && task.start_time && (
+                        {task.task_type === 'scheduled' && task.start_time && (
                           <span className="font-medium">
-                            {task.start_time.slice(0, 5)} ~ {task.end_time?.slice(0, 5)}
+                            {formatTime(task.start_time)} ~ {formatTime(task.end_time)}
                           </span>
-                        )}
-                        {task.task_type === 'recurring' && (
-                           <span className="text-xs font-medium">
-                             {formatRepeatPattern(task.repeat_pattern)}
-                           </span>
                         )}
                         <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
                           <Clock className="w-3 h-3" />
@@ -281,23 +281,37 @@ export function TaskList({ tasks, roles }: TaskListProps) {
                       </div>
                     </TableCell>
                     <TableCell>
-                      {roleInfo ? (
-                        <Badge 
-                          variant="outline" 
-                          style={{ 
-                            borderColor: roleInfo.color, 
-                            color: roleInfo.color,
-                            backgroundColor: `${roleInfo.color}10` 
-                          }}
-                        >
-                          {roleInfo.name}
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary" className="text-muted-foreground">
-                          <Users className="w-3 h-3 mr-1" />
-                          전체
-                        </Badge>
-                      )}
+                        <span className="text-sm">
+                            {task.task_type === 'always' ? '매일' : formatDate(task.start_time)}
+                        </span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {isAll ? (
+                            <Badge variant="secondary" className="text-muted-foreground">
+                              <Users className="w-3 h-3 mr-1" />
+                              전체
+                            </Badge>
+                        ) : (
+                            roleIds.map(roleId => {
+                                const roleInfo = getRoleInfo(roleId)
+                                if (!roleInfo) return null
+                                return (
+                                    <Badge 
+                                      key={roleId}
+                                      variant="outline" 
+                                      style={{ 
+                                        borderColor: roleInfo.color, 
+                                        color: roleInfo.color,
+                                        backgroundColor: `${roleInfo.color}10` 
+                                      }}
+                                    >
+                                      {roleInfo.name}
+                                    </Badge>
+                                )
+                            })
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
@@ -308,7 +322,7 @@ export function TaskList({ tasks, roles }: TaskListProps) {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem disabled>
+                          <DropdownMenuItem onClick={() => handleEditClick(task)}>
                             <Pencil className="w-4 h-4 mr-2" />
                             수정
                           </DropdownMenuItem>
@@ -329,6 +343,13 @@ export function TaskList({ tasks, roles }: TaskListProps) {
           </Table>
         </div>
       )}
+
+      <EditTaskDialog 
+        task={editingTask}
+        open={isEditOpen}
+        onOpenChange={setIsEditOpen}
+        storeId={storeId}
+      />
 
       <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent>

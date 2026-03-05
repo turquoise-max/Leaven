@@ -10,9 +10,10 @@ interface CurrentTasksProps {
   tasks: Task[]
   userRole: string | null // Role name or ID
   roleId: string | null
+  currentSchedule: any | null // TODO: Define Schedule type properly
 }
 
-export function CurrentTasks({ tasks, userRole, roleId }: CurrentTasksProps) {
+export function CurrentTasks({ tasks, userRole, roleId, currentSchedule }: CurrentTasksProps) {
   const [mounted, setMounted] = useState(false)
   const [now, setNow] = useState<Date>(new Date())
 
@@ -48,37 +49,25 @@ export function CurrentTasks({ tasks, userRole, roleId }: CurrentTasksProps) {
     if (task.assigned_role_id && task.assigned_role_id !== roleId) return false
 
     // 2. Time/Type Filter
-    if (task.task_type === 'always') return true
-
-    const currentTime = now.getHours() * 60 + now.getMinutes()
-    
-    if (!task.start_time || !task.end_time) return false
-    
-    const [startH, startM] = task.start_time.split(':').map(Number)
-    const [endH, endM] = task.end_time.split(':').map(Number)
-    const startTime = startH * 60 + startM
-    const endTime = endH * 60 + endM
-
-    // Handle day crossing (e.g. 23:00 ~ 02:00) - Not fully supported yet in simple logic
-    // Assume tasks are within same day for now
-    const isTimeMatch = currentTime >= startTime && currentTime <= endTime
-
-    if (!isTimeMatch) return false
-
-    if (task.task_type === 'time_specific') {
-      // Assuming time_specific applies to every day for now, 
-      // or we need a date field to check if it's 'today'.
-      // Since we don't have date, we treat it as daily task at specific time.
-      return true
+    if (task.task_type === 'always') {
+        // 상시 업무는 오늘 날짜에 해당하면 표시
+        if (!task.start_time) return false // should not happen
+        const taskDate = new Date(task.start_time).toDateString()
+        const todayDate = now.toDateString()
+        return taskDate === todayDate
     }
 
-    if (task.task_type === 'recurring' && task.repeat_pattern) {
-      const pattern = task.repeat_pattern
-      if (pattern.type === 'daily') return true
-      if (pattern.type === 'weekly' && pattern.days?.includes(now.getDay())) return true
-      if (pattern.type === 'monthly' && pattern.date === now.getDate()) return true
-      // Hourly logic is complex, skipping for simple dashboard view or treating as daily range
-      if (pattern.type === 'hourly') return true 
+    // 근무 중이 아니면 시간제 업무는 안 보임 (선택 사항)
+    // if (!currentSchedule) return false 
+
+    if (task.task_type === 'scheduled') {
+        if (!task.start_time || !task.end_time) return false
+        
+        const start = new Date(task.start_time)
+        const end = new Date(task.end_time)
+        
+        // 현재 시간이 업무 시간 범위 내에 있는지 확인
+        return start <= now && now <= end
     }
 
     return false
@@ -98,17 +87,31 @@ export function CurrentTasks({ tasks, userRole, roleId }: CurrentTasksProps) {
             <Clock className="w-5 h-5 text-primary animate-pulse" />
             지금 해야 할 일
           </div>
-          <Badge variant="outline" className="font-normal text-xs bg-background">
-            {now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} 기준
-          </Badge>
+          <div className="flex items-center gap-2">
+             {!currentSchedule && (
+                <Badge variant="secondary" className="font-normal text-xs">
+                    근무 중 아님
+                </Badge>
+             )}
+             <Badge variant="outline" className="font-normal text-xs bg-background">
+                {now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} 기준
+             </Badge>
+          </div>
         </CardTitle>
       </CardHeader>
       <CardContent className="p-0">
         {currentTasks.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
             <CheckCircle2 className="w-10 h-10 mb-2 opacity-20" />
-            <p className="text-sm">현재 예정된 업무가 없습니다.</p>
-            <p className="text-xs">잠시 휴식을 취하세요!</p>
+            <p className="text-sm">
+                {!currentSchedule 
+                    ? '현재 근무 시간이 아닙니다.' 
+                    : '현재 예정된 업무가 없습니다.'}
+            </p>
+            {!currentSchedule && (
+                <p className="text-xs mt-1">상시 업무만 확인할 수 있습니다.</p>
+            )}
+            {currentSchedule && <p className="text-xs">잠시 휴식을 취하세요!</p>}
           </div>
         ) : (
           <div className="divide-y">
@@ -117,8 +120,6 @@ export function CurrentTasks({ tasks, userRole, roleId }: CurrentTasksProps) {
                 <div className="mt-1">
                   {task.task_type === 'always' ? (
                     <Briefcase className="w-4 h-4 text-orange-500" />
-                  ) : task.task_type === 'recurring' ? (
-                    <Calendar className="w-4 h-4 text-green-500" />
                   ) : (
                     <Clock className="w-4 h-4 text-blue-500" />
                   )}
@@ -140,7 +141,8 @@ export function CurrentTasks({ tasks, userRole, roleId }: CurrentTasksProps) {
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     {task.task_type !== 'always' && task.start_time && (
                       <span className="font-medium text-foreground">
-                        {task.start_time.slice(0, 5)} ~ {task.end_time?.slice(0, 5)}
+                        {new Date(task.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ~ 
+                        {task.end_time && new Date(task.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     )}
                     {task.role && (

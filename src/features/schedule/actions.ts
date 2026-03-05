@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/features/auth/permissions'
+import { toUTCISOString, getCurrentISOString, getNextDateString } from '@/lib/date-utils'
 
 // 스케줄 조회 (기간)
 export async function getSchedules(storeId: string, startDate: string, endDate: string) {
@@ -101,15 +102,14 @@ export async function createSchedule(storeId: string, formData: FormData) {
   let createdCount = 0
 
   for (const date of targetDates) {
-    // KST 기준 ISO String 생성
-    const startDateTime = new Date(`${date}T${startTimeStr}:00+09:00`).toISOString()
-    const endDateTime = new Date(`${date}T${endTimeStr}:00+09:00`).toISOString()
+    // KST 입력 -> UTC 변환 (시스템 시간대 영향 제거)
+    const startDateTime = toUTCISOString(date, startTimeStr)
+    let finalEndDateTime = toUTCISOString(date, endTimeStr)
 
     // 종료 시간이 시작 시간보다 빠른 경우 (자정 넘어가면) 날짜 하루 더함
-    let finalEndDateTime = endDateTime
     if (startTimeStr > endTimeStr) {
-       const nextDate = new Date(new Date(date).setDate(new Date(date).getDate() + 1)).toISOString().split('T')[0]
-       finalEndDateTime = new Date(`${nextDate}T${endTimeStr}:00+09:00`).toISOString()
+       const nextDate = getNextDateString(date)
+       finalEndDateTime = toUTCISOString(nextDate, endTimeStr)
     }
 
     // 1. 스케줄 본체 생성
@@ -222,13 +222,13 @@ export async function updateSchedule(storeId: string, scheduleId: string, formDa
   const title = formData.get('title') as string
   const color = formData.get('color') as string
 
-  // KST 기준으로 시간 생성
-  const startDateTime = new Date(`${date}T${startTimeStr}:00+09:00`).toISOString()
-  let endDateTime = new Date(`${date}T${endTimeStr}:00+09:00`).toISOString()
+  // KST 입력 -> UTC 변환
+  const startDateTime = toUTCISOString(date, startTimeStr)
+  let endDateTime = toUTCISOString(date, endTimeStr)
 
   if (startTimeStr > endTimeStr) {
-       const nextDate = new Date(new Date(date).setDate(new Date(date).getDate() + 1)).toISOString().split('T')[0]
-       endDateTime = new Date(`${nextDate}T${endTimeStr}:00+09:00`).toISOString()
+       const nextDate = getNextDateString(date)
+       endDateTime = toUTCISOString(nextDate, endTimeStr)
   }
 
   // 1. 스케줄 정보 업데이트
@@ -276,6 +276,43 @@ export async function updateSchedule(storeId: string, scheduleId: string, formDa
 
   revalidatePath('/dashboard/schedule')
   return { success: true }
+}
+
+// 현재 로그인한 사용자의 현재 시간 기준 스케줄 조회
+export async function getCurrentSchedule(storeId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) return null
+
+  const now = getCurrentISOString()
+  console.log(`[getCurrentSchedule] Checking for user ${user.id} at ${now}`)
+
+  // schedule_members를 통해 내 user_id가 포함된 스케줄 중
+  // 현재 시간이 start_time과 end_time 사이에 있는 것 조회
+  const { data, error } = await supabase
+    .from('schedules')
+    .select(`
+      id,
+      start_time,
+      end_time,
+      title,
+      memo,
+      schedule_members!inner (user_id)
+    `)
+    .eq('store_id', storeId)
+    .eq('schedule_members.user_id', user.id)
+    .lte('start_time', now)
+    .gte('end_time', now)
+    .maybeSingle() // 여러 개 겹칠 경우 하나만 (원칙적으로 겹치면 안 됨)
+
+  if (error) {
+    console.error('Error fetching current schedule:', error)
+    return null
+  }
+
+  console.log(`[getCurrentSchedule] Result:`, data ? `Found schedule ${data.id}` : 'No schedule found')
+  return data
 }
 
 // 스케줄 삭제
