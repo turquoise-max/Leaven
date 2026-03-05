@@ -96,10 +96,10 @@ export default async function DashboardPage() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-12 h-full">
-        {/* Main Content: Stats & Current Tasks */}
+        {/* Main Content: Stats (Left) */}
         <div className="md:col-span-8 lg:col-span-8 flex flex-col gap-6">
           
-          {/* Stats Cards (Moved Here) */}
+          {/* Stats Cards */}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
              <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -155,16 +155,22 @@ export default async function DashboardPage() {
                 </>
               )}
           </div>
-
-          {/* Current Tasks */}
-          <div className="min-h-[400px]">
-            <DashboardTaskList storeId={store.id} />
+          
+          {/* Future Chart Area Placeholder */}
+          <div className="flex-1 min-h-[300px] border rounded-lg flex items-center justify-center text-muted-foreground bg-muted/10 border-dashed">
+              <span className="text-sm">📊 매출 및 주문 통계 그래프 (준비 중)</span>
           </div>
         </div>
 
-        {/* Sidebar: Calendar or Other Info (Right) */}
-        <div className="md:col-span-4 lg:col-span-4 flex flex-col gap-4">
-           {/* Future: Mini Calendar or Announcements */}
+        {/* Sidebar: Tasks (Right) */}
+        <div className="md:col-span-4 lg:col-span-4">
+           <div className="sticky top-6 h-[calc(100vh-120px)] flex flex-col">
+               <Card className="flex-1 flex flex-col overflow-hidden shadow-md border-l-4 border-l-primary/20">
+                   <CardContent className="p-4 flex-1 overflow-hidden flex flex-col">
+                       <DashboardTaskList storeId={store.id} />
+                   </CardContent>
+               </Card>
+           </div>
         </div>
       </div>
     </div>

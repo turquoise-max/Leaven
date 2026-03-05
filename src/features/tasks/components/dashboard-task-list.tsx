@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Task, getDashboardTasks, toggleTaskCheckitem } from '../actions'
+import { Task, getDashboardTasks, toggleTaskCheckitem, updateTaskStatus } from '../actions'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -72,6 +72,19 @@ export function DashboardTaskList({ storeId }: DashboardTaskListProps) {
     }
   }
 
+  const handleStatusChange = async (taskId: string, status: 'todo' | 'in_progress' | 'done') => {
+      // Optimistic Update
+      setTasks(prev => prev.map(task => {
+          if (task.id !== taskId) return task
+          return { ...task, status }
+      }))
+
+      const result = await updateTaskStatus(taskId, status)
+      if (result.error) {
+          fetchTasks()
+      }
+  }
+
   // 상태별 분류
   const overdueTasks: Task[] = []
   const activeTasks: Task[] = []
@@ -119,8 +132,8 @@ export function DashboardTaskList({ storeId }: DashboardTaskListProps) {
   }
 
   return (
-    <div className="space-y-6 h-full flex flex-col">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 h-full flex flex-col min-h-0">
+      <div className="flex items-center justify-between flex-shrink-0">
           <h2 className="text-lg font-semibold flex items-center gap-2">
               <Clock className="w-5 h-5 text-primary" />
               오늘의 업무
@@ -130,8 +143,8 @@ export function DashboardTaskList({ storeId }: DashboardTaskListProps) {
           </Badge>
       </div>
 
-      <ScrollArea className="flex-1 -mx-4 px-4">
-          <div className="space-y-6 pb-6">
+      <ScrollArea className="flex-1 -mx-4 px-4 h-full">
+          <div className="space-y-6 pb-24">
               
               {/* 1. 보류 (Overdue) */}
               {overdueTasks.length > 0 && (
@@ -145,6 +158,7 @@ export function DashboardTaskList({ storeId }: DashboardTaskListProps) {
                               key={task.id} 
                               task={task} 
                               onCheck={handleChecklistToggle} 
+                              onStatusChange={handleStatusChange}
                               variant="overdue"
                           />
                       ))}
@@ -167,6 +181,7 @@ export function DashboardTaskList({ storeId }: DashboardTaskListProps) {
                               key={task.id} 
                               task={task} 
                               onCheck={handleChecklistToggle} 
+                              onStatusChange={handleStatusChange}
                               variant="active"
                           />
                       ))
@@ -191,14 +206,15 @@ export function DashboardTaskList({ storeId }: DashboardTaskListProps) {
                       
                       {isUpcomingOpen && (
                           <div className="space-y-2 animate-in slide-in-from-top-2 fade-in duration-200">
-                              {upcomingTasks.map(task => (
-                                  <TaskCard 
-                                      key={task.id} 
-                                      task={task} 
-                                      onCheck={handleChecklistToggle} 
-                                      variant="upcoming"
-                                  />
-                              ))}
+                          {upcomingTasks.map(task => (
+                              <TaskCard 
+                                  key={task.id} 
+                                  task={task} 
+                                  onCheck={handleChecklistToggle} 
+                                  onStatusChange={handleStatusChange}
+                                  variant="upcoming"
+                              />
+                          ))}
                           </div>
                       )}
                   </div>
@@ -222,14 +238,15 @@ export function DashboardTaskList({ storeId }: DashboardTaskListProps) {
 
                       {isDoneOpen && (
                           <div className="space-y-2 animate-in slide-in-from-top-2 fade-in duration-200">
-                              {doneTasks.map(task => (
-                                  <TaskCard 
-                                      key={task.id} 
-                                      task={task} 
-                                      onCheck={handleChecklistToggle} 
-                                      variant="done"
-                                  />
-                              ))}
+                          {doneTasks.map(task => (
+                              <TaskCard 
+                                  key={task.id} 
+                                  task={task} 
+                                  onCheck={handleChecklistToggle} 
+                                  onStatusChange={handleStatusChange}
+                                  variant="done"
+                              />
+                          ))}
                           </div>
                       )}
                   </div>
@@ -244,10 +261,11 @@ export function DashboardTaskList({ storeId }: DashboardTaskListProps) {
 interface TaskCardProps {
   task: Task
   onCheck: (taskId: string, itemId: string, checked: boolean) => void
+  onStatusChange: (taskId: string, status: 'todo' | 'in_progress' | 'done') => void
   variant: 'overdue' | 'active' | 'upcoming' | 'done'
 }
 
-function TaskCard({ task, onCheck, variant }: TaskCardProps) {
+function TaskCard({ task, onCheck, onStatusChange, variant }: TaskCardProps) {
   const isDone = variant === 'done'
   const isOverdue = variant === 'overdue'
   const isUpcoming = variant === 'upcoming'
@@ -259,8 +277,23 @@ function TaskCard({ task, onCheck, variant }: TaskCardProps) {
       return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
   }
 
+  const getDurationString = (startIso: string | null, endIso: string | null) => {
+      if (!startIso || !endIso) return '';
+      const start = new Date(startIso);
+      const end = new Date(endIso);
+      const diffMs = end.getTime() - start.getTime();
+      const diffMins = Math.floor(diffMs / 60000);
+      
+      if (diffMins <= 0) return '';
+      if (diffMins < 60) return `(${diffMins}분)`;
+      const hours = Math.floor(diffMins / 60);
+      const mins = diffMins % 60;
+      return mins > 0 ? `(${hours}시간 ${mins}분)` : `(${hours}시간)`;
+  }
+
   const startTime = formatTime(task.start_time);
   const endTime = formatTime(task.end_time);
+  const durationString = getDurationString(task.start_time, task.end_time);
 
   return (
     <Card className={cn(
@@ -269,30 +302,28 @@ function TaskCard({ task, onCheck, variant }: TaskCardProps) {
         isDone && "opacity-60 bg-muted/50",
         isUpcoming && "opacity-80 bg-muted/30"
     )}>
-        <CardHeader className="p-4 pb-2">
+        <CardHeader className="p-3 pb-1">
             <div className="flex items-start justify-between gap-2">
                 <div className="space-y-1">
                     <div className="flex items-center gap-2">
                         {task.is_critical && (
-                            <Badge variant="destructive" className="h-5 text-[10px] px-1">중요</Badge>
+                            <Badge variant="destructive" className="h-4 text-[10px] px-1">중요</Badge>
                         )}
-                        <h4 className={cn("font-medium leading-none", isDone && "line-through text-muted-foreground")}>
+                        <h4 className={cn("font-medium text-sm leading-none", isDone && "line-through text-muted-foreground")}>
                             {task.title}
                         </h4>
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                         <Clock className="w-3 h-3" />
                         <span>{startTime} ~ {endTime}</span>
-                        {task.estimated_minutes > 0 && (
-                            <span>({task.estimated_minutes}분)</span>
+                        {durationString && (
+                            <span>{durationString}</span>
                         )}
                     </div>
                 </div>
-                {/* Role Badge if available */}
-                {/* {task.role && ( ... )} */}
             </div>
         </CardHeader>
-        <CardContent className="p-4 pt-2">
+        <CardContent className="p-3 pt-2">
             {task.description && (
                 <p className="text-xs text-muted-foreground mb-3 line-clamp-2">
                     {task.description}
@@ -326,8 +357,15 @@ function TaskCard({ task, onCheck, variant }: TaskCardProps) {
                     ))}
                 </div>
             ) : (
-                <div className="text-xs text-muted-foreground italic">
-                    체크리스트 없음
+                <div className="flex justify-end pt-1">
+                    <Button 
+                        size="sm" 
+                        variant={isDone ? "outline" : "default"}
+                        className={cn("h-7 text-xs", isDone && "text-muted-foreground")}
+                        onClick={() => onStatusChange(task.id, isDone ? 'todo' : 'done')}
+                    >
+                        {isDone ? '미완료로 변경' : '완료하기'}
+                    </Button>
                 </div>
             )}
         </CardContent>
