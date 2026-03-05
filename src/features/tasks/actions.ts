@@ -506,3 +506,77 @@ export async function getCalendarEvents(storeId: string, start: string, end: str
 
     return { tasks: tasks as Task[] }
 }
+
+// 대시보드용 업무 조회 (오늘 날짜 기준)
+export async function getDashboardTasks(storeId: string, date: string) {
+    const supabase = await createClient()
+    
+    // date: YYYY-MM-DD
+    // UTC 기준 하루 범위 검색
+    // 예: 2024-03-05T00:00:00Z ~ 2024-03-05T23:59:59Z
+    const start = `${date}T00:00:00`
+    const end = `${date}T23:59:59`
+    
+    const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('store_id', storeId)
+        .gte('start_time', start)
+        .lte('start_time', end)
+        .order('start_time', { ascending: true })
+        
+    if (error) {
+        console.error('Error fetching dashboard tasks:', error)
+        return []
+    }
+    
+    return data as Task[]
+}
+
+// 체크리스트 아이템 토글 및 업무 상태 자동 업데이트
+export async function toggleTaskCheckitem(taskId: string, itemId: string, isCompleted: boolean) {
+  const supabase = await createClient()
+
+  // 1. Get current task
+  const { data: task } = await supabase.from('tasks').select('checklist, status').eq('id', taskId).single()
+  if (!task || !task.checklist) return { error: 'Task not found' }
+
+  // 2. Update checklist
+  const newChecklist = (task.checklist as any[]).map((item: any) =>
+    item.id === itemId ? { ...item, is_completed: isCompleted } : item
+  )
+
+  // 3. Check completion status
+  // 모든 아이템이 완료되었는지 확인
+  const allCompleted = newChecklist.length > 0 && newChecklist.every((item: any) => item.is_completed)
+  
+  // 상태 결정 로직:
+  // - 다 완료됨 -> done
+  // - 다 완료 안 됨 -> 
+  //   - 원래 done이었다면 -> todo로 복구
+  //   - 원래 todo/in_progress였다면 -> 그대로 유지
+  let newStatus = task.status
+  if (allCompleted) {
+      newStatus = 'done'
+  } else if (task.status === 'done') {
+      newStatus = 'todo' // 다시 미완료로 복구
+  }
+  
+  // 4. Update DB
+  const { error } = await supabase
+    .from('tasks')
+    .update({
+      checklist: newChecklist,
+      status: newStatus,
+      updated_at: getCurrentISOString()
+    })
+    .eq('id', taskId)
+
+  if (error) {
+      console.error('Error updating checklist:', error)
+      return { error: 'Failed to update' }
+  }
+  
+  revalidatePath('/dashboard')
+  return { success: true }
+}

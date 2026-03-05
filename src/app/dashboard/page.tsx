@@ -5,8 +5,7 @@ import { redirect } from 'next/navigation'
 import { getPendingRequestsCount } from '@/features/staff/actions'
 import Link from 'next/link'
 import { cookies } from 'next/headers'
-import { getTasks } from '@/features/tasks/actions'
-import { CurrentTasks } from '@/features/tasks/components/current-tasks'
+import { DashboardTaskList } from '@/features/tasks/components/dashboard-task-list'
 import { getCurrentSchedule } from '@/features/schedule/actions'
 
 export const dynamic = 'force-dynamic'
@@ -62,9 +61,8 @@ export default async function DashboardPage() {
   }
 
   // 병렬로 데이터 조회
-  const [pendingCount, tasks, currentSchedule] = await Promise.all([
+  const [pendingCount, currentSchedule] = await Promise.all([
     getPendingRequestsCount(store.id),
-    getTasks(store.id),
     getCurrentSchedule(store.id)
   ])
 
@@ -160,12 +158,7 @@ export default async function DashboardPage() {
 
           {/* Current Tasks */}
           <div className="min-h-[400px]">
-            <CurrentTasks 
-              tasks={tasks} 
-              userRole={activeMember.role}
-              roleId={activeMember.role_id}
-              currentSchedule={currentSchedule}
-            />
+            <DashboardTaskList storeId={store.id} />
           </div>
         </div>
 

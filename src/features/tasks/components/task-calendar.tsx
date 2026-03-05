@@ -254,9 +254,21 @@ export function TaskCalendar({ tasks, roles, openingHours, storeId, canManage = 
       
       // 상태에 따른 색상 (상시 업무 제외)
       if (task.task_type !== 'always') {
-          if (task.status === 'done') color = '#22c55e' // Green-500
-          else if (task.status === 'in_progress') color = '#3b82f6' // Blue-500
-          else color = '#6b7280' // Gray-500 (Todo)
+          const now = new Date()
+          const start = task.start_time ? new Date(task.start_time) : null
+          const end = task.end_time ? new Date(task.end_time) : null
+
+          if (task.status === 'done') {
+              color = '#22c55e' // Green-500 (완료)
+          } else if (task.status === 'in_progress') {
+              color = '#3b82f6' // Blue-500 (진행 중 - 수동 상태)
+          } else if (start && end && now >= start && now <= end) {
+              color = '#3b82f6' // Blue-500 (진행 중 - 시간 기준)
+          } else if (end && now > end) {
+              color = '#ef4444' // Red-500 (지연됨 - Overdue)
+          } else {
+              color = '#6b7280' // Gray-500 (예정 - Todo)
+          }
       }
 
       // Base event object
