@@ -45,8 +45,17 @@ export function CurrentTasks({ tasks, userRole, roleId, currentSchedule }: Curre
   }
 
   const currentTasks = tasks.filter(task => {
-    // 1. Role Filter
-    if (task.assigned_role_id && task.assigned_role_id !== roleId) return false
+    // 0. 근무 여부 체크
+    // 근무 중이 아니면 업무 목록을 표시하지 않음 (매니저 포함)
+    if (!currentSchedule) return false
+
+    // 1. Role Filter (Multi-role support)
+    // assigned_role_ids가 있으면 사용, 없으면 assigned_role_id (Legacy) 사용
+    const taskRoleIds = task.assigned_role_ids || (task.assigned_role_id ? [task.assigned_role_id] : ['all'])
+    
+    // 'all'이 포함되어 있거나, 내 역할이 포함되어 있어야 함
+    // roleId가 없는 경우(매니저 등 역할 할당 안 된 경우)에는 'all'인 업무만 볼 수 있음
+    if (!taskRoleIds.includes('all') && (!roleId || !taskRoleIds.includes(roleId))) return false
 
     // 2. Time/Type Filter
     if (task.task_type === 'always') {
@@ -56,9 +65,6 @@ export function CurrentTasks({ tasks, userRole, roleId, currentSchedule }: Curre
         const todayDate = now.toDateString()
         return taskDate === todayDate
     }
-
-    // 근무 중이 아니면 시간제 업무는 안 보임 (선택 사항)
-    // if (!currentSchedule) return false 
 
     if (task.task_type === 'scheduled') {
         if (!task.start_time || !task.end_time) return false

@@ -237,14 +237,9 @@ export function TaskForm({
       setFormData(prev => {
           let newIds = [...prev.assigned_role_ids];
           
-          if (roleId === 'all') {
-              // 'all' 선택 시 다른 모든 선택 해제하고 'all'만 선택
-              return { ...prev, assigned_role_ids: ['all'] };
-          }
-          
-          // 'all'이 선택되어 있었다면 해제하고 현재 선택한 역할만 추가
+          // 'all'이 포함되어 있으면 전체 ID로 변환 후 처리
           if (newIds.includes('all')) {
-              newIds = [];
+              newIds = roles.map(r => r.id);
           }
 
           if (newIds.includes(roleId)) {
@@ -253,10 +248,19 @@ export function TaskForm({
               newIds.push(roleId);
           }
           
-          // 만약 다 해제해서 빈 배열이 되면? -> 일단 빈 상태 허용 (유효성 검사에서 체크할 수도 있음)
-          // 또는 기본값으로 'all'로 돌아갈 수도 있지만, 사용자가 의도적으로 비우고 싶을 수도 있음.
-          
           return { ...prev, assigned_role_ids: newIds };
+      });
+  }
+
+  const isAllSelected = formData.assigned_role_ids.includes('all') || (roles.length > 0 && roles.every(r => formData.assigned_role_ids.includes(r.id)));
+
+  const handleSelectAll = () => {
+      setFormData(prev => {
+          if (isAllSelected) {
+              return { ...prev, assigned_role_ids: [] };
+          } else {
+              return { ...prev, assigned_role_ids: roles.map(r => r.id) };
+          }
       });
   }
 
@@ -531,52 +535,50 @@ export function TaskForm({
 
                 {/* 담당 역할 지정 (Checkbox List UI - Multi Selection) */}
                 <div className="grid gap-2">
-                  <Label>담당 역할 지정</Label>
+                  <div className="flex items-center justify-between">
+                      <Label>담당 역할 지정</Label>
+                      <Button 
+                          type="button" 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-6 text-xs"
+                          onClick={handleSelectAll}
+                      >
+                          {isAllSelected ? '전체 해제' : '전체 선택'}
+                      </Button>
+                  </div>
                   <div className="border rounded-md p-2 max-h-[200px] overflow-y-auto bg-card">
                       <div className="space-y-1">
-                          {/* 1. 모든 직원 (Default) */}
-                          <div 
-                              className={`
-                                  flex items-center gap-3 p-2 rounded-md transition-colors text-sm cursor-pointer
-                                  ${formData.assigned_role_ids.includes('all') ? 'bg-primary/10' : 'hover:bg-muted'}
-                              `}
-                              onClick={() => toggleRole('all')}
-                          >
-                              <Checkbox 
-                                  id="role-all"
-                                  checked={formData.assigned_role_ids.includes('all')}
-                                  onCheckedChange={() => toggleRole('all')}
-                              />
-                              <div className="flex flex-col flex-1">
-                                  <span className="font-medium">모든 직원</span>
-                                  <span className="text-xs text-muted-foreground">역할에 상관없이 모든 직원에게 할당</span>
-                              </div>
-                          </div>
-
-                          {/* 2. 개별 역할 목록 */}
-                          {roles.map((role) => (
-                              <div 
-                                  key={role.id}
-                                  className={`
-                                      flex items-center gap-3 p-2 rounded-md transition-colors text-sm cursor-pointer
-                                      ${formData.assigned_role_ids.includes(role.id) ? 'bg-primary/10' : 'hover:bg-muted'}
+                          {/* 개별 역할 목록 */}
+                          {roles.map((role) => {
+                              const isSelected = formData.assigned_role_ids.includes('all') || formData.assigned_role_ids.includes(role.id);
+                              
+                              return (
+                                  <div 
+                                      key={role.id}
+                                      className={`
+                                          flex items-center gap-3 p-2 rounded-md transition-colors text-sm
+                                          ${isSelected ? 'bg-primary/10' : 'hover:bg-muted'}
                                   `}
-                                  onClick={() => toggleRole(role.id)}
                               >
                                   <Checkbox 
                                       id={`role-${role.id}`}
-                                      checked={formData.assigned_role_ids.includes(role.id)}
+                                      checked={isSelected}
                                       onCheckedChange={() => toggleRole(role.id)}
                                   />
-                                  <div className="flex items-center gap-2 flex-1">
-                                      <div 
-                                          className="w-2 h-2 rounded-full flex-shrink-0" 
-                                          style={{ backgroundColor: role.color }}
+                                  <div 
+                                    className="flex items-center gap-2 flex-1 cursor-pointer"
+                                    onClick={() => toggleRole(role.id)}
+                                  >
+                                  <div 
+                                      className="w-2 h-2 rounded-full flex-shrink-0" 
+                                      style={{ backgroundColor: role.color }}
                                       />
                                       <span className="font-medium">{role.name}</span>
                                   </div>
                               </div>
-                          ))}
+                            )
+                          })}
                       </div>
                   </div>
                 </div>

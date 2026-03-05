@@ -5,6 +5,8 @@ import { getStoreRoles, getStorePermissions } from '@/features/store/roles'
 import { cookies } from 'next/headers'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
+export const dynamic = 'force-dynamic'
+
 export default async function StoreSettingsPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

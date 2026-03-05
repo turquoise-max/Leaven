@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { addMinutesToTime, getCurrentISOString } from '@/lib/date-utils'
+import { requirePermission } from '@/features/auth/permissions'
 
 export interface ChecklistItem {
   id: string
@@ -99,6 +100,20 @@ export interface AssignTaskInput {
 
 export async function getTasks(storeId: string) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (user) {
+    try {
+        await requirePermission(user.id, storeId, 'view_tasks')
+    } catch (e) {
+        // 권한이 없으면 빈 배열 반환하거나 에러?
+        // view_tasks 권한은 기본적으로 staff 이상이면 다 가지고 있으므로 에러 던져도 됨
+        // 단, 아직 권한이 없는 레거시 데이터가 있을 수 있으므로 조심.
+        // 하지만 마이그레이션을 했으므로 괜찮음.
+        console.error(e)
+        return []
+    }
+  }
 
   const { data, error } = await supabase
     .from('tasks')
@@ -116,6 +131,10 @@ export async function getTasks(storeId: string) {
 
 export async function createTask(input: CreateTaskInput) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) throw new Error('User not found')
+  await requirePermission(user.id, input.store_id, 'manage_tasks')
   
   const tasksToCreate: any[] = []
   const original_repeat_id = input.repeat_config ? crypto.randomUUID() : null
@@ -262,7 +281,15 @@ export async function createTask(input: CreateTaskInput) {
 
 export async function updateTask(input: UpdateTaskInput) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
   const { id, ...updateData } = input
+
+  // Get store_id for permission check
+  const { data: task } = await supabase.from('tasks').select('store_id').eq('id', id).single()
+  if (!task) return { error: 'Task not found' }
+
+  if (!user) throw new Error('User not found')
+  await requirePermission(user.id, task.store_id, 'manage_tasks')
 
   const { data, error } = await supabase
     .from('tasks')
@@ -285,6 +312,14 @@ export async function updateTask(input: UpdateTaskInput) {
 
 export async function deleteTask(id: string) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  // Get store_id for permission check
+  const { data: task } = await supabase.from('tasks').select('store_id').eq('id', id).single()
+  if (!task) return { error: 'Task not found' }
+
+  if (!user) throw new Error('User not found')
+  await requirePermission(user.id, task.store_id, 'manage_tasks')
 
   const { error } = await supabase
     .from('tasks')
@@ -323,6 +358,10 @@ export async function getTaskAssignments(storeId: string, date: string) {
 
 export async function assignTask(input: AssignTaskInput) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) throw new Error('User not found')
+  await requirePermission(user.id, input.store_id, 'manage_tasks')
 
   // 종료 시간 계산 (순수 시간 계산, Timezone 무관)
   const end_time = addMinutesToTime(input.start_time, input.estimated_minutes)
@@ -354,6 +393,14 @@ export async function assignTask(input: AssignTaskInput) {
 
 export async function unassignTask(assignmentId: string, date: string) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  // Get store_id from assignment
+  const { data: assignment } = await supabase.from('task_assignments').select('store_id').eq('id', assignmentId).single()
+  if (!assignment) return { error: 'Assignment not found' }
+
+  if (!user) throw new Error('User not found')
+  await requirePermission(user.id, assignment.store_id, 'manage_tasks')
 
   const { error } = await supabase
     .from('task_assignments')
@@ -372,6 +419,10 @@ export async function unassignTask(assignmentId: string, date: string) {
 
 export async function deleteAllTasks(storeId: string) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) throw new Error('User not found')
+  await requirePermission(user.id, storeId, 'manage_tasks')
 
   // 연관 데이터 삭제 (Cascade 설정이 안되어 있을 경우를 대비해 명시적 삭제)
   await supabase.from('task_assignments').delete().eq('store_id', storeId)

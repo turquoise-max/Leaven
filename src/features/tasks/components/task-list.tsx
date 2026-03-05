@@ -44,9 +44,10 @@ interface TaskListProps {
   tasks: Task[]
   roles: any[]
   storeId: string
+  canManage?: boolean
 }
 
-export function TaskList({ tasks, roles, storeId }: TaskListProps) {
+export function TaskList({ tasks, roles, storeId, canManage = false }: TaskListProps) {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
@@ -314,27 +315,29 @@ export function TaskList({ tasks, roles, storeId }: TaskListProps) {
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="w-4 h-4" />
-                            <span className="sr-only">메뉴 열기</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEditClick(task)}>
-                            <Pencil className="w-4 h-4 mr-2" />
-                            수정
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            className="text-red-600 focus:text-red-600"
-                            onClick={() => setDeleteId(task.id)}
-                          >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            삭제
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      {canManage && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="w-4 h-4" />
+                              <span className="sr-only">메뉴 열기</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleEditClick(task)}>
+                              <Pencil className="w-4 h-4 mr-2" />
+                              수정
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              className="text-red-600 focus:text-red-600"
+                              onClick={() => setDeleteId(task.id)}
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              삭제
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                     </TableCell>
                   </TableRow>
                 )

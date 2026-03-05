@@ -15,6 +15,19 @@ import { Plus, Trash2, Save, Shield, Lock, RotateCcw } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
+const permissionDescriptions: Record<string, string> = {
+  'manage_inventory': '재고 수량을 수정하고 입출고 내역을 관리합니다.',
+  'manage_menu': '메뉴 정보를 수정하고 카테고리를 관리합니다.',
+  'manage_schedule': '직원 근무 일정을 생성, 수정, 삭제합니다.',
+  'view_schedule': '전체 직원의 근무 일정을 조회합니다.',
+  'manage_tasks': '업무를 생성, 수정, 삭제하고 직원에게 할당합니다.',
+  'view_tasks': '매장의 모든 업무 목록을 조회합니다.',
+  'manage_staff': '직원 정보를 수정하고 역할을 관리합니다.',
+  'view_staff': '직원 목록과 연락처 등 기본 정보를 조회합니다.',
+  'view_salary': '직원의 급여 정보를 조회합니다.',
+  'manage_store': '매장 기본 정보를 수정합니다.',
+}
+
 interface RoleManagementProps {
   storeId: string
   roles: Role[]
@@ -57,10 +70,11 @@ export function RoleManagement({ storeId, roles, permissions }: RoleManagementPr
 
   function getCategoryName(code: string) {
     if (code.startsWith('manage_store')) return '매장 관리'
-    if (code.startsWith('manage_staff')) return '직원 관리'
+    if (code.startsWith('manage_staff') || code === 'view_staff' || code === 'view_salary') return '직원 관리'
     if (code.includes('sales')) return '매출 관리'
     if (code.includes('menu') || code.includes('inventory')) return '상품/재고 관리'
     if (code.includes('schedule')) return '근무표 관리'
+    if (code.includes('tasks')) return '업무 관리'
     return '기타'
   }
 
@@ -199,7 +213,7 @@ export function RoleManagement({ storeId, roles, permissions }: RoleManagementPr
   const isOwner = selectedRole?.name === '점주' && selectedRole?.is_system
 
   return (
-    <div className="flex flex-col md:flex-row gap-6 h-[600px]">
+    <div className="flex flex-col md:flex-row gap-6 min-h-[600px]">
       {/* Left Column: Role List */}
       <div className="w-full md:w-64 flex flex-col gap-4">
         <div className="flex items-center justify-between">
@@ -241,7 +255,7 @@ export function RoleManagement({ storeId, roles, permissions }: RoleManagementPr
       {/* Right Column: Role Details & Permissions */}
       <div className="flex-1 flex flex-col gap-4 border rounded-md p-6 bg-background">
         {selectedRole ? (
-          <>
+          <div className="flex flex-col gap-6">
             <div className="flex items-center justify-between pb-4 border-b">
               <div className="space-y-1">
                 <h3 className="text-lg font-medium flex items-center gap-2">
@@ -273,7 +287,7 @@ export function RoleManagement({ storeId, roles, permissions }: RoleManagementPr
               )}
             </div>
 
-            <div className="flex flex-col gap-6 flex-1 overflow-hidden">
+            <div className="flex flex-col gap-6">
               {/* Basic Info */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -309,13 +323,13 @@ export function RoleManagement({ storeId, roles, permissions }: RoleManagementPr
               <Separator />
 
               {/* Permissions */}
-              <div className="flex-1 flex flex-col gap-2 min-h-0">
+              <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
                   <Label className="text-base">권한 설정</Label>
                   {isOwner && <span className="text-xs text-muted-foreground">모든 권한 허용됨</span>}
                 </div>
                 
-                <ScrollArea className="flex-1 pr-4">
+                <div className="pr-4">
                   <div className="space-y-6">
                     {Object.entries(permissionGroups).map(([category, perms]) => (
                       <div key={category} className="space-y-3">
@@ -345,7 +359,7 @@ export function RoleManagement({ storeId, roles, permissions }: RoleManagementPr
                                   {perm.description || perm.code}
                                 </Label>
                                 <p className="text-xs text-muted-foreground">
-                                  {perm.code}
+                                  {permissionDescriptions[perm.code] || perm.code}
                                 </p>
                               </div>
                             </div>
@@ -354,11 +368,10 @@ export function RoleManagement({ storeId, roles, permissions }: RoleManagementPr
                       </div>
                     ))}
                   </div>
-                </ScrollArea>
+                </div>
               </div>
             </div>
-
-          </>
+          </div>
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
             <Shield className="h-12 w-12 mb-4 opacity-20" />

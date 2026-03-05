@@ -9,6 +9,10 @@ export type PermissionCode =
   | 'manage_inventory'
   | 'view_schedule'
   | 'manage_schedule'
+  | 'view_tasks'
+  | 'manage_tasks'
+  | 'view_staff'
+  | 'view_salary'
 
 // 캐싱을 통해 동일한 요청 내에서 중복 DB 조회를 방지
 export const getStoreMemberRole = cache(async (userId: string, storeId: string) => {

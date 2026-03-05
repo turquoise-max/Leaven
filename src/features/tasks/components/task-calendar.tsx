@@ -39,15 +39,17 @@ interface TaskCalendarProps {
   roles: any[]
   openingHours?: any
   storeId: string
+  canManage?: boolean
 }
 
-export function TaskCalendar({ tasks, roles, openingHours, storeId }: TaskCalendarProps) {
+export function TaskCalendar({ tasks, roles, openingHours, storeId, canManage = false }: TaskCalendarProps) {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [initialTaskData, setInitialTaskData] = useState<Partial<TaskFormData>>({})
 
   const handleEventClick = (info: EventClickArg) => {
+    if (!canManage) return
     const task = info.event.extendedProps.originalTask
     if (task) {
         setSelectedTask(task)
@@ -56,6 +58,7 @@ export function TaskCalendar({ tasks, roles, openingHours, storeId }: TaskCalend
   }
 
   const handleDateSelect = (info: any) => {
+    if (!canManage) return
     const startStr = info.startStr // ISO string
     const endStr = info.endStr
 
@@ -85,6 +88,7 @@ export function TaskCalendar({ tasks, roles, openingHours, storeId }: TaskCalend
   }
 
   const handleDateClick = (info: any) => {
+    if (!canManage) return
     // 빈 공간 클릭 시
     if (info.dateStr.includes('T')) {
        const [dateStr, timeStr] = info.dateStr.split('T')
@@ -271,7 +275,7 @@ export function TaskCalendar({ tasks, roles, openingHours, storeId }: TaskCalend
           checklist: task.checklist,
           originalTask: task
         },
-        editable: true // 모든 업무 드래그/리사이즈 허용 (개별 레코드이므로)
+        editable: canManage // 권한에 따라 드래그/리사이즈 허용
       }
 
       // Handle 'always' tasks
@@ -357,8 +361,8 @@ export function TaskCalendar({ tasks, roles, openingHours, storeId }: TaskCalend
         dateClick={handleDateClick}
         eventDrop={handleEventDrop}
         eventResize={handleEventResize}
-        editable={true} // 전체적으로 켜두고 개별 이벤트에서 제어 (또는 여기서 true면 모든 이벤트가 editable이 됨. 개별 설정이 우선)
-        selectable={true}
+        editable={canManage} // 전체적으로 켜두고 개별 이벤트에서 제어 (또는 여기서 true면 모든 이벤트가 editable이 됨. 개별 설정이 우선)
+        selectable={canManage}
         selectMirror={true}
         nowIndicator={true}
         allDaySlot={true}

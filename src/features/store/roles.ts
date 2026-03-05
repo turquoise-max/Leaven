@@ -1,7 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, unstable_noStore as noStore } from 'next/cache'
 
 export type Role = {
   id: string
@@ -43,6 +43,7 @@ export async function getStoreRoles(storeId: string) {
 }
 
 export async function getStorePermissions() {
+  noStore() // 권한 목록은 자주 바뀌지 않지만, 업데이트 직후 반영을 위해 캐시 무효화
   const supabase = await createClient()
   
   try {

@@ -8,6 +8,7 @@ import { TaskList } from '@/features/tasks/components/task-list'
 import { CreateTaskDialog } from '@/features/tasks/components/create-task-dialog'
 import { TaskCalendar } from '@/features/tasks/components/task-calendar'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { hasPermission } from '@/features/auth/permissions'
 import { CalendarDays, List } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 
@@ -58,9 +59,10 @@ export default async function TasksPage() {
   }
 
   // 업무 목록 및 역할 조회
-  const [tasks, roles] = await Promise.all([
+  const [tasks, roles, canManage] = await Promise.all([
     getTasks(store.id),
-    getStoreRoles(store.id)
+    getStoreRoles(store.id),
+    hasPermission(user.id, store.id, 'manage_tasks')
   ])
 
   return (
@@ -72,7 +74,7 @@ export default async function TasksPage() {
             시간대별 업무 흐름을 관리하고 할당합니다.
           </p>
         </div>
-        <CreateTaskDialog storeId={store.id} />
+        {canManage && <CreateTaskDialog storeId={store.id} />}
       </div>
 
       <Tabs defaultValue="calendar" className="flex-1 flex flex-col overflow-hidden">
@@ -95,13 +97,14 @@ export default async function TasksPage() {
                 roles={roles} 
                 openingHours={store.opening_hours} 
                 storeId={store.id}
+                canManage={canManage}
               />
             </CardContent>
           </Card>
         </TabsContent>
         
         <TabsContent value="list" className="flex-1 overflow-auto mt-4">
-          <TaskList tasks={tasks} roles={roles} />
+          <TaskList tasks={tasks} roles={roles} storeId={store.id} canManage={canManage} />
         </TabsContent>
       </Tabs>
     </div>
