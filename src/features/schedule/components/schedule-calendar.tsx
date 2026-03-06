@@ -4,7 +4,7 @@ import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import interactionPlugin from '@fullcalendar/interaction'
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { ScheduleDialog } from './schedule-dialog'
 import { updateScheduleTime } from '@/features/schedule/actions'
@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { X, Filter } from 'lucide-react'
+import { CalendarHeader } from '@/components/common/calendar-header'
 
 interface ScheduleCalendarProps {
   initialEvents: any[]
@@ -37,20 +38,6 @@ function hexToRgba(hex: string, alpha: number) {
   const b = parseInt(hex.slice(5, 7), 16)
   if (isNaN(r) || isNaN(g) || isNaN(b)) return `rgba(128, 128, 128, ${alpha})`
   return `rgba(${r}, ${g}, ${b}, ${alpha})`
-}
-
-// Static Options (Prevent Re-render)
-const headerToolbar = {
-  left: 'prev,next today',
-  center: 'title',
-  right: 'dayGridMonth,timeGridWeek,timeGridDay',
-}
-
-const buttonText = {
-  today: '오늘',
-  month: '월',
-  week: '주',
-  day: '일',
 }
 
 const slotLabelFormat = {
@@ -197,6 +184,11 @@ export function ScheduleCalendar({
     return { minTime: min, maxTime: max }
   }, [openingHours])
   
+  // Calendar Ref & State
+  const calendarRef = useRef<FullCalendar>(null)
+  const [currentView, setCurrentView] = useState('timeGridWeek')
+  const [currentTitle, setCurrentTitle] = useState('')
+
   // Dialog States
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false)
   const [dialogMode, setDialogMode] = useState<'create' | 'edit'>('create')
@@ -204,6 +196,33 @@ export function ScheduleCalendar({
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null)
   const [initialTime, setInitialTime] = useState<{ start: string; end: string } | undefined>(undefined)
   
+  // Calendar Controls
+  const handlePrev = useCallback(() => {
+    const api = calendarRef.current?.getApi()
+    api?.prev()
+  }, [])
+
+  const handleNext = useCallback(() => {
+    const api = calendarRef.current?.getApi()
+    api?.next()
+  }, [])
+
+  const handleToday = useCallback(() => {
+    const api = calendarRef.current?.getApi()
+    api?.today()
+  }, [])
+
+  const handleViewChange = useCallback((view: string) => {
+    const api = calendarRef.current?.getApi()
+    api?.changeView(view)
+    setCurrentView(view)
+  }, [])
+
+  const handleDatesSet = useCallback((arg: any) => {
+    setCurrentTitle(arg.view.title)
+    setCurrentView(arg.view.type)
+  }, [])
+
   // Event Mapping & Filtering Logic
   const events = useMemo(() => {
     const mappedEvents = initialEvents.map((event) => {
@@ -375,16 +394,21 @@ export function ScheduleCalendar({
 
   return (
     <>
-      <div className="flex flex-col h-full w-full">
-        {/* Filter Bar */}
-        <div className="flex justify-end items-center gap-2 mb-4 px-1">
+      <div className="flex flex-col h-full w-full border rounded-md bg-background overflow-hidden">
+        <CalendarHeader
+          title={currentTitle}
+          view={currentView}
+          onPrev={handlePrev}
+          onNext={handleNext}
+          onToday={handleToday}
+          onViewChange={handleViewChange}
+        >
           <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-muted-foreground" />
             <Select 
               value={selectedStaffId} 
               onValueChange={(val) => updateFilter('staffId', val)}
             >
-              <SelectTrigger className="w-[140px] h-8 text-xs">
+              <SelectTrigger className="w-[120px] h-8 text-xs">
                 <SelectValue placeholder="전체 직원" />
               </SelectTrigger>
               <SelectContent>
@@ -401,7 +425,7 @@ export function ScheduleCalendar({
               value={selectedRoleId} 
               onValueChange={(val) => updateFilter('roleId', val)}
             >
-              <SelectTrigger className="w-[140px] h-8 text-xs">
+              <SelectTrigger className="w-[120px] h-8 text-xs">
                 <SelectValue placeholder="전체 역할" />
               </SelectTrigger>
               <SelectContent>
@@ -416,27 +440,26 @@ export function ScheduleCalendar({
                 ))}
               </SelectContent>
             </Select>
-          </div>
 
-          {(selectedStaffId !== 'all' || selectedRoleId !== 'all') && (
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
-              onClick={clearFilters}
-            >
-              <X className="w-3 h-3 mr-1" />
-              필터 초기화
-            </Button>
-          )}
-        </div>
+            {(selectedStaffId !== 'all' || selectedRoleId !== 'all') && (
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                onClick={clearFilters}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
+        </CalendarHeader>
 
         <div className="flex-1 overflow-hidden">
           <FullCalendar
+            ref={calendarRef}
             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
             initialView="timeGridWeek"
-            headerToolbar={headerToolbar}
-            buttonText={buttonText}
+            headerToolbar={false}
             events={events}
             eventContent={renderEventContent}
             editable={canManage}
@@ -454,6 +477,7 @@ export function ScheduleCalendar({
             timeZone="Asia/Seoul"
             slotLabelFormat={slotLabelFormat}
             dayHeaderFormat={dayHeaderFormat}
+            datesSet={handleDatesSet}
             dateClick={handleDateClick}
             select={handleSelect}
             eventClick={handleEventClick}
