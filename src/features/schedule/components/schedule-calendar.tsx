@@ -4,17 +4,27 @@ import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import interactionPlugin from '@fullcalendar/interaction'
-import { useState, useMemo, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { ScheduleDialog } from './schedule-dialog'
 import { updateScheduleTime } from '@/features/schedule/actions'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { toKSTISOString, revertKSTToUTC } from '@/lib/date-utils'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Button } from '@/components/ui/button'
+import { X, Filter } from 'lucide-react'
 
 interface ScheduleCalendarProps {
   initialEvents: any[]
   staffList: any[]
+  roles: any[]
   canManage: boolean
   storeId: string
   openingHours?: any // Record<string, OpeningHoursData>
@@ -110,11 +120,33 @@ const renderEventContent = (eventInfo: any) => {
 export function ScheduleCalendar({
   initialEvents,
   staffList,
+  roles,
   canManage,
   storeId,
   openingHours,
 }: ScheduleCalendarProps) {
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+
+  // Filter State from URL
+  const selectedStaffId = searchParams.get('staffId') || 'all'
+  const selectedRoleId = searchParams.get('roleId') || 'all'
+
+  // Update URL Helper
+  const updateFilter = (key: string, value: string) => {
+    const params = new URLSearchParams(searchParams)
+    if (value && value !== 'all') {
+      params.set(key, value)
+    } else {
+      params.delete(key)
+    }
+    router.replace(`${pathname}?${params.toString()}`)
+  }
+
+  const clearFilters = () => {
+    router.replace(pathname)
+  }
   
   // 운영 시간 범위 계산 (Memoized)
   const { minTime, maxTime } = useMemo(() => {
@@ -172,9 +204,9 @@ export function ScheduleCalendar({
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null)
   const [initialTime, setInitialTime] = useState<{ start: string; end: string } | undefined>(undefined)
   
-  // Event Mapping Logic
+  // Event Mapping & Filtering Logic
   const events = useMemo(() => {
-    return initialEvents.map((event) => {
+    const mappedEvents = initialEvents.map((event) => {
       // 멤버 정보 매핑
       const members = (event.schedule_members || []).map((m: any) => {
         const staff = staffList.find(s => s.user_id === m.user_id)
@@ -182,7 +214,8 @@ export function ScheduleCalendar({
             id: m.user_id, 
             userName: m.profile?.full_name || '미지정',
             roleName: staff?.role_info?.name || staff?.role || 'Staff',
-            roleColor: staff?.role_info?.color || '#808080'
+            roleColor: staff?.role_info?.color || '#808080',
+            roleId: staff?.role_info?.id // 필터링용 Role ID
         }
       })
 
@@ -203,7 +236,26 @@ export function ScheduleCalendar({
         }
       }
     })
-  }, [initialEvents, staffList])
+
+    // Apply Filters
+    return mappedEvents.filter(event => {
+      const members = event.extendedProps.members
+
+      // 1. Staff Filter
+      if (selectedStaffId !== 'all') {
+        const hasStaff = members.some((m: any) => m.id === selectedStaffId)
+        if (!hasStaff) return false
+      }
+
+      // 2. Role Filter
+      if (selectedRoleId !== 'all') {
+        const hasRole = members.some((m: any) => m.roleId === selectedRoleId)
+        if (!hasRole) return false
+      }
+
+      return true
+    })
+  }, [initialEvents, staffList, selectedStaffId, selectedRoleId])
 
   const handleDateClick = useCallback((info: any) => {
     if (!canManage) return
@@ -323,35 +375,92 @@ export function ScheduleCalendar({
 
   return (
     <>
-      <div className="h-full w-full">
-        <FullCalendar
-          plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-          initialView="timeGridWeek"
-          headerToolbar={headerToolbar}
-          buttonText={buttonText}
-          events={events}
-          eventContent={renderEventContent}
-          editable={canManage}
-          selectable={canManage}
-          selectMirror={true}
-          dayMaxEvents={true}
-          weekends={true}
-          firstDay={1}
-          height="100%"
-          slotMinTime={minTime}
-          slotMaxTime={maxTime}
-          allDaySlot={false}
-          nowIndicator={true}
-          locale="ko"
-          timeZone="Asia/Seoul"
-          slotLabelFormat={slotLabelFormat}
-          dayHeaderFormat={dayHeaderFormat}
-          dateClick={handleDateClick}
-          select={handleSelect}
-          eventClick={handleEventClick}
-          eventDrop={handleEventDrop}
-          eventResize={handleEventResize}
-        />
+      <div className="flex flex-col h-full w-full">
+        {/* Filter Bar */}
+        <div className="flex justify-end items-center gap-2 mb-4 px-1">
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-muted-foreground" />
+            <Select 
+              value={selectedStaffId} 
+              onValueChange={(val) => updateFilter('staffId', val)}
+            >
+              <SelectTrigger className="w-[140px] h-8 text-xs">
+                <SelectValue placeholder="전체 직원" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">전체 직원</SelectItem>
+                {staffList.map((staff) => (
+                  <SelectItem key={staff.user_id} value={staff.user_id}>
+                    {staff.profile?.full_name || '이름 없음'}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select 
+              value={selectedRoleId} 
+              onValueChange={(val) => updateFilter('roleId', val)}
+            >
+              <SelectTrigger className="w-[140px] h-8 text-xs">
+                <SelectValue placeholder="전체 역할" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">전체 역할</SelectItem>
+                {roles.map((role) => (
+                  <SelectItem key={role.id} value={role.id}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: role.color }} />
+                      {role.name}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {(selectedStaffId !== 'all' || selectedRoleId !== 'all') && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+              onClick={clearFilters}
+            >
+              <X className="w-3 h-3 mr-1" />
+              필터 초기화
+            </Button>
+          )}
+        </div>
+
+        <div className="flex-1 overflow-hidden">
+          <FullCalendar
+            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+            initialView="timeGridWeek"
+            headerToolbar={headerToolbar}
+            buttonText={buttonText}
+            events={events}
+            eventContent={renderEventContent}
+            editable={canManage}
+            selectable={canManage}
+            selectMirror={true}
+            dayMaxEvents={true}
+            weekends={true}
+            firstDay={1}
+            height="100%"
+            slotMinTime={minTime}
+            slotMaxTime={maxTime}
+            allDaySlot={false}
+            nowIndicator={true}
+            locale="ko"
+            timeZone="Asia/Seoul"
+            slotLabelFormat={slotLabelFormat}
+            dayHeaderFormat={dayHeaderFormat}
+            dateClick={handleDateClick}
+            select={handleSelect}
+            eventClick={handleEventClick}
+            eventDrop={handleEventDrop}
+            eventResize={handleEventResize}
+          />
+        </div>
       </div>
 
       <ScheduleDialog

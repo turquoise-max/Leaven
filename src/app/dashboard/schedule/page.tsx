@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { requirePermission } from '@/features/auth/permissions'
 import { ScheduleCalendar } from '@/features/schedule/components/schedule-calendar'
+import { getStoreRoles } from '@/features/store/actions'
 import { cookies } from 'next/headers'
 
 export default async function SchedulePage() {
@@ -90,12 +91,15 @@ export default async function SchedulePage() {
   const store = member.store as any
   const openingHours = store?.opening_hours || {}
 
+  // 역할 목록 조회 (필터링용)
+  const roles = await getStoreRoles(member.store_id)
+
   return (
     <div className="h-[calc(100vh-100px)] flex flex-col space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-medium">근무 일정</h3>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-3xl font-bold tracking-tight">근무 일정</h1>
+          <p className="text-muted-foreground">
             매장 직원들의 근무 스케줄을 관리합니다.
           </p>
         </div>
@@ -105,6 +109,7 @@ export default async function SchedulePage() {
         <ScheduleCalendar 
           initialEvents={schedules || []} 
           staffList={staffList || []}
+          roles={roles}
           canManage={canManage}
           storeId={member.store_id}
           openingHours={openingHours}

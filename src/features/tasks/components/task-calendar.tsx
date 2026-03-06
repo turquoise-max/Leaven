@@ -5,8 +5,8 @@ import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import interactionPlugin from '@fullcalendar/interaction'
 import { Task, updateTask } from '../actions'
-import { useMemo, useState } from 'react'
-import { CheckCircle2, Clock, Circle } from 'lucide-react'
+import { useMemo, useState, useEffect } from 'react'
+import { CheckCircle2, Clock, Circle, Filter, X } from 'lucide-react'
 import { EditTaskDialog } from './edit-task-dialog'
 import { CreateTaskDialog } from './create-task-dialog'
 import { EventClickArg, EventDropArg } from '@fullcalendar/core'
@@ -14,6 +14,15 @@ import { EventResizeDoneArg } from '@fullcalendar/interaction'
 import { TaskFormData } from './task-form'
 import { toast } from 'sonner'
 import { toKSTISOString, revertKSTToUTC } from '@/lib/date-utils'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Button } from '@/components/ui/button'
 
 const buttonText = {
   today: '오늘',
@@ -43,6 +52,28 @@ interface TaskCalendarProps {
 }
 
 export function TaskCalendar({ tasks, roles, openingHours, storeId, canManage = false }: TaskCalendarProps) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+
+  // Filter State from URL
+  const selectedRoleId = searchParams.get('roleId') || 'all'
+
+  // Update URL Helper
+  const updateFilter = (key: string, value: string) => {
+    const params = new URLSearchParams(searchParams)
+    if (value && value !== 'all') {
+      params.set(key, value)
+    } else {
+      params.delete(key)
+    }
+    router.replace(`${pathname}?${params.toString()}`)
+  }
+
+  const clearFilters = () => {
+    router.replace(pathname)
+  }
+
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
@@ -244,9 +275,9 @@ export function TaskCalendar({ tasks, roles, openingHours, storeId, canManage = 
     return { minTime: min, maxTime: max }
   }, [openingHours])
 
-  // Convert tasks to FullCalendar events
+  // Convert tasks to FullCalendar events & Apply Filters
   const events = useMemo(() => {
-    return tasks.map(task => {
+    const mappedEvents = tasks.map(task => {
       // Role color mapping
       const role = roles.find(r => r.id === task.assigned_role_id)
       let color = role ? role.color : '#808080'
@@ -281,6 +312,7 @@ export function TaskCalendar({ tasks, roles, openingHours, storeId, canManage = 
         extendedProps: {
           description: task.description,
           roleName: role ? role.name : '전체',
+          assignedRoleId: task.assigned_role_id, // For Filtering
           isCritical: task.is_critical,
           taskType: task.task_type,
           status: task.status,
@@ -312,8 +344,15 @@ export function TaskCalendar({ tasks, roles, openingHours, storeId, canManage = 
       }
 
       return null
-    }).filter(Boolean)
-  }, [tasks, roles])
+    }).filter(Boolean) as any[]
+
+    // Apply Filter
+    if (selectedRoleId !== 'all') {
+      return mappedEvents.filter(event => event.extendedProps.assignedRoleId === selectedRoleId)
+    }
+
+    return mappedEvents
+  }, [tasks, roles, selectedRoleId])
 
   // Duration calculation helper
   function calculateDuration(start: string, end: string) {
@@ -357,38 +396,78 @@ export function TaskCalendar({ tasks, roles, openingHours, storeId, canManage = 
   }
 
   return (
-    <div className="h-full w-full">
-      <FullCalendar
-        plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-        initialView="timeGridWeek"
-        headerToolbar={{
-          left: 'prev,next today',
-          center: 'title',
-          right: 'dayGridMonth,timeGridWeek,timeGridDay',
-        }}
-        events={events as any}
-        eventContent={renderEventContent}
-        eventClick={handleEventClick}
-        select={handleDateSelect}
-        dateClick={handleDateClick}
-        eventDrop={handleEventDrop}
-        eventResize={handleEventResize}
-        editable={canManage} // 전체적으로 켜두고 개별 이벤트에서 제어 (또는 여기서 true면 모든 이벤트가 editable이 됨. 개별 설정이 우선)
-        selectable={canManage}
-        selectMirror={true}
-        nowIndicator={true}
-        allDaySlot={true}
-        slotMinTime={minTime}
-        slotMaxTime={maxTime}
-        height="100%"
-        locale="ko"
-        timeZone="Asia/Seoul"
-        weekends={true}
-        firstDay={1}
-        buttonText={buttonText}
-        slotLabelFormat={slotLabelFormat}
-        dayHeaderFormat={dayHeaderFormat}
-      />
+    <div className="flex flex-col h-full w-full">
+      {/* Filter Bar */}
+      <div className="flex justify-end items-center gap-2 mb-4 px-1">
+        <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-muted-foreground" />
+            <Select 
+              value={selectedRoleId} 
+              onValueChange={(val) => updateFilter('roleId', val)}
+            >
+              <SelectTrigger className="w-[140px] h-8 text-xs">
+                <SelectValue placeholder="전체 역할" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">전체 역할</SelectItem>
+                {roles.map((role) => (
+                  <SelectItem key={role.id} value={role.id}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: role.color }} />
+                      {role.name}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+        </div>
+
+        {selectedRoleId !== 'all' && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+              onClick={clearFilters}
+            >
+              <X className="w-3 h-3 mr-1" />
+              필터 초기화
+            </Button>
+        )}
+      </div>
+
+      <div className="flex-1 overflow-hidden">
+        <FullCalendar
+            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+            initialView="timeGridWeek"
+            headerToolbar={{
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,timeGridWeek,timeGridDay',
+            }}
+            events={events}
+            eventContent={renderEventContent}
+            eventClick={handleEventClick}
+            select={handleDateSelect}
+            dateClick={handleDateClick}
+            eventDrop={handleEventDrop}
+            eventResize={handleEventResize}
+            editable={canManage} 
+            selectable={canManage}
+            selectMirror={true}
+            nowIndicator={true}
+            allDaySlot={true}
+            slotMinTime={minTime}
+            slotMaxTime={maxTime}
+            height="100%"
+            locale="ko"
+            timeZone="Asia/Seoul"
+            weekends={true}
+            firstDay={1}
+            buttonText={buttonText}
+            slotLabelFormat={slotLabelFormat}
+            dayHeaderFormat={dayHeaderFormat}
+        />
+      </div>
       
       <EditTaskDialog 
         task={selectedTask}

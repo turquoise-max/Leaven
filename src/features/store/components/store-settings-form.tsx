@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { updateStore, deleteStore } from '../actions'
 import { Button } from '@/components/ui/button'
 import {
@@ -48,6 +49,7 @@ interface StoreSettingsFormProps {
 }
 
 export function StoreSettingsForm({ initialData }: StoreSettingsFormProps) {
+  const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [deleteStoreName, setDeleteStoreName] = useState('')
@@ -175,8 +177,10 @@ export function StoreSettingsForm({ initialData }: StoreSettingsFormProps) {
         setIsDeleting(false)
       } else {
         toast.success("매장 삭제 완료", {
-          description: "매장이 삭제되었습니다. 대시보드로 이동합니다.",
+          description: "매장이 삭제되었습니다. 홈으로 이동합니다.",
         })
+        router.push('/home')
+        // 페이지 이동이 완료될 때까지 로딩 상태 유지
       }
     } catch (e) {
       toast.error("오류 발생", { description: "알 수 없는 오류가 발생했습니다." })

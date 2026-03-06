@@ -78,7 +78,7 @@ export function ImageUpload({ currentImageUrl, onImageChange, storeName }: Image
   return (
     <div className="flex items-center gap-6">
       <Avatar className="w-24 h-24 border-2 border-border">
-        <AvatarImage src={previewUrl || ''} alt={storeName} />
+        <AvatarImage src={previewUrl || undefined} alt={storeName} />
         <AvatarFallback className="text-lg bg-muted">
           {storeName.slice(0, 2).toUpperCase()}
         </AvatarFallback>

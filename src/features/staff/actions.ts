@@ -196,7 +196,18 @@ export async function updateStaffInfo(storeId: string, targetMemberId: string, f
   const phone = formData.get('phone') as string
   const workHours = formData.get('workHours') as string
   const hiredAt = formData.get('hiredAt') as string
+  const memo = formData.get('memo') as string
+  const workSchedulesJson = formData.get('workSchedules') as string
   
+  let workSchedules = []
+  try {
+    if (workSchedulesJson) {
+      workSchedules = JSON.parse(workSchedulesJson)
+    }
+  } catch (e) {
+    console.error('Failed to parse workSchedules:', e)
+  }
+
   // 추가: 대상 멤버가 점주인지 확인 (점주 역할 변경 불가)
   const { data: targetMember } = await supabase
     .from('store_members')
@@ -228,6 +239,8 @@ export async function updateStaffInfo(storeId: string, targetMemberId: string, f
       phone: phone || null,
       name: name || null,
       email: email || null,
+      memo: memo || null,
+      work_schedules: workSchedules,
     })
     .eq('id', targetMemberId) // user_id 대신 member id(pk) 사용 권장 (수기 등록 직원은 user_id가 없으므로)
     .eq('store_id', storeId)

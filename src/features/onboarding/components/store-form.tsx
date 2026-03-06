@@ -16,12 +16,23 @@ import { Textarea } from '@/components/ui/textarea'
 
 export function StoreForm() {
   const [error, setError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  async function handleSubmit(formData: FormData) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    if (isSubmitting) return
+
+    setIsSubmitting(true)
+    setError(null)
+    
+    const formData = new FormData(e.currentTarget)
     const result = await createStore(formData)
+    
     if (result?.error) {
       setError(result.error)
+      setIsSubmitting(false)
     }
+    // 성공 시 redirect 되므로 isSubmitting을 false로 돌릴 필요 없음
   }
 
   return (
@@ -33,7 +44,7 @@ export function StoreForm() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form action={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">상호명</Label>
             <Input
@@ -71,8 +82,8 @@ export function StoreForm() {
 
           {error && <div className="text-sm text-red-500">{error}</div>}
 
-          <Button type="submit" className="w-full">
-            매장 등록하기
+          <Button type="submit" className="w-full" disabled={isSubmitting}>
+            {isSubmitting ? '매장 등록 중...' : '매장 등록하기'}
           </Button>
         </form>
       </CardContent>

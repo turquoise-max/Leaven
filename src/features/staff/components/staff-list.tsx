@@ -10,13 +10,19 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
-import { Shield, ShieldAlert, ShieldCheck, User, Check, X, UserPlus, Phone } from 'lucide-react'
+import { Shield, ShieldAlert, ShieldCheck, User, Check, X, UserPlus, Phone, Info } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EditStaffDialog } from './edit-staff-dialog'
 import { approveRequest, rejectRequest, removeStaff } from '../actions'
 import { toast } from 'sonner'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 interface RoleInfo {
   id: string
@@ -34,6 +40,7 @@ interface StaffMember {
   wage_type?: 'hourly' | 'monthly'
   base_wage?: number
   work_hours?: string
+  work_schedules?: any[] // Added
   hired_at?: string
   joined_at: string
   name: string | null // 수기 등록 이름
@@ -53,6 +60,8 @@ interface StaffListProps {
   storeId: string
   canManage: boolean
 }
+
+const DAYS = ['일', '월', '화', '수', '목', '금', '토']
 
 export function StaffList({ initialData, storeId, canManage }: StaffListProps) {
   const [staffList, setStaffList] = useState<StaffMember[]>(initialData)
@@ -125,7 +134,6 @@ export function StaffList({ initialData, storeId, canManage }: StaffListProps) {
   }
 
   const getDisplayName = (staff: StaffMember) => {
-    // 매장에서 사용하는 이름(staff.name)을 우선 표시
     return staff.name || staff.profile?.full_name || '이름 없음'
   }
 
@@ -185,6 +193,63 @@ export function StaffList({ initialData, storeId, canManage }: StaffListProps) {
         return <ShieldCheck className="h-4 w-4" style={{ color: roleColor }} />
      }
      return <User className="h-4 w-4" style={{ color: roleColor }} />
+  }
+
+  // Helper Functions
+  const calculateWorkStats = (schedules: any[]) => {
+    if (!schedules || !Array.isArray(schedules) || schedules.length === 0) return null
+
+    let days = 0
+    let totalMinutes = 0
+
+    schedules.forEach(sch => {
+      if (!sch.is_holiday && sch.start_time && sch.end_time) {
+        days++
+        const [startH, startM] = sch.start_time.split(':').map(Number)
+        const [endH, endM] = sch.end_time.split(':').map(Number)
+        let diff = (endH * 60 + endM) - (startH * 60 + startM)
+        if (diff < 0) diff += 24 * 60
+        
+        // Subtract break time
+        diff -= (sch.break_minutes || 0)
+        if (diff < 0) diff = 0
+        
+        totalMinutes += diff
+      }
+    })
+
+    if (days === 0) return null
+
+    const hours = Math.floor(totalMinutes / 60)
+    const minutes = totalMinutes % 60
+    
+    return { days, hours, minutes, totalMinutes }
+  }
+
+  const getScheduleSummary = (staff: StaffMember) => {
+    const stats = calculateWorkStats(staff.work_schedules || [])
+    
+    if (!stats) return staff.work_hours || '-' // Fallback to legacy string
+
+    const timeString = stats.minutes > 0 
+      ? `${stats.hours}시간 ${stats.minutes}분` 
+      : `${stats.hours}시간`
+      
+    return `주 ${stats.days}일 (${timeString})`
+  }
+
+  const getExpectedMonthlyPay = (staff: StaffMember) => {
+    if (staff.wage_type === 'monthly') return staff.base_wage
+    
+    const stats = calculateWorkStats(staff.work_schedules || [])
+    if (!stats || !staff.base_wage) return null
+
+    // Weekly Pay * 4.345 weeks
+    // Weekly Pay = (Total Minutes / 60) * Hourly Wage
+    const weeklyPay = (stats.totalMinutes / 60) * staff.base_wage
+    const monthlyPay = Math.round(weeklyPay * 4.345) // Average weeks per month
+
+    return monthlyPay
   }
 
   return (
@@ -267,8 +332,8 @@ export function StaffList({ initialData, storeId, canManage }: StaffListProps) {
               <TableHead>역할</TableHead>
               <TableHead>이름 / 이메일</TableHead>
               <TableHead>전화번호</TableHead>
-              <TableHead>근무 시간</TableHead>
-              <TableHead>시급/월급</TableHead>
+              <TableHead>근무 스케줄</TableHead>
+              <TableHead>급여 정보</TableHead>
               <TableHead>입사일</TableHead>
               <TableHead>상태</TableHead>
             </TableRow>
@@ -314,16 +379,50 @@ export function StaffList({ initialData, storeId, canManage }: StaffListProps) {
                   )}
                 </TableCell>
                 <TableCell>
-                    <span className="text-sm">{staff.work_hours || '-'}</span>
+                  {/* Work Schedule Summary with Tooltip */}
+                  {staff.work_schedules && Array.isArray(staff.work_schedules) && staff.work_schedules.length > 0 ? (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center gap-1 cursor-help underline decoration-dotted decoration-muted-foreground/50 underline-offset-4">
+                            <span className="text-sm">{getScheduleSummary(staff)}</span>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="p-0 overflow-hidden border-border">
+                          <div className="bg-muted px-3 py-2 text-xs font-medium border-b">상세 근무 스케줄</div>
+                          <div className="p-2 space-y-1">
+                            {staff.work_schedules.map((sch: any, i: number) => (
+                              !sch.is_holiday ? (
+                                <div key={i} className="text-xs flex gap-2">
+                                  <span className="font-medium w-3">{DAYS[sch.day]}</span>
+                                  <span>{sch.start_time} - {sch.end_time}</span>
+                                  {sch.break_minutes > 0 && <span className="text-muted-foreground">(휴게 {sch.break_minutes}분)</span>}
+                                </div>
+                              ) : null
+                            ))}
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">{staff.work_hours || '-'}</span>
+                  )}
                 </TableCell>
                 <TableCell>
                     <div className="flex flex-col text-sm">
-                        <span className="text-muted-foreground text-xs">
-                            {staff.wage_type === 'monthly' ? '월급' : '시급'}
-                        </span>
-                        <span>
-                            {staff.base_wage ? staff.base_wage.toLocaleString() + '원' : '-'}
-                        </span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-muted-foreground text-xs w-8">
+                              {staff.wage_type === 'monthly' ? '월급' : '시급'}
+                          </span>
+                          <span className="font-medium">
+                              {staff.base_wage ? staff.base_wage.toLocaleString() : '-'}원
+                          </span>
+                        </div>
+                        {staff.wage_type === 'hourly' && staff.base_wage && (
+                          <div className="text-xs text-muted-foreground mt-0.5">
+                            월 예상: 약 {getExpectedMonthlyPay(staff)?.toLocaleString()}원
+                          </div>
+                        )}
                     </div>
                 </TableCell>
                 <TableCell>
