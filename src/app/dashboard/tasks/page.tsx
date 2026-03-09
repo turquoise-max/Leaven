@@ -2,10 +2,9 @@ import { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
-import { getTasks } from '@/features/tasks/actions'
+import { getTasks, getTaskTemplates } from '@/features/tasks/actions'
 import { getStoreRoles } from '@/features/store/actions'
 import { TaskList } from '@/features/tasks/components/task-list'
-import { CreateTaskDialog } from '@/features/tasks/components/create-task-dialog'
 import { TaskCalendar } from '@/features/tasks/components/task-calendar'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { hasPermission } from '@/features/auth/permissions'
@@ -59,8 +58,9 @@ export default async function TasksPage() {
   }
 
   // 업무 목록 및 역할 조회
-  const [tasks, roles, canManage] = await Promise.all([
+  const [tasks, taskTemplates, roles, canManage] = await Promise.all([
     getTasks(store.id),
+    getTaskTemplates(store.id),
     getStoreRoles(store.id),
     hasPermission(user.id, store.id, 'manage_tasks')
   ])
@@ -74,18 +74,17 @@ export default async function TasksPage() {
             시간대별 업무 흐름을 관리하고 할당합니다.
           </p>
         </div>
-        {canManage && <CreateTaskDialog storeId={store.id} />}
       </div>
 
       <Tabs defaultValue="calendar" className="flex-1 flex flex-col overflow-hidden">
-        <TabsList className="grid w-[300px] grid-cols-2 shrink-0">
+        <TabsList className="grid w-[320px] grid-cols-2 shrink-0">
           <TabsTrigger value="calendar" className="flex items-center gap-2">
             <CalendarDays className="w-4 h-4" />
-            업무표
+            업무표 캘린더
           </TabsTrigger>
-          <TabsTrigger value="list" className="flex items-center gap-2">
+          <TabsTrigger value="templates" className="flex items-center gap-2">
             <List className="w-4 h-4" />
-            업무 목록
+            업무 템플릿 관리
           </TabsTrigger>
         </TabsList>
         
@@ -103,8 +102,8 @@ export default async function TasksPage() {
           </Card>
         </TabsContent>
         
-        <TabsContent value="list" className="flex-1 overflow-auto mt-4">
-          <TaskList tasks={tasks} roles={roles} storeId={store.id} canManage={canManage} />
+        <TabsContent value="templates" className="flex-1 overflow-auto mt-4">
+          <TaskList tasks={taskTemplates} roles={roles} storeId={store.id} canManage={canManage} isTemplateMode={true} />
         </TabsContent>
       </Tabs>
     </div>

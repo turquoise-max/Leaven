@@ -39,15 +39,18 @@ import {
 } from "@/components/ui/select"
 import { Input } from '@/components/ui/input'
 import { EditTaskDialog } from './edit-task-dialog'
+import { EditTaskTemplateDialog } from './edit-task-template-dialog'
+import { CreateTaskTemplateDialog } from './create-task-template-dialog'
 
 interface TaskListProps {
   tasks: Task[]
   roles: any[]
   storeId: string
   canManage?: boolean
+  isTemplateMode?: boolean
 }
 
-export function TaskList({ tasks, roles, storeId, canManage = false }: TaskListProps) {
+export function TaskList({ tasks, roles, storeId, canManage = false, isTemplateMode = false }: TaskListProps) {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
@@ -159,6 +162,8 @@ export function TaskList({ tasks, roles, storeId, canManage = false }: TaskListP
 
   const formatTime = (isoString: string | null) => {
       if (!isoString) return '-'
+      // 템플릿의 경우 날짜는 의미 없고 시간만 사용 (KST로 보여주기)
+      // 이미 KST로 입력된 걸 임의의 날짜로 UTC 변환해 저장했을 것이므로, 다시 KST로 빼서 시간을 보여줍니다.
       return new Date(isoString).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
   }
 
@@ -167,9 +172,27 @@ export function TaskList({ tasks, roles, storeId, canManage = false }: TaskListP
       return new Date(isoString).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })
   }
 
+  const formatRecurrence = (rule: any) => {
+    if (!rule) return '없음'
+    
+    if (rule.is_last_day !== undefined || rule.date !== undefined) {
+      if (rule.is_last_day) return '매월 말일'
+      if (rule.date) return `매월 ${rule.date}일`
+      return '없음'
+    }
+    
+    if (rule.days && rule.days.length > 0) {
+      const daysMap = ['일', '월', '화', '수', '목', '금', '토']
+      const daysStr = rule.days.map((d: number) => daysMap[d]).join(', ')
+      return `매주 ${daysStr}`
+    }
+    
+    return '없음'
+  }
+
   return (
     <div className="space-y-4">
-      {/* Filters */}
+      {/* Header Actions & Filters */}
       <div className="flex flex-col sm:flex-row gap-4 justify-between">
         <div className="flex flex-col sm:flex-row gap-2">
           <Select value={typeFilter} onValueChange={setTypeFilter}>
@@ -197,12 +220,16 @@ export function TaskList({ tasks, roles, storeId, canManage = false }: TaskListP
           </Select>
         </div>
         
-        <div className="w-full sm:w-[200px]">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
            <Input 
              placeholder="업무 검색..." 
              value={searchQuery}
              onChange={(e) => setSearchQuery(e.target.value)}
+             className="w-full sm:w-[200px]"
            />
+           {isTemplateMode && canManage && (
+             <CreateTaskTemplateDialog storeId={storeId} />
+           )}
         </div>
       </div>
 
@@ -231,7 +258,7 @@ export function TaskList({ tasks, roles, storeId, canManage = false }: TaskListP
                 <TableHead className="w-[50px]"></TableHead>
                 <TableHead className="w-[250px]">업무명</TableHead>
                 <TableHead>유형 / 시간</TableHead>
-                <TableHead>날짜</TableHead>
+                <TableHead>{isTemplateMode ? '반복 규칙' : '날짜'}</TableHead>
                 <TableHead>담당 역할</TableHead>
                 <TableHead className="text-right">관리</TableHead>
               </TableRow>
@@ -283,7 +310,11 @@ export function TaskList({ tasks, roles, storeId, canManage = false }: TaskListP
                     </TableCell>
                     <TableCell>
                         <span className="text-sm">
-                            {task.task_type === 'always' ? '매일' : formatDate(task.start_time)}
+                            {isTemplateMode ? (
+                                formatRecurrence(task.recurrence_rule)
+                            ) : (
+                                task.task_type === 'always' ? '매일' : formatDate(task.start_time)
+                            )}
                         </span>
                     </TableCell>
                     <TableCell>
@@ -347,12 +378,21 @@ export function TaskList({ tasks, roles, storeId, canManage = false }: TaskListP
         </div>
       )}
 
-      <EditTaskDialog 
-        task={editingTask}
-        open={isEditOpen}
-        onOpenChange={setIsEditOpen}
-        storeId={storeId}
-      />
+      {isTemplateMode ? (
+        <EditTaskTemplateDialog
+          task={editingTask}
+          open={isEditOpen}
+          onOpenChange={setIsEditOpen}
+          storeId={storeId}
+        />
+      ) : (
+        <EditTaskDialog 
+          task={editingTask}
+          open={isEditOpen}
+          onOpenChange={setIsEditOpen}
+          storeId={storeId}
+        />
+      )}
 
       <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent>

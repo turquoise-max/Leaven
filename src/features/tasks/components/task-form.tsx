@@ -42,7 +42,7 @@ export interface TaskFormData {
   assigned_role_ids: string[]
   
   // Repeat Config
-  repeat_type: 'daily' | 'weekly' | 'monthly'
+  repeat_type: 'weekly' | 'monthly'
   repeat_days: number[]
   repeat_interval: number
   is_last_day?: boolean // 매월 말일 여부
@@ -61,6 +61,7 @@ interface TaskFormProps {
   showDelete?: boolean
   onDelete?: () => void
   isEditMode?: boolean
+  isTemplateMode?: boolean
 }
 
 export function TaskForm({ 
@@ -72,7 +73,8 @@ export function TaskForm({
   submitLabel = '저장',
   showDelete = false,
   onDelete,
-  isEditMode = false
+  isEditMode = false,
+  isTemplateMode = false
 }: TaskFormProps) {
   const [roles, setRoles] = useState<any[]>([])
   
@@ -86,14 +88,14 @@ export function TaskForm({
     is_critical: defaultValues?.is_critical || false,
     estimated_minutes: defaultValues?.estimated_minutes || 30,
     task_type: defaultValues?.task_type || 'scheduled',
-    is_recurring: defaultValues?.is_recurring || false,
+    is_recurring: isTemplateMode ? true : (defaultValues?.is_recurring || false),
     start_date: defaultValues?.start_date || new Date().toISOString().split('T')[0],
     end_date: defaultValues?.end_date || new Date().toISOString().split('T')[0],
     start_time: defaultValues?.start_time || '',
     end_time: defaultValues?.end_time || '',
     assigned_role_ids: defaultValues?.assigned_role_ids || ['all'],
-    repeat_type: defaultValues?.repeat_type || 'daily',
-    repeat_days: defaultValues?.repeat_days || [],
+    repeat_type: defaultValues?.repeat_type || 'weekly',
+    repeat_days: defaultValues?.repeat_days || [0, 1, 2, 3, 4, 5, 6], // 기본값: 매일
     repeat_interval: defaultValues?.repeat_interval || 1,
     is_last_day: defaultValues?.is_last_day || false,
     status: defaultValues?.status || 'todo'
@@ -158,13 +160,13 @@ export function TaskForm({
   }
 
   const weekDays = [
-    { label: '일', value: 0 },
     { label: '월', value: 1 },
     { label: '화', value: 2 },
     { label: '수', value: 3 },
     { label: '목', value: 4 },
     { label: '금', value: 5 },
     { label: '토', value: 6 },
+    { label: '일', value: 0 },
   ]
   
   // Quick Chips Helper
@@ -187,14 +189,8 @@ export function TaskForm({
   }
 
   const quickOptions = {
-      daily: [
-          { label: '1주일', value: 0.25 }, // 7일 (대략) -> 별도 처리 필요하지만 일단 개월 수로 통일하거나 함수 분리
-          { label: '1개월', value: 1 },
-          { label: '3개월', value: 3 },
-          { label: '6개월', value: 6 },
-          { label: '1년', value: 12 },
-      ],
       weekly: [
+          { label: '1주일', value: 0.25 }, // 7일 처리 로직 연동
           { label: '1개월', value: 1 },
           { label: '3개월', value: 3 },
           { label: '6개월', value: 6 },
@@ -333,8 +329,8 @@ export function TaskForm({
                   </RadioGroup>
                 </div>
 
-                {/* 반복 설정 토글 (일반 업무일 때만, 수정 모드가 아닐 때만) */}
-                {formData.task_type === 'scheduled' && !isEditMode && (
+                {/* 반복 설정 토글 (일반 업무일 때, 템플릿 모드가 아니고 수정 모드가 아닐 때만) */}
+                {formData.task_type === 'scheduled' && !isEditMode && !isTemplateMode && (
                     <div className="flex items-center justify-between space-x-2 border p-3 rounded-md bg-muted/30">
                       <Label htmlFor="is_recurring" className="flex items-center gap-2 text-sm font-medium">
                         <Calendar className="w-4 h-4" />
@@ -348,8 +344,8 @@ export function TaskForm({
                     </div>
                 )}
 
-                {/* 기간 및 반복 설정 (반복이거나 상시 업무일 때, 수정 모드가 아닐 때만) */}
-                {(formData.is_recurring || formData.task_type === 'always') && !isEditMode && (
+                {/* 기간 및 반복 설정 (반복이거나 상시 업무이거나 템플릿 모드일 때) */}
+                {(formData.is_recurring || formData.task_type === 'always' || isTemplateMode) && (!isEditMode || isTemplateMode) && (
                   <div className="space-y-4 p-4 bg-muted/30 rounded-md border animate-in fade-in slide-in-from-top-2">
                       
                       {/* 1. 반복 주기 (Tabs) */}
@@ -361,22 +357,22 @@ export function TaskForm({
                                   onValueChange={(val: any) => setFormData(prev => ({ ...prev, repeat_type: val }))}
                                   className="w-full"
                               >
-                                  <TabsList className="grid w-full grid-cols-3">
-                                      <TabsTrigger value="daily">매일</TabsTrigger>
-                                      <TabsTrigger value="weekly">매주</TabsTrigger>
-                                      <TabsTrigger value="monthly">매월</TabsTrigger>
+                                  <TabsList className="grid w-full grid-cols-2">
+                                      <TabsTrigger value="weekly">매주 (요일 선택)</TabsTrigger>
+                                      <TabsTrigger value="monthly">매월 (날짜 선택)</TabsTrigger>
                                   </TabsList>
 
                                   {/* 상세 조건 (Step 3) */}
                                   <div className="mt-3">
-                                      <TabsContent value="daily" className="mt-0">
-                                          <p className="text-xs text-muted-foreground text-center py-2 bg-background/50 rounded-md border border-dashed">
-                                              매일 반복됩니다.
-                                          </p>
-                                      </TabsContent>
-
                                       <TabsContent value="weekly" className="mt-0 space-y-2">
-                                          <Label className="text-xs text-muted-foreground">반복 요일</Label>
+                                          <div className="flex items-center justify-between mb-1">
+                                            <Label className="text-xs text-muted-foreground">반복할 요일</Label>
+                                            {formData.repeat_days.length === 7 && (
+                                                <span className="text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                                                    매일 반복
+                                                </span>
+                                            )}
+                                          </div>
                                           <div className="flex justify-between gap-1">
                                               {weekDays.map((day) => {
                                                   const isSelected = formData.repeat_days.includes(day.value);
@@ -435,50 +431,55 @@ export function TaskForm({
                           </div>
                       )}
 
-                      <Separator className="my-2" />
+                      {/* 기간 설정은 템플릿 모드가 아닐 때만 노출 */}
+                      {!isTemplateMode && (
+                        <>
+                          <Separator className="my-2" />
 
-                      {/* 2. 기간 설정 (Step 4) */}
-                      <div className="space-y-3">
-                          <Label>기간 설정 <span className="text-red-500">*</span></Label>
-                          <div className="flex items-center gap-2">
-                              <div className="grid flex-1 gap-1">
-                                  <span className="text-xs text-muted-foreground">시작일</span>
-                                  <Input 
-                                      type="date"
-                                      value={formData.start_date}
-                                      onChange={(e) => setFormData(prev => ({ ...prev, start_date: e.target.value }))}
-                                  />
+                          {/* 2. 기간 설정 (Step 4) */}
+                          <div className="space-y-3">
+                              <Label>기간 설정 <span className="text-red-500">*</span></Label>
+                              <div className="flex items-center gap-2">
+                                  <div className="grid flex-1 gap-1">
+                                      <span className="text-xs text-muted-foreground">시작일</span>
+                                      <Input 
+                                          type="date"
+                                          value={formData.start_date}
+                                          onChange={(e) => setFormData(prev => ({ ...prev, start_date: e.target.value }))}
+                                      />
+                                  </div>
+                                  <span className="mt-5 text-muted-foreground">~</span>
+                                  <div className="grid flex-1 gap-1">
+                                      <span className="text-xs text-muted-foreground">종료일</span>
+                                      <Input 
+                                          type="date"
+                                          value={formData.end_date}
+                                          onChange={(e) => setFormData(prev => ({ ...prev, end_date: e.target.value }))}
+                                      />
+                                  </div>
                               </div>
-                              <span className="mt-5 text-muted-foreground">~</span>
-                              <div className="grid flex-1 gap-1">
-                                  <span className="text-xs text-muted-foreground">종료일</span>
-                                  <Input 
-                                      type="date"
-                                      value={formData.end_date}
-                                      onChange={(e) => setFormData(prev => ({ ...prev, end_date: e.target.value }))}
-                                  />
+                              
+                              {/* Quick Chips */}
+                              <div className="flex flex-wrap gap-1.5 pt-1">
+                                  {(formData.task_type === 'always' ? quickOptions.weekly : quickOptions[formData.repeat_type]).map((option) => (
+                                      <Badge 
+                                          key={option.label}
+                                          variant="outline"
+                                          className="cursor-pointer hover:bg-secondary hover:text-secondary-foreground transition-colors px-2 py-1 font-normal"
+                                          onClick={() => handleQuickChip(option.value)}
+                                      >
+                                          + {option.label}
+                                      </Badge>
+                                  ))}
                               </div>
                           </div>
-                          
-                          {/* Quick Chips */}
-                          <div className="flex flex-wrap gap-1.5 pt-1">
-                              {(formData.task_type === 'always' ? quickOptions.daily : quickOptions[formData.repeat_type]).map((option) => (
-                                  <Badge 
-                                      key={option.label}
-                                      variant="outline"
-                                      className="cursor-pointer hover:bg-secondary hover:text-secondary-foreground transition-colors px-2 py-1 font-normal"
-                                      onClick={() => handleQuickChip(option.value)}
-                                  >
-                                      + {option.label}
-                                  </Badge>
-                              ))}
-                          </div>
-                      </div>
+                        </>
+                      )}
                   </div>
                 )}
 
-                {/* 단건 날짜 설정 (반복 아닐 때 또는 수정 모드일 때) */}
-                {(!formData.is_recurring || isEditMode) && (
+                {/* 단건 날짜 설정 (반복 아닐 때 또는 수정 모드일 때, 템플릿 모드 아닐 때) */}
+                {(!formData.is_recurring || (isEditMode && !isTemplateMode)) && !isTemplateMode && (
                   <div className="space-y-3 p-3 bg-muted/30 rounded-md border animate-in fade-in slide-in-from-top-2">
                       <div className="grid gap-2">
                           <Label>수행 날짜 <span className="text-red-500">*</span></Label>

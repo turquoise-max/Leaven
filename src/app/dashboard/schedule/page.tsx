@@ -75,6 +75,7 @@ export default async function SchedulePage() {
     .select(`
       user_id,
       role,
+      work_schedules,
       profile:profiles(id, full_name, email),
       role_info:store_roles(id, name, color, priority)
     `)
@@ -83,7 +84,9 @@ export default async function SchedulePage() {
 
   const staffList = rawStaffList?.map((staff: any) => ({
     ...staff,
-    role_info: Array.isArray(staff.role_info) ? staff.role_info[0] : staff.role_info
+    role_info: Array.isArray(staff.role_info) ? staff.role_info[0] : staff.role_info,
+    // work_schedules는 JSONB 컬럼이므로 그대로 사용 (없으면 빈 배열)
+    work_schedules: staff.work_schedules || []
   }))
 
   // 권한 정보 (매니저 이상만 편집 가능)

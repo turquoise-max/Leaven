@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { addMinutesToTime, getCurrentISOString } from '@/lib/date-utils'
+import { addMinutesToTime, getCurrentISOString, toUTCISOString, getNextDateString } from '@/lib/date-utils'
 import { requirePermission } from '@/features/auth/permissions'
 
 export interface ChecklistItem {
@@ -28,6 +28,8 @@ export interface Task {
   assigned_role_id?: string | null // Deprecated
   checklist: ChecklistItem[] | null
   status: 'todo' | 'in_progress' | 'done'
+  is_template?: boolean
+  recurrence_rule?: any
   role?: {
     name: string
     color: string
@@ -71,6 +73,8 @@ export interface CreateTaskInput {
   assigned_role_id?: string | null // Deprecated
   checklist?: ChecklistItem[]
   repeat_config?: RepeatConfig
+  is_template?: boolean
+  recurrence_rule?: any
 }
 
 export interface UpdateTaskInput {
@@ -106,10 +110,6 @@ export async function getTasks(storeId: string) {
     try {
         await requirePermission(user.id, storeId, 'view_tasks')
     } catch (e) {
-        // 권한이 없으면 빈 배열 반환하거나 에러?
-        // view_tasks 권한은 기본적으로 staff 이상이면 다 가지고 있으므로 에러 던져도 됨
-        // 단, 아직 권한이 없는 레거시 데이터가 있을 수 있으므로 조심.
-        // 하지만 마이그레이션을 했으므로 괜찮음.
         console.error(e)
         return []
     }
@@ -119,6 +119,7 @@ export async function getTasks(storeId: string) {
     .from('tasks')
     .select('*')
     .eq('store_id', storeId)
+    .eq('is_template', false)
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -127,6 +128,88 @@ export async function getTasks(storeId: string) {
   }
 
   return data as Task[]
+}
+
+export async function getTaskTemplates(storeId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (user) {
+    try {
+        await requirePermission(user.id, storeId, 'manage_tasks')
+    } catch (e) {
+        console.error(e)
+        return []
+    }
+  }
+
+  const { data, error } = await supabase
+    .from('tasks')
+    .select('*')
+    .eq('store_id', storeId)
+    .eq('is_template', true)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    console.error('Error fetching task templates:', error)
+    throw new Error('업무 템플릿 목록을 불러오는데 실패했습니다.')
+  }
+
+  return data as Task[]
+}
+
+export async function generateTasksFromTemplates(storeId: string, startDate: string, endDate: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) return { error: 'Unauthorized' }
+
+  try {
+    await requirePermission(user.id, storeId, 'manage_tasks')
+  } catch (error) {
+    return { error: '권한이 없습니다.' }
+  }
+
+  const { data, error } = await supabase.rpc('generate_tasks_from_templates', {
+    p_store_id: storeId,
+    p_start_date: startDate,
+    p_end_date: endDate
+  })
+
+  if (error) {
+    console.error('Error generating tasks:', error)
+    return { error: error.message }
+  }
+
+  revalidatePath('/dashboard/tasks')
+  return { success: true, count: data }
+}
+
+export async function deleteTasksByPeriod(storeId: string, startDate: string, endDate: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) return { error: 'Unauthorized' }
+
+  try {
+    await requirePermission(user.id, storeId, 'manage_tasks')
+  } catch (error) {
+    return { error: '권한이 없습니다.' }
+  }
+
+  const { data, error } = await supabase.rpc('delete_tasks_by_period', {
+    p_store_id: storeId,
+    p_start_date: startDate,
+    p_end_date: endDate
+  })
+
+  if (error) {
+    console.error('Error deleting tasks by period:', error)
+    return { error: error.message }
+  }
+
+  revalidatePath('/dashboard/tasks')
+  return { success: true, count: data }
 }
 
 export async function createTask(input: CreateTaskInput) {
@@ -204,7 +287,8 @@ export async function createTask(input: CreateTaskInput) {
           assigned_role_ids: input.assigned_role_ids || [],
           // assigned_role_id: null, // DB Default or handle via migration
           checklist: input.checklist || [],
-          status: 'todo'
+          status: 'todo',
+          is_template: false
         })
       }
 
@@ -243,7 +327,7 @@ export async function createTask(input: CreateTaskInput) {
     }
 
   } else {
-    // 단일 생성
+    // 단일 생성 (또는 템플릿 생성)
     tasksToCreate.push({
       store_id: input.store_id,
       title: input.title,
@@ -257,7 +341,9 @@ export async function createTask(input: CreateTaskInput) {
       assigned_role_ids: input.assigned_role_ids || [],
       // assigned_role_id: null,
       checklist: input.checklist || [],
-      status: 'todo'
+      status: 'todo',
+      is_template: input.is_template || false,
+      recurrence_rule: input.recurrence_rule || null
     })
   }
 
@@ -279,7 +365,7 @@ export async function createTask(input: CreateTaskInput) {
   return { data: data[0] } // Return first created task
 }
 
-export async function updateTask(input: UpdateTaskInput) {
+export async function updateTask(input: UpdateTaskInput & { recurrence_rule?: any }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const { id, ...updateData } = input
@@ -499,6 +585,7 @@ export async function getCalendarEvents(storeId: string, start: string, end: str
         .from('tasks')
         .select('*')
         .eq('store_id', storeId)
+        .eq('is_template', false)
         .gte('start_time', start) 
         .lte('start_time', end)
     
@@ -511,18 +598,20 @@ export async function getCalendarEvents(storeId: string, start: string, end: str
 export async function getDashboardTasks(storeId: string, date: string) {
     const supabase = await createClient()
     
-    // date: YYYY-MM-DD
-    // UTC 기준 하루 범위 검색
-    // 예: 2024-03-05T00:00:00Z ~ 2024-03-05T23:59:59Z
-    const start = `${date}T00:00:00`
-    const end = `${date}T23:59:59`
+    // date: YYYY-MM-DD (KST 기준)
+    // 유틸리티를 활용하여 정확한 UTC 경계값(Start, End) 산출
+    const startIso = toUTCISOString(date, '00:00')
+    const nextDate = getNextDateString(date)
+    const endIso = toUTCISOString(nextDate, '00:00')
     
+    // 조건: "오늘 (KST) 예정된 업무 전체"
     const { data, error } = await supabase
         .from('tasks')
         .select('*')
         .eq('store_id', storeId)
-        .gte('start_time', start)
-        .lte('start_time', end)
+        .eq('is_template', false)
+        .gte('start_time', startIso)
+        .lt('start_time', endIso)
         .order('start_time', { ascending: true })
         
     if (error) {

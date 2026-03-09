@@ -15,6 +15,7 @@ import { createTask } from '../actions'
 import { toast } from 'sonner'
 import { TaskForm, TaskFormData } from './task-form'
 import { RepeatConfig } from '../actions'
+import { toUTCISOString } from '@/lib/date-utils'
 
 interface CreateTaskDialogProps {
   storeId: string
@@ -56,8 +57,8 @@ export function CreateTaskDialog({
           // 날짜 + 시간 -> ISO String (UTC)
           // start_date를 기준으로 시간 생성
           const baseDate = data.start_date; // YYYY-MM-DD
-          start_time_iso = new Date(`${baseDate}T${data.start_time}`).toISOString();
-          end_time_iso = new Date(`${baseDate}T${data.end_time}`).toISOString();
+          start_time_iso = toUTCISOString(baseDate, data.start_time);
+          end_time_iso = toUTCISOString(baseDate, data.end_time);
           
           // 반복 설정
           if (data.is_recurring) {

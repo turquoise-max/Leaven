@@ -19,8 +19,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
-import { X, Filter } from 'lucide-react'
+import { X, Filter, Sparkles } from 'lucide-react'
 import { CalendarHeader } from '@/components/common/calendar-header'
+import { AutoScheduleDialog } from './auto-schedule-dialog'
 
 interface ScheduleCalendarProps {
   initialEvents: any[]
@@ -189,8 +190,15 @@ export function ScheduleCalendar({
   const [currentView, setCurrentView] = useState('timeGridWeek')
   const [currentTitle, setCurrentTitle] = useState('')
 
+  // Mounted State for SSR Hydration Mismatch Fix
+  const [isMounted, setIsMounted] = useState(false)
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
   // Dialog States
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false)
+  const [autoScheduleOpen, setAutoScheduleOpen] = useState(false)
   const [dialogMode, setDialogMode] = useState<'create' | 'edit'>('create')
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null)
@@ -403,55 +411,69 @@ export function ScheduleCalendar({
           onToday={handleToday}
           onViewChange={handleViewChange}
         >
-          <div className="flex items-center gap-2">
-            <Select 
-              value={selectedStaffId} 
-              onValueChange={(val) => updateFilter('staffId', val)}
-            >
-              <SelectTrigger className="w-[120px] h-8 text-xs">
-                <SelectValue placeholder="전체 직원" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">전체 직원</SelectItem>
-                {staffList.map((staff) => (
-                  <SelectItem key={staff.user_id} value={staff.user_id}>
-                    {staff.profile?.full_name || '이름 없음'}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {isMounted && (
+            <div className="flex items-center gap-2">
+              {canManage && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-8 gap-1.5 text-xs mr-2 border-dashed border-primary/50 hover:bg-primary/5 hover:border-primary"
+                  onClick={() => setAutoScheduleOpen(true)}
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" />
+                  자동 생성
+                </Button>
+              )}
 
-            <Select 
-              value={selectedRoleId} 
-              onValueChange={(val) => updateFilter('roleId', val)}
-            >
-              <SelectTrigger className="w-[120px] h-8 text-xs">
-                <SelectValue placeholder="전체 역할" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">전체 역할</SelectItem>
-                {roles.map((role) => (
-                  <SelectItem key={role.id} value={role.id}>
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: role.color }} />
-                      {role.name}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {(selectedStaffId !== 'all' || selectedRoleId !== 'all') && (
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                onClick={clearFilters}
+              <Select 
+                value={selectedStaffId} 
+                onValueChange={(val) => updateFilter('staffId', val)}
               >
-                <X className="w-4 h-4" />
-              </Button>
-            )}
-          </div>
+                <SelectTrigger className="w-[120px] h-8 text-xs">
+                  <SelectValue placeholder="전체 직원" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">전체 직원</SelectItem>
+                  {staffList.map((staff) => (
+                    <SelectItem key={staff.user_id} value={staff.user_id}>
+                      {staff.profile?.full_name || '이름 없음'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select 
+                value={selectedRoleId} 
+                onValueChange={(val) => updateFilter('roleId', val)}
+              >
+                <SelectTrigger className="w-[120px] h-8 text-xs">
+                  <SelectValue placeholder="전체 역할" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">전체 역할</SelectItem>
+                  {roles.map((role) => (
+                    <SelectItem key={role.id} value={role.id}>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: role.color }} />
+                        {role.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {(selectedStaffId !== 'all' || selectedRoleId !== 'all') && (
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                  onClick={clearFilters}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
+          )}
         </CalendarHeader>
 
         <div className="flex-1 overflow-hidden">
@@ -497,6 +519,13 @@ export function ScheduleCalendar({
         storeId={storeId}
         initialStartTime={initialTime?.start}
         initialEndTime={initialTime?.end}
+      />
+
+      <AutoScheduleDialog
+        open={autoScheduleOpen}
+        onOpenChange={setAutoScheduleOpen}
+        storeId={storeId}
+        staffList={staffList}
       />
     </>
   )

@@ -129,6 +129,7 @@ export function DashboardClientLayout({
           <ResizablePanelGroup
             direction="horizontal"
             className="h-full items-stretch"
+            id="dashboard-layout-group"
           >
             {/* 2. Management Menu Sidebar (Resizable, Not Collapsible) */}
             <ResizablePanel
@@ -138,6 +139,7 @@ export function DashboardClientLayout({
               maxSize="50"
               collapsible={false}
               className="bg-background"
+              id="dashboard-sidebar-panel"
             >
               <Sidebar 
                 user={user} 
@@ -146,13 +148,14 @@ export function DashboardClientLayout({
               />
             </ResizablePanel>
 
-            <ResizableHandle withHandle />
+            <ResizableHandle withHandle id="dashboard-sidebar-handle" />
 
             {/* 3. Main Content */}
             <ResizablePanel 
               /* @ts-ignore */
               defaultSize={safeDefaultLayout[1].toString()} 
               minSize="10"
+              id="dashboard-main-panel"
             >
               <div className="flex flex-col h-full min-w-0 overflow-hidden">
                 <Header 

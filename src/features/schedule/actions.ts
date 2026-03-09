@@ -341,3 +341,71 @@ export async function deleteSchedule(storeId: string, scheduleId: string) {
   revalidatePath('/dashboard/schedule')
   return { success: true }
 }
+
+// 자동 스케줄 생성 (직원 근무 패턴 기반)
+export async function generateStaffSchedules(
+  storeId: string,
+  startDate: string, // YYYY-MM-DD
+  endDate: string,   // YYYY-MM-DD
+  targetStaffIds: string[]
+) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) return { error: 'Unauthorized' }
+
+  try {
+    await requirePermission(user.id, storeId, 'manage_schedule')
+  } catch (error) {
+    return { error: '권한이 없습니다.' }
+  }
+
+  // Call RPC
+  const { data, error } = await supabase.rpc('generate_staff_schedules', {
+    p_store_id: storeId,
+    p_start_date: startDate,
+    p_end_date: endDate,
+    p_target_staff_ids: targetStaffIds
+  })
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  revalidatePath('/dashboard/schedule')
+  return { success: true, count: data }
+}
+
+// 스케줄 일괄 삭제 (직원, 기간)
+export async function deleteStaffSchedules(
+  storeId: string,
+  startDate: string, // YYYY-MM-DD
+  endDate: string,   // YYYY-MM-DD
+  targetStaffIds: string[]
+) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) return { error: 'Unauthorized' }
+
+  try {
+    await requirePermission(user.id, storeId, 'manage_schedule')
+  } catch (error) {
+    return { error: '권한이 없습니다.' }
+  }
+
+  // Call RPC
+  const { data, error } = await supabase.rpc('delete_staff_schedules', {
+    p_store_id: storeId,
+    p_start_date: startDate,
+    p_end_date: endDate,
+    p_target_staff_ids: targetStaffIds
+  })
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  revalidatePath('/dashboard/schedule')
+  return { success: true, count: data }
+}

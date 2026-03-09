@@ -24,6 +24,8 @@ import {
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { CalendarHeader } from '@/components/common/calendar-header'
+import { AutoTaskDialog } from './auto-task-dialog'
+import { Sparkles } from 'lucide-react'
 
 const slotLabelFormat = {
   hour: 'numeric' as const,
@@ -73,9 +75,16 @@ export function TaskCalendar({ tasks, roles, openingHours, storeId, canManage = 
   const [currentView, setCurrentView] = useState('timeGridWeek')
   const [currentTitle, setCurrentTitle] = useState('')
 
+  // Mounted State for SSR Hydration Mismatch Fix
+  const [isMounted, setIsMounted] = useState(false)
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
+  const [isAutoTaskOpen, setIsAutoTaskOpen] = useState(false)
   const [initialTaskData, setInitialTaskData] = useState<Partial<TaskFormData>>({})
 
   // Calendar Controls
@@ -431,38 +440,52 @@ export function TaskCalendar({ tasks, roles, openingHours, storeId, canManage = 
         onToday={handleToday}
         onViewChange={handleViewChange}
       >
-        <div className="flex items-center gap-2">
-          <Select 
-            value={selectedRoleId} 
-            onValueChange={(val) => updateFilter('roleId', val)}
-          >
-            <SelectTrigger className="w-[120px] h-8 text-xs">
-              <SelectValue placeholder="전체 역할" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">전체 역할</SelectItem>
-              {roles.map((role) => (
-                <SelectItem key={role.id} value={role.id}>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: role.color }} />
-                    {role.name}
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {selectedRoleId !== 'all' && (
+        {isMounted && (
+          <div className="flex items-center gap-2">
+            {canManage && (
               <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                onClick={clearFilters}
+                variant="outline" 
+                size="sm" 
+                className="h-8 gap-1.5 text-xs mr-2 border-dashed border-primary/50 hover:bg-primary/5 hover:border-primary"
+                onClick={() => setIsAutoTaskOpen(true)}
               >
-                <X className="w-4 h-4" />
+                <Sparkles className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" />
+                자동 생성
               </Button>
-          )}
-        </div>
+            )}
+
+            <Select 
+              value={selectedRoleId} 
+              onValueChange={(val) => updateFilter('roleId', val)}
+            >
+              <SelectTrigger className="w-[120px] h-8 text-xs">
+                <SelectValue placeholder="전체 역할" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">전체 역할</SelectItem>
+                {roles.map((role) => (
+                  <SelectItem key={role.id} value={role.id}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: role.color }} />
+                      {role.name}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {selectedRoleId !== 'all' && (
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                  onClick={clearFilters}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+            )}
+          </div>
+        )}
       </CalendarHeader>
 
       <div className="flex-1 overflow-hidden">
@@ -509,6 +532,12 @@ export function TaskCalendar({ tasks, roles, openingHours, storeId, canManage = 
         onOpenChange={setIsCreateOpen}
         initialValues={initialTaskData}
         trigger={null} // Hide default trigger
+      />
+
+      <AutoTaskDialog 
+        storeId={storeId}
+        open={isAutoTaskOpen}
+        onOpenChange={setIsAutoTaskOpen}
       />
     </div>
   )

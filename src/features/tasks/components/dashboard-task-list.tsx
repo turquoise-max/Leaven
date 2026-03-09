@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Task, getDashboardTasks, toggleTaskCheckitem, updateTaskStatus } from '../actions'
+import { getTodayDateString } from '@/lib/date-utils'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -31,9 +32,8 @@ export function DashboardTaskList({ storeId }: DashboardTaskListProps) {
 
   const fetchTasks = async () => {
     try {
-      // 한국 시간 기준 오늘 날짜 구하기
-      const offset = new Date().getTimezoneOffset() * 60000
-      const today = new Date(Date.now() - offset).toISOString().split('T')[0]
+      // 한국 시간 기준 오늘 날짜 구하기 (유틸리티 활용)
+      const today = getTodayDateString()
       
       const data = await getDashboardTasks(storeId, today)
       setTasks(data || [])
