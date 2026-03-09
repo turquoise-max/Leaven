@@ -255,7 +255,7 @@ export function StaffList({ initialData, storeId, canManage }: StaffListProps) {
   return (
     <div className="space-y-8">
       {/* 승인 대기 목록 */}
-      {pendingStaff.length > 0 && (
+      {canManage && pendingStaff.length > 0 && (
         <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950/20">
           <CardHeader className="pb-3">
             <CardTitle className="text-orange-700 dark:text-orange-400 flex items-center gap-2 text-lg">
@@ -333,7 +333,7 @@ export function StaffList({ initialData, storeId, canManage }: StaffListProps) {
               <TableHead>이름 / 이메일</TableHead>
               <TableHead>전화번호</TableHead>
               <TableHead>근무 스케줄</TableHead>
-              <TableHead>급여 정보</TableHead>
+              {canManage && <TableHead>급여 정보</TableHead>}
               <TableHead>입사일</TableHead>
               <TableHead>상태</TableHead>
             </TableRow>
@@ -342,8 +342,9 @@ export function StaffList({ initialData, storeId, canManage }: StaffListProps) {
             {activeStaff.map((staff) => (
               <TableRow 
                 key={staff.id} 
-                className="cursor-pointer hover:bg-muted/50"
+                className={canManage ? "cursor-pointer hover:bg-muted/50" : ""}
                 onClick={() => {
+                  if (!canManage) return
                   setEditingStaff(staff)
                   setDialogOpen(true)
                 }}
@@ -408,23 +409,25 @@ export function StaffList({ initialData, storeId, canManage }: StaffListProps) {
                     <span className="text-sm text-muted-foreground">{staff.work_hours || '-'}</span>
                   )}
                 </TableCell>
-                <TableCell>
-                    <div className="flex flex-col text-sm">
-                        <div className="flex items-center gap-1">
-                          <span className="text-muted-foreground text-xs w-8">
-                              {staff.wage_type === 'monthly' ? '월급' : '시급'}
-                          </span>
-                          <span className="font-medium">
-                              {staff.base_wage ? staff.base_wage.toLocaleString() : '-'}원
-                          </span>
-                        </div>
-                        {staff.wage_type === 'hourly' && staff.base_wage && (
-                          <div className="text-xs text-muted-foreground mt-0.5">
-                            월 예상: 약 {getExpectedMonthlyPay(staff)?.toLocaleString()}원
+                {canManage && (
+                  <TableCell>
+                      <div className="flex flex-col text-sm">
+                          <div className="flex items-center gap-1">
+                            <span className="text-muted-foreground text-xs w-8">
+                                {staff.wage_type === 'monthly' ? '월급' : '시급'}
+                            </span>
+                            <span className="font-medium">
+                                {staff.base_wage ? staff.base_wage.toLocaleString() : '-'}원
+                            </span>
                           </div>
-                        )}
-                    </div>
-                </TableCell>
+                          {staff.wage_type === 'hourly' && staff.base_wage && (
+                            <div className="text-xs text-muted-foreground mt-0.5">
+                              월 예상: 약 {getExpectedMonthlyPay(staff)?.toLocaleString()}원
+                            </div>
+                          )}
+                      </div>
+                  </TableCell>
+                )}
                 <TableCell>
                   {staff.hired_at ? (
                     <span>{new Date(staff.hired_at).toLocaleDateString('ko-KR')}</span>
@@ -437,7 +440,7 @@ export function StaffList({ initialData, storeId, canManage }: StaffListProps) {
             ))}
             {activeStaff.length === 0 && (
                <TableRow>
-                <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={canManage ? 8 : 7} className="h-24 text-center text-muted-foreground">
                   등록된 직원이 없습니다.
                 </TableCell>
               </TableRow>

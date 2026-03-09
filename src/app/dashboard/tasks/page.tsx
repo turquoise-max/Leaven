@@ -7,7 +7,7 @@ import { getStoreRoles } from '@/features/store/actions'
 import { TaskList } from '@/features/tasks/components/task-list'
 import { TaskCalendar } from '@/features/tasks/components/task-calendar'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { hasPermission } from '@/features/auth/permissions'
+import { hasPermission, getStoreMemberRole } from '@/features/auth/permissions'
 import { CalendarDays, List } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 
@@ -58,12 +58,15 @@ export default async function TasksPage() {
   }
 
   // 업무 목록 및 역할 조회
-  const [tasks, taskTemplates, roles, canManage] = await Promise.all([
+  const [tasks, taskTemplates, roles, canManage, memberRole] = await Promise.all([
     getTasks(store.id),
     getTaskTemplates(store.id),
     getStoreRoles(store.id),
-    hasPermission(user.id, store.id, 'manage_tasks')
+    hasPermission(user.id, store.id, 'manage_tasks'),
+    getStoreMemberRole(user.id, store.id)
   ])
+
+  const userRoleId = memberRole?.role_id || null
 
   return (
     <div className="flex flex-col gap-6 h-[calc(100vh-4rem)]">
@@ -77,15 +80,17 @@ export default async function TasksPage() {
       </div>
 
       <Tabs defaultValue="calendar" className="flex-1 flex flex-col overflow-hidden">
-        <TabsList className="grid w-[320px] grid-cols-2 shrink-0">
+        <TabsList className={`grid shrink-0 ${canManage ? 'w-[320px] grid-cols-2' : 'w-[160px] grid-cols-1'}`}>
           <TabsTrigger value="calendar" className="flex items-center gap-2">
             <CalendarDays className="w-4 h-4" />
             업무표 캘린더
           </TabsTrigger>
-          <TabsTrigger value="templates" className="flex items-center gap-2">
-            <List className="w-4 h-4" />
-            업무 템플릿 관리
-          </TabsTrigger>
+          {canManage && (
+            <TabsTrigger value="templates" className="flex items-center gap-2">
+              <List className="w-4 h-4" />
+              업무 템플릿 관리
+            </TabsTrigger>
+          )}
         </TabsList>
         
         <TabsContent value="calendar" className="flex-1 overflow-hidden mt-4">
@@ -97,14 +102,17 @@ export default async function TasksPage() {
                 openingHours={store.opening_hours} 
                 storeId={store.id}
                 canManage={canManage}
+                userRoleId={userRoleId}
               />
             </CardContent>
           </Card>
         </TabsContent>
         
-        <TabsContent value="templates" className="flex-1 overflow-auto mt-4">
-          <TaskList tasks={taskTemplates} roles={roles} storeId={store.id} canManage={canManage} isTemplateMode={true} />
-        </TabsContent>
+        {canManage && (
+          <TabsContent value="templates" className="flex-1 overflow-auto mt-4">
+            <TaskList tasks={taskTemplates} roles={roles} storeId={store.id} canManage={canManage} isTemplateMode={true} />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   )

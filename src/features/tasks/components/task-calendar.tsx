@@ -45,9 +45,10 @@ interface TaskCalendarProps {
   openingHours?: any
   storeId: string
   canManage?: boolean
+  userRoleId?: string | null
 }
 
-export function TaskCalendar({ tasks, roles, openingHours, storeId, canManage = false }: TaskCalendarProps) {
+export function TaskCalendar({ tasks, roles, openingHours, storeId, canManage = false, userRoleId = null }: TaskCalendarProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -455,14 +456,15 @@ export function TaskCalendar({ tasks, roles, openingHours, storeId, canManage = 
             )}
 
             <Select 
-              value={selectedRoleId} 
+              value={canManage ? selectedRoleId : (userRoleId || 'all')} 
               onValueChange={(val) => updateFilter('roleId', val)}
+              disabled={!canManage}
             >
               <SelectTrigger className="w-[120px] h-8 text-xs">
                 <SelectValue placeholder="전체 역할" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">전체 역할</SelectItem>
+                {canManage && <SelectItem value="all">전체 역할</SelectItem>}
                 {roles.map((role) => (
                   <SelectItem key={role.id} value={role.id}>
                     <div className="flex items-center gap-2">

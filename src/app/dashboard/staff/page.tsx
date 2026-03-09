@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { requirePermission } from '@/features/auth/permissions'
+import { hasPermission } from '@/features/auth/permissions'
 import { StaffList } from '@/features/staff/components/staff-list'
 import { InviteStaffDialog } from '@/features/staff/components/invite-staff-dialog'
 import { Button } from '@/components/ui/button'
@@ -37,15 +37,9 @@ export default async function StaffManagementPage() {
 
   if (!member) redirect('/onboarding')
 
-  // 권한 체크 (페이지 접근 권한)
-  // TODO: 일반 직원도 목록은 볼 수 있게 하려면 이 체크를 완화해야 함
-  try {
-    await requirePermission(user.id, member.store_id, 'manage_staff')
-  } catch (error) {
-    return <div>접근 권한이 없습니다.</div>
-  }
-
-  const canManage = member.role === 'owner' || member.role === 'manager'
+  // 권한 체크
+  // 일반 직원도 목록은 볼 수 있게 허용하되, canManage 값으로 컴포넌트 내부 기능을 제한함
+  const canManage = await hasPermission(user.id, member.store_id, 'manage_staff')
   const store = member.store as any
 
   // 직원 목록 조회
@@ -65,12 +59,14 @@ export default async function StaffManagementPage() {
             매장의 직원을 초대하고 권한을 관리합니다.
           </p>
         </div>
-        <InviteStaffDialog storeId={member.store_id}>
-          <Button>
-            <UserPlus className="mr-2 h-4 w-4" />
-            직원 초대
-          </Button>
-        </InviteStaffDialog>
+        {canManage && (
+          <InviteStaffDialog storeId={member.store_id}>
+            <Button>
+              <UserPlus className="mr-2 h-4 w-4" />
+              직원 초대
+            </Button>
+          </InviteStaffDialog>
+        )}
       </div>
 
       <StaffList 

@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { addMinutesToTime, getCurrentISOString, toUTCISOString, getNextDateString } from '@/lib/date-utils'
-import { requirePermission } from '@/features/auth/permissions'
+import { requirePermission, hasPermission, getStoreMemberRole } from '@/features/auth/permissions'
 
 export interface ChecklistItem {
   id: string
@@ -106,21 +106,30 @@ export async function getTasks(storeId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (user) {
-    try {
-        await requirePermission(user.id, storeId, 'view_tasks')
-    } catch (e) {
-        console.error(e)
-        return []
-    }
+  if (!user) return []
+  
+  try {
+      await requirePermission(user.id, storeId, 'view_tasks')
+  } catch (e) {
+      console.error(e)
+      return []
   }
 
-  const { data, error } = await supabase
+  const canManage = await hasPermission(user.id, storeId, 'manage_tasks')
+  const member = await getStoreMemberRole(user.id, storeId)
+
+  let query = supabase
     .from('tasks')
     .select('*')
     .eq('store_id', storeId)
     .eq('is_template', false)
-    .order('created_at', { ascending: false })
+    
+  if (!canManage && member?.role_id) {
+    // 본인 역할 할당 업무 또는 공통 업무(비어있거나 null)
+    query = query.or(`assigned_role_ids.cs.{${member.role_id}},assigned_role_ids.eq.{},assigned_role_ids.is.null`)
+  }
+
+  const { data, error } = await query.order('created_at', { ascending: false })
 
   if (error) {
     console.error('Error fetching tasks:', error)
@@ -134,14 +143,10 @@ export async function getTaskTemplates(storeId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (user) {
-    try {
-        await requirePermission(user.id, storeId, 'manage_tasks')
-    } catch (e) {
-        console.error(e)
-        return []
-    }
-  }
+  if (!user) return []
+
+  const canManage = await hasPermission(user.id, storeId, 'manage_tasks')
+  if (!canManage) return []
 
   const { data, error } = await supabase
     .from('tasks')
@@ -576,18 +581,26 @@ export async function updateTaskStatus(
 // 캘린더용 이벤트 조회
 export async function getCalendarEvents(storeId: string, start: string, end: string) {
     const supabase = await createClient()
-
-    // 해당 기간에 포함되는 업무 조회 (Timestamp 비교)
-    // start_time이 start~end 사이에 있거나, end_time이 start~end 사이에 있거나, 걸쳐있는 경우
-    // 간단하게: start_time >= start AND start_time <= end
-    // 상시 업무는 start_time 날짜 기준
-    const { data: tasks, error } = await supabase
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    let query = supabase
         .from('tasks')
         .select('*')
         .eq('store_id', storeId)
         .eq('is_template', false)
         .gte('start_time', start) 
         .lte('start_time', end)
+
+    if (user) {
+        const canManage = await hasPermission(user.id, storeId, 'manage_tasks')
+        const member = await getStoreMemberRole(user.id, storeId)
+        
+        if (!canManage && member?.role_id) {
+            query = query.or(`assigned_role_ids.cs.{${member.role_id}},assigned_role_ids.eq.{},assigned_role_ids.is.null`)
+        }
+    }
+
+    const { data: tasks, error } = await query
     
     if (error) throw new Error('업무 목록 조회 실패')
 
@@ -597,6 +610,7 @@ export async function getCalendarEvents(storeId: string, start: string, end: str
 // 대시보드용 업무 조회 (오늘 날짜 기준)
 export async function getDashboardTasks(storeId: string, date: string) {
     const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
     
     // date: YYYY-MM-DD (KST 기준)
     // 유틸리티를 활용하여 정확한 UTC 경계값(Start, End) 산출
@@ -604,8 +618,7 @@ export async function getDashboardTasks(storeId: string, date: string) {
     const nextDate = getNextDateString(date)
     const endIso = toUTCISOString(nextDate, '00:00')
     
-    // 조건: "오늘 (KST) 예정된 업무 전체"
-    const { data, error } = await supabase
+    let query = supabase
         .from('tasks')
         .select('*')
         .eq('store_id', storeId)
@@ -613,6 +626,20 @@ export async function getDashboardTasks(storeId: string, date: string) {
         .gte('start_time', startIso)
         .lt('start_time', endIso)
         .order('start_time', { ascending: true })
+
+    if (user) {
+        const canManage = await hasPermission(user.id, storeId, 'manage_tasks')
+        const member = await getStoreMemberRole(user.id, storeId)
+        
+        if (!canManage && member?.role_id) {
+            // 본인 역할 할당 업무 또는 공통 업무
+            // 주의: .or() 와 이전 필터들이 AND로 묶여야 하므로, 
+            // Supabase client에서는 체이닝을 그대로 사용하면 앞선 eq, gte 조건과 결합됩니다.
+            query = query.or(`assigned_role_ids.cs.{${member.role_id}},assigned_role_ids.eq.{},assigned_role_ids.is.null`)
+        }
+    }
+        
+    const { data, error } = await query
         
     if (error) {
         console.error('Error fetching dashboard tasks:', error)

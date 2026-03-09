@@ -4,6 +4,8 @@ import { RoleManagement } from '@/features/store/components/role-management'
 import { getStoreRoles, getStorePermissions } from '@/features/store/roles'
 import { cookies } from 'next/headers'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Card, CardContent } from '@/components/ui/card'
+import { Lock } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -44,7 +46,33 @@ export default async function StoreSettingsPage() {
   }
 
   if (member?.role !== 'owner') {
-    return <div>매장 설정 권한이 없습니다.</div>
+    return (
+      <div className="flex flex-col gap-6 h-[calc(100vh-4rem)]">
+        <div className="flex items-center justify-between shrink-0">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">매장 설정</h1>
+            <p className="text-muted-foreground">
+              매장의 기본 정보와 운영 설정을 관리합니다.
+            </p>
+          </div>
+        </div>
+
+        <Card className="flex-1 flex flex-col items-center justify-center p-6 text-center shadow-none sm:shadow-sm">
+          <CardContent className="flex flex-col items-center justify-center gap-4">
+            <div className="rounded-full bg-muted p-4">
+              <Lock className="w-8 h-8 text-muted-foreground" />
+            </div>
+            <div className="space-y-1">
+              <h2 className="text-xl font-semibold">매장 설정 권한이 없습니다</h2>
+              <p className="text-sm text-muted-foreground max-w-sm">
+                매장의 기본 정보 및 설정 관리는 점주(Owner)만 접근할 수 있습니다. 
+                설정 변경이 필요하시다면 점주에게 문의해 주세요.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   // Fetch Roles and Permissions
