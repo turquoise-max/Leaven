@@ -19,9 +19,15 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
-import { X, Filter, Sparkles } from 'lucide-react'
+import { X, Filter, Sparkles, ChevronDown, Trash2 } from 'lucide-react'
 import { CalendarHeader } from '@/components/common/calendar-header'
 import { AutoScheduleDialog } from './auto-schedule-dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   Tooltip,
   TooltipContent,
@@ -233,6 +239,7 @@ export function ScheduleCalendar({
   // Dialog States
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false)
   const [autoScheduleOpen, setAutoScheduleOpen] = useState(false)
+  const [autoScheduleMode, setAutoScheduleMode] = useState<'create' | 'delete'>('create')
   const [dialogMode, setDialogMode] = useState<'create' | 'edit'>('create')
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null)
@@ -448,15 +455,33 @@ export function ScheduleCalendar({
           {isMounted && (
             <div className="flex items-center gap-2">
               {canManage && (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="h-8 gap-1.5 text-xs mr-2 border-dashed border-primary/50 hover:bg-primary/5 hover:border-primary"
-                  onClick={() => setAutoScheduleOpen(true)}
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" />
-                  자동 생성
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="h-8 gap-1.5 text-xs mr-2 border-dashed border-primary/50 hover:bg-primary/5 hover:border-primary"
+                    >
+                      일괄 관리 <ChevronDown className="w-3 h-3 opacity-50" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-[140px]">
+                    <DropdownMenuItem onClick={() => {
+                      setAutoScheduleMode('create')
+                      setAutoScheduleOpen(true)
+                    }}>
+                      <Sparkles className="w-4 h-4 mr-2 text-yellow-500 fill-yellow-500" />
+                      자동 생성
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => {
+                      setAutoScheduleMode('delete')
+                      setAutoScheduleOpen(true)
+                    }} className="text-destructive focus:text-destructive">
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      일괄 삭제
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
 
               <Select 
@@ -561,6 +586,7 @@ export function ScheduleCalendar({
         onOpenChange={setAutoScheduleOpen}
         storeId={storeId}
         staffList={staffList}
+        initialMode={autoScheduleMode}
       />
     </>
   )

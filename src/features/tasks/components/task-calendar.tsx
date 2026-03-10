@@ -6,7 +6,7 @@ import timeGridPlugin from '@fullcalendar/timegrid'
 import interactionPlugin from '@fullcalendar/interaction'
 import { Task, updateTask } from '../actions'
 import { useMemo, useState, useEffect, useRef, useCallback } from 'react'
-import { CheckCircle2, Clock, Circle, Filter, X, Check, CalendarDays, ListChecks } from 'lucide-react'
+import { CheckCircle2, Clock, Circle, Filter, X, Check, CalendarDays, ListChecks, ChevronDown, Trash2 } from 'lucide-react'
 import {
   Tooltip,
   TooltipContent,
@@ -32,6 +32,12 @@ import { Button } from '@/components/ui/button'
 import { CalendarHeader } from '@/components/common/calendar-header'
 import { AutoTaskDialog } from './auto-task-dialog'
 import { Sparkles } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 const slotLabelFormat = {
   hour: 'numeric' as const,
@@ -101,6 +107,7 @@ export function TaskCalendar({ tasks, roles, openingHours, storeId, canManage = 
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isAutoTaskOpen, setIsAutoTaskOpen] = useState(false)
+  const [autoTaskMode, setAutoTaskMode] = useState<'create' | 'delete'>('create')
   const [initialTaskData, setInitialTaskData] = useState<Partial<TaskFormData>>({})
 
   // Calendar Controls
@@ -639,15 +646,33 @@ export function TaskCalendar({ tasks, roles, openingHours, storeId, canManage = 
         {isMounted && (
           <div className="flex items-center gap-2">
             {canManage && (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="h-8 gap-1.5 text-xs mr-2 border-dashed border-primary/50 hover:bg-primary/5 hover:border-primary"
-                onClick={() => setIsAutoTaskOpen(true)}
-              >
-                <Sparkles className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" />
-                자동 생성
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-8 gap-1.5 text-xs mr-2 border-dashed border-primary/50 hover:bg-primary/5 hover:border-primary"
+                  >
+                    일괄 관리 <ChevronDown className="w-3 h-3 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-[140px]">
+                  <DropdownMenuItem onClick={() => {
+                    setAutoTaskMode('create')
+                    setIsAutoTaskOpen(true)
+                  }}>
+                    <Sparkles className="w-4 h-4 mr-2 text-yellow-500 fill-yellow-500" />
+                    자동 생성
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => {
+                    setAutoTaskMode('delete')
+                    setIsAutoTaskOpen(true)
+                  }} className="text-destructive focus:text-destructive">
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    일괄 삭제
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
 
             <Select 
@@ -736,6 +761,7 @@ export function TaskCalendar({ tasks, roles, openingHours, storeId, canManage = 
         storeId={storeId}
         open={isAutoTaskOpen}
         onOpenChange={setIsAutoTaskOpen}
+        initialMode={autoTaskMode}
       />
     </div>
   )

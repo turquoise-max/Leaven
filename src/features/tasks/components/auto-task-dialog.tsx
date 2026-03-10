@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { format, addDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addMonths, addWeeks } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { Calendar as CalendarIcon, Loader2, Sparkles, Trash2, CalendarClock } from 'lucide-react'
@@ -30,11 +30,19 @@ interface AutoTaskDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   storeId: string
+  initialMode?: 'create' | 'delete'
 }
 
-export function AutoTaskDialog({ open, onOpenChange, storeId }: AutoTaskDialogProps) {
+export function AutoTaskDialog({ open, onOpenChange, storeId, initialMode = 'create' }: AutoTaskDialogProps) {
   const [loading, setLoading] = useState(false)
-  const [mode, setMode] = useState<'create' | 'delete'>('create')
+  const [mode, setMode] = useState<'create' | 'delete'>(initialMode)
+
+  // 모달이 열릴 때 initialMode에 맞춰 상태 업데이트
+  useEffect(() => {
+    if (open) {
+      setMode(initialMode)
+    }
+  }, [open, initialMode])
   
   // Default: Next Week
   const today = new Date()

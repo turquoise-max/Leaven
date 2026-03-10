@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { format, addDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addMonths, addWeeks } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { Calendar as CalendarIcon, Loader2, Sparkles, Trash2, CalendarClock } from 'lucide-react'
@@ -33,6 +33,7 @@ interface AutoScheduleDialogProps {
   onOpenChange: (open: boolean) => void
   storeId: string
   staffList: any[]
+  initialMode?: 'create' | 'delete'
 }
 
 export function AutoScheduleDialog({
@@ -40,9 +41,16 @@ export function AutoScheduleDialog({
   onOpenChange,
   storeId,
   staffList,
+  initialMode = 'create'
 }: AutoScheduleDialogProps) {
   const [loading, setLoading] = useState(false)
-  const [mode, setMode] = useState<'create' | 'delete'>('create')
+  const [mode, setMode] = useState<'create' | 'delete'>(initialMode)
+
+  useEffect(() => {
+    if (open) {
+      setMode(initialMode)
+    }
+  }, [open, initialMode])
   
   // Default: Next Week
   const today = new Date()
