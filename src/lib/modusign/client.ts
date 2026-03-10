@@ -18,39 +18,46 @@ interface CreateDocumentFromTemplateParams {
  */
 export async function sendContract(params: CreateDocumentFromTemplateParams) {
   const apiKey = process.env.MODUSIGN_API_KEY
+  const email = process.env.MODUSIGN_EMAIL
 
-  if (!apiKey) {
-    throw new Error('MODUSIGN_API_KEY is not defined in environment variables')
+  if (!apiKey || !email) {
+    throw new Error('MODUSIGN_API_KEY or MODUSIGN_EMAIL is not defined in environment variables')
   }
 
-  // 1. 템플릿으로 문서 생성 요청 (이 부분은 실제 모두싸인 API 버전에 따라 다를 수 있음)
-  // 여기서는 가장 일반적인 플로우를 추상화하여 제공합니다.
-  const response = await fetch(`${MODUSIGN_API_URL}/v2/template-documents`, {
+  // 이메일:API키를 Base64로 인코딩 (모두싸인 Basic 인증 스펙)
+  const credentials = Buffer.from(`${email}:${apiKey}`).toString('base64')
+
+  // 1. 템플릿으로 서명 요청 직접 발송 (올바른 엔드포인트 적용)
+  const response = await fetch(`${MODUSIGN_API_URL}/documents/request-with-template`, {
     method: 'POST',
     headers: {
+      'Accept': 'application/json',
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
+      'Authorization': `Basic ${credentials}`,
     },
     body: JSON.stringify({
       templateId: params.templateId,
-      documentName: params.title,
-      // participant 정보와 매핑할 필드들
-      participantMappings: params.participants.map(p => ({
-        role: p.role,
-        name: p.name,
-        email: p.email,
-        phone: p.phone,
-      })),
-      fieldMappings: params.fields ? Object.entries(params.fields).map(([name, value]) => ({
-        name,
-        value: String(value)
-      })) : []
+      document: {
+        title: params.title,
+        // 모두싸인 공식 API 스펙에 맞춘 참여자 매핑
+        participantMappings: params.participants.map(p => ({
+          role: p.role,
+          name: p.name,
+          email: p.email,
+          phone: p.phone,
+        })),
+        // 모두싸인 공식 API 스펙에 맞춘 입력 필드 매핑
+        requesterInputMappings: params.fields ? Object.entries(params.fields).map(([dataLabel, value]) => ({
+          dataLabel,
+          value: String(value)
+        })) : []
+      }
     }),
   })
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => null)
-    console.error('Modusign API Error:', errorData)
+    console.error('Modusign API Error:', JSON.stringify(errorData, null, 2))
     throw new Error(`Modusign API failed with status ${response.status}`)
   }
 
