@@ -22,6 +22,12 @@ import { Button } from '@/components/ui/button'
 import { X, Filter, Sparkles } from 'lucide-react'
 import { CalendarHeader } from '@/components/common/calendar-header'
 import { AutoScheduleDialog } from './auto-schedule-dialog'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 interface ScheduleCalendarProps {
   initialEvents: any[]
@@ -62,46 +68,74 @@ const renderEventContent = (eventInfo: any) => {
   // 스케줄 고유 색상이 있으면 사용, 없으면 첫 번째 멤버의 역할 색상 사용
   const baseColor = event.extendedProps.color || members[0]?.roleColor || '#808080'
   const style = {
-    backgroundColor: hexToRgba(baseColor, 0.05),
+    backgroundColor: hexToRgba(baseColor, 0.1),
     borderColor: baseColor,
     borderLeftWidth: '4px',
   }
 
   return (
-    <div 
-      className="w-full h-full p-1 pl-2 rounded-r-sm overflow-hidden text-xs flex flex-col justify-start"
-      style={style}
-    >
-      {/* 시간 및 타이틀 */}
-      <div className="flex items-center gap-1 mb-1 border-b pb-1 border-black/5">
-          <span className="font-bold truncate text-[11px] leading-tight text-foreground/90">{title}</span>
-          <span className="text-[9px] opacity-70 whitespace-nowrap ml-auto">{eventInfo.timeText}</span>
-      </div>
-      
-      {/* 멤버 목록 */}
-      <div className="flex flex-col gap-0.5 overflow-hidden">
-          {members.map((member: any) => (
-              <div key={member.id} className="flex items-center gap-1 truncate leading-tight text-[10px]">
-                   <span className="font-medium truncate">{member.userName}</span>
-                   <span 
-                      className="text-[9px] px-1 rounded-[2px] opacity-90 whitespace-nowrap"
-                      style={{ 
-                          color: member.roleColor,
-                          backgroundColor: hexToRgba(member.roleColor, 0.1)
-                      }}
-                   >
-                      {member.roleName}
-                   </span>
-              </div>
-          ))}
-      </div>
-
-      {members.length > 3 && (
-          <div className="text-[9px] opacity-60 mt-0.5 text-right pr-1">
-              + {members.length - 3} more
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div 
+            className="w-full h-full p-1 pl-1.5 rounded-r-sm overflow-hidden text-xs flex flex-col justify-start cursor-pointer hover:brightness-95 transition-all"
+            style={style}
+          >
+            {/* 타이틀 및 시간 */}
+            <div className="flex flex-col gap-0.5 mb-1 pb-1 border-b border-black/10">
+                <span className="font-bold truncate text-[10px] sm:text-[11px] leading-tight text-foreground/90">{title}</span>
+                {/* 좁은 상태에서는 시간이 생략되거나 작게 보이도록 처리 */}
+                <span className="text-[9px] opacity-70 whitespace-nowrap truncate">{eventInfo.timeText}</span>
             </div>
-      )}
-    </div>
+            
+            {/* 멤버 목록 (아바타 형태) */}
+            <div className="flex flex-wrap gap-1 overflow-hidden mt-0.5">
+                {members.slice(0, 6).map((member: any) => (
+                    <div 
+                      key={member.id} 
+                      className="w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center text-[8px] sm:text-[9px] font-bold text-white shadow-sm shrink-0"
+                      style={{ backgroundColor: member.roleColor }}
+                    >
+                      {member.userName.charAt(0)}
+                    </div>
+                ))}
+                {members.length > 6 && (
+                  <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center text-[8px] sm:text-[9px] font-bold bg-black/10 text-foreground/70 shadow-sm shrink-0">
+                    +{members.length - 6}
+                  </div>
+                )}
+            </div>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="right" align="start" className="flex flex-col gap-2 z-[100] max-w-xs shadow-xl border bg-background text-foreground">
+          <div className="font-bold border-b pb-1.5 flex items-center justify-between gap-4">
+            <span>{title}</span>
+            <span className="text-muted-foreground font-normal text-xs">{eventInfo.timeText}</span>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            {members.map((member: any) => (
+              <div key={member.id} className="flex items-center gap-2 text-sm">
+                <div 
+                  className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white shadow-sm shrink-0"
+                  style={{ backgroundColor: member.roleColor }}
+                >
+                  {member.userName.charAt(0)}
+                </div>
+                <span className="font-medium truncate">{member.userName}</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-sm whitespace-nowrap ml-auto" style={{ color: member.roleColor, backgroundColor: hexToRgba(member.roleColor, 0.1) }}>
+                  {member.roleName}
+                </span>
+              </div>
+            ))}
+          </div>
+          {event.extendedProps.memo && (
+            <div className="text-xs text-muted-foreground mt-1 bg-muted/50 p-2 rounded-md border">
+              {event.extendedProps.memo}
+            </div>
+          )}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   )
 }
 
@@ -493,6 +527,7 @@ export function ScheduleCalendar({
             height="100%"
             slotMinTime={minTime}
             slotMaxTime={maxTime}
+            slotEventOverlap={false}
             allDaySlot={false}
             nowIndicator={true}
             locale="ko"

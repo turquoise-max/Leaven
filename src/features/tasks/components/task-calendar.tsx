@@ -6,7 +6,13 @@ import timeGridPlugin from '@fullcalendar/timegrid'
 import interactionPlugin from '@fullcalendar/interaction'
 import { Task, updateTask } from '../actions'
 import { useMemo, useState, useEffect, useRef, useCallback } from 'react'
-import { CheckCircle2, Clock, Circle, Filter, X } from 'lucide-react'
+import { CheckCircle2, Clock, Circle, Filter, X, Check, CalendarDays, ListChecks } from 'lucide-react'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { EditTaskDialog } from './edit-task-dialog'
 import { CreateTaskDialog } from './create-task-dialog'
 import { EventClickArg, EventDropArg } from '@fullcalendar/core'
@@ -37,6 +43,15 @@ const slotLabelFormat = {
 const dayHeaderFormat = {
   weekday: 'short' as const,
   day: 'numeric' as const
+}
+
+function hexToRgba(hex: string, alpha: number) {
+  if (!hex || !hex.startsWith('#') || hex.length < 7) return `rgba(128, 128, 128, ${alpha})`
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return `rgba(128, 128, 128, ${alpha})`
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 
 interface TaskCalendarProps {
@@ -121,6 +136,71 @@ export function TaskCalendar({ tasks, roles, openingHours, storeId, canManage = 
     if (task) {
         setSelectedTask(task)
         setIsEditOpen(true)
+    }
+  }
+
+  const handleToggleStatus = async (e: React.MouseEvent, task: Task) => {
+    e.stopPropagation() // 부모(캘린더 카드) 이벤트 전파 방지
+    if (!canManage) {
+      toast.error('상태 변경 권한이 없습니다.')
+      return
+    }
+    
+    const newStatus = task.status === 'done' ? 'todo' : 'done' // 완료면 미완료로, 미완료면 완료로
+    
+    // UI 낙관적 업데이트 방식을 쓸 수도 있지만, 여기서는 서버에 먼저 반영
+    const result = await updateTask({
+      id: task.id,
+      status: newStatus
+    })
+
+    if (result?.error) {
+      toast.error('상태 변경 실패')
+    } else {
+      toast.success(newStatus === 'done' ? '업무 완료 처리' : '업무 미완료 처리')
+    }
+  }
+
+  const handleToggleChecklistItem = async (e: React.MouseEvent, task: Task, index: number) => {
+    e.stopPropagation() // 부모(캘린더 카드 및 툴팁) 이벤트 전파 방지
+    e.preventDefault()
+    if (!canManage) {
+      toast.error('상태 변경 권한이 없습니다.')
+      return
+    }
+
+    if (!task.checklist) return
+    
+    // 배열 복사 및 업데이트
+    const newChecklist = [...task.checklist]
+    newChecklist[index] = {
+      ...newChecklist[index],
+      is_completed: !newChecklist[index].is_completed
+    }
+
+    // 모든 항목이 완료되었는지 확인
+    const allCompleted = newChecklist.length > 0 && newChecklist.every((item: any) => item.is_completed)
+    
+    // 상태 자동 변경 로직
+    let newStatus = task.status
+    if (allCompleted) {
+        newStatus = 'done'
+    } else if (task.status === 'done') {
+        newStatus = 'todo'
+    }
+
+    const result = await updateTask({
+      id: task.id,
+      checklist: newChecklist,
+      status: newStatus
+    })
+
+    if (result?.error) {
+      toast.error('체크리스트 업데이트 실패')
+    } else {
+      if (task.status !== newStatus) {
+         toast.success(newStatus === 'done' ? '모든 항목 완료! 업무가 완료 처리되었습니다.' : '항목 체크 해제! 업무가 미완료 처리되었습니다.')
+      }
     }
   }
 
@@ -342,10 +422,11 @@ export function TaskCalendar({ tasks, roles, openingHours, storeId, canManage = 
       const baseEvent = {
         id: task.id,
         title: title,
-        backgroundColor: color,
-        borderColor: color,
-        textColor: '#fff',
+        backgroundColor: 'transparent',
+        borderColor: 'transparent',
+        textColor: 'transparent',
         extendedProps: {
+          color: color,
           description: task.description,
           roleName: role ? role.name : '전체',
           assignedRoleId: task.assigned_role_id, // For Filtering
@@ -402,32 +483,146 @@ export function TaskCalendar({ tasks, roles, openingHours, storeId, canManage = 
   }
 
   const renderEventContent = (eventInfo: any) => {
-    const { status, taskType } = eventInfo.event.extendedProps
+    const { status, taskType, roleName, isCritical, checklist, description, originalTask, color } = eventInfo.event.extendedProps
     
+    // 체크리스트 진행률 계산
+    let progressStr = ''
+    if (checklist && checklist.length > 0) {
+      const doneCount = checklist.filter((item: any) => item.is_completed).length
+      progressStr = `${doneCount}/${checklist.length}`
+    }
+
+    const isDone = status === 'done'
+    const bgColor = isDone ? color : hexToRgba(color, 0.1)
+    const textColor = isDone ? '#ffffff' : color
+    const borderColor = isDone ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.08)'
+
     return (
-      <div className="p-1 overflow-hidden h-full flex flex-col justify-between">
-        <div className="flex items-start gap-1">
-            {taskType !== 'always' && (
-                <div className="mt-0.5">
-                    {status === 'done' ? (
-                        <CheckCircle2 className="w-3 h-3" />
-                    ) : status === 'in_progress' ? (
-                        <Clock className="w-3 h-3" />
-                    ) : (
-                        <Circle className="w-3 h-3" />
-                    )}
-                </div>
-            )}
-            <div className="font-semibold text-xs truncate leading-tight">
-            {eventInfo.event.title}
+      <TooltipProvider delayDuration={200}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div 
+              className="w-full h-full p-1 pl-1.5 rounded-sm overflow-hidden text-xs flex flex-col justify-start cursor-pointer hover:brightness-95 transition-all group relative"
+              style={{
+                backgroundColor: bgColor,
+                borderLeft: `3px solid ${color}`,
+                color: textColor
+              }}
+            >
+              {/* 상단: 타이틀, 아이콘, 시간 */}
+              <div className="flex items-start gap-1.5 mb-1 pb-1" style={{ borderBottom: `1px solid ${borderColor}` }}>
+                  <div 
+                    onClick={(e) => handleToggleStatus(e, originalTask)}
+                    className={`mt-0.5 shrink-0 flex items-center justify-center w-3.5 h-3.5 rounded-full border transition-all ${
+                      isDone 
+                      ? 'bg-white border-white text-black hover:bg-white/80' 
+                      : 'hover:bg-black/5 dark:hover:bg-white/10'
+                    }`}
+                    style={{ 
+                        borderColor: isDone ? 'transparent' : color, 
+                        color: isDone ? color : textColor
+                    }}
+                  >
+                      {isDone && <Check className="w-2.5 h-2.5 font-bold" strokeWidth={3} />}
+                  </div>
+                  
+                  <div className="flex flex-col min-w-0 flex-1 gap-0.5">
+                      <span className="font-bold truncate text-[10px] sm:text-[11px] leading-tight">
+                        {eventInfo.event.title.split(' (')[0]}
+                      </span>
+                      {eventInfo.timeText && (
+                        <span className="text-[9px] opacity-90 whitespace-nowrap truncate">
+                          {eventInfo.timeText}
+                        </span>
+                      )}
+                  </div>
+                  
+                  {isCritical && (
+                    <span 
+                      className="shrink-0 text-[8px] px-1 py-[1px] rounded-[3px] ml-auto font-medium" 
+                      style={{ 
+                        backgroundColor: isDone ? 'rgba(255,255,255,0.2)' : '#ef4444', 
+                        color: '#fff' 
+                      }}
+                    >
+                      중요
+                    </span>
+                  )}
+              </div>
+              
+              {/* 하단: 체크리스트 */}
+              <div className="flex flex-col gap-0.5 mt-auto">
+                 {progressStr && (
+                   <span className="text-[9px] opacity-90 flex items-center gap-1 truncate font-medium">
+                     <ListChecks className="w-[10px] h-[10px]" /> {progressStr}
+                   </span>
+                 )}
+              </div>
             </div>
-        </div>
-        {eventInfo.timeText && (
-          <div className="text-[10px] opacity-80 mt-auto text-right">
-            {eventInfo.timeText}
-          </div>
-        )}
-      </div>
+          </TooltipTrigger>
+          
+          <TooltipContent side="right" align="start" className="flex flex-col gap-2 z-[100] max-w-xs shadow-xl border bg-background text-foreground">
+            <div className="font-bold border-b pb-1.5 flex items-center justify-between gap-4">
+              <span>{eventInfo.event.title.split(' (')[0]}</span>
+              <span className="text-muted-foreground font-normal text-xs">{eventInfo.timeText || '상시 업무'}</span>
+            </div>
+            
+            <div className="flex items-center gap-2 text-xs">
+               <span className="px-1.5 py-0.5 rounded-sm bg-muted whitespace-nowrap">
+                 {roleName}
+               </span>
+               <span className={`px-1.5 py-0.5 rounded-sm whitespace-nowrap text-white ${status === 'done' ? 'bg-green-500' : 'bg-blue-500'}`}>
+                 {status === 'done' ? '완료됨' : '미완료'}
+               </span>
+               {isCritical && <span className="text-red-500 font-bold ml-auto">🔥 중요 업무</span>}
+            </div>
+
+            {description && (
+              <div className="text-xs text-muted-foreground mt-1 bg-muted/50 p-2 rounded-md border">
+                {description}
+              </div>
+            )}
+            
+            {/* 체크리스트 전체 항목 표시 및 인터랙션 */}
+            {checklist && checklist.length > 0 && (
+              <div className="flex flex-col gap-1.5 mt-2 bg-muted/30 p-2 rounded-md border">
+                <div className="text-[11px] font-semibold flex items-center gap-1.5 border-b pb-1.5 border-black/5 dark:border-white/10">
+                  <ListChecks className="w-3.5 h-3.5" />
+                  체크리스트 ({checklist.filter((item: any) => item.is_completed).length}/{checklist.length})
+                </div>
+                <div className="flex flex-col gap-1.5 mt-0.5 max-h-[160px] overflow-y-auto pr-1">
+                  {checklist.map((item: any, idx: number) => (
+                    <div 
+                      key={idx} 
+                      className={`flex items-start gap-2 group/check p-1 rounded-sm transition-all ${
+                         canManage ? 'cursor-pointer hover:bg-muted/50' : 'cursor-default'
+                      }`}
+                      onClick={(e) => canManage && handleToggleChecklistItem(e, originalTask, idx)}
+                    >
+                      <div className={`mt-[1.5px] shrink-0 flex items-center justify-center w-3 h-3 rounded-[3px] border transition-all ${
+                        item.is_completed 
+                        ? 'bg-primary border-primary text-primary-foreground' 
+                        : 'border-muted-foreground/50 group-hover/check:border-primary group-hover/check:bg-primary/10'
+                      }`}>
+                        {item.is_completed && <Check className="w-2.5 h-2.5" />}
+                      </div>
+                      <span className={`text-[11px] leading-[1.3] ${item.is_completed ? 'line-through text-muted-foreground opacity-70' : 'text-foreground font-medium'}`}>
+                        {item.text}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {canManage && (
+              <div className="text-[10px] text-muted-foreground mt-1 pt-1.5 border-t text-center italic opacity-80">
+                {status === 'done' ? '블록을 클릭하여 세부 사항을 편집하세요.' : '블록 내부의 원을 클릭하면 전체 업무가 완료 처리됩니다.'}
+              </div>
+            )}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     )
   }
 
@@ -510,6 +705,7 @@ export function TaskCalendar({ tasks, roles, openingHours, storeId, canManage = 
             allDaySlot={true}
             slotMinTime={minTime}
             slotMaxTime={maxTime}
+            slotEventOverlap={false}
             height="100%"
             locale="ko"
             timeZone="Asia/Seoul"

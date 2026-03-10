@@ -25,7 +25,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { updateStaffInfo, approveRequest, rejectRequest, removeStaff } from '../actions'
 import { getStoreRoles } from '@/features/store/actions'
 import { toast } from 'sonner'
-import { Loader2, User, Clock, CalendarDays, Wallet } from 'lucide-react'
+import { Loader2, User, Clock, CalendarDays, Wallet, FileSignature } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
@@ -118,6 +118,7 @@ export function EditStaffDialog({
   // Work Schedules (0~6 index)
   const [workSchedules, setWorkSchedules] = useState<WorkSchedule[]>([])
   const [isDirty, setIsDirty] = useState(false)
+  const [sendingContract, setSendingContract] = useState(false)
 
   // Load roles
   useEffect(() => {
@@ -307,6 +308,35 @@ export function EditStaffDialog({
       toast.success('퇴사 처리 완료')
       router.refresh()
       onOpenChange(false)
+    }
+  }
+
+  const handleSendContract = async () => {
+    if (!canManage || !staff) return
+    if (!confirm(`${name || staff.name} 직원에게 전자 근로계약서 서명 요청을 발송하시겠습니까?`)) return
+
+    setSendingContract(true)
+    try {
+      const response = await fetch('/api/contracts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          storeId,
+          staffId: staff.id
+        })
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || '계약서 발송에 실패했습니다.')
+      }
+
+      toast.success('근로계약서 발송 완료', { description: '카카오톡 또는 이메일로 서명 요청이 발송되었습니다.' })
+    } catch (error: any) {
+      toast.error('근로계약서 발송 실패', { description: error.message })
+    } finally {
+      setSendingContract(false)
     }
   }
 
@@ -626,9 +656,22 @@ export function EditStaffDialog({
             </div>
 
             <div className="flex gap-2">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading || sendingContract}>
                 취소
               </Button>
+
+              {canManage && !isPending && !isOwner && (
+                <Button 
+                  type="button" 
+                  variant="secondary"
+                  onClick={handleSendContract} 
+                  disabled={loading || sendingContract}
+                  className="bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 border border-blue-200 dark:border-blue-800"
+                >
+                  {sendingContract ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSignature className="mr-2 h-4 w-4" />}
+                  계약서 발송
+                </Button>
+              )}
               
               {canManage && isPending ? (
                 <Button 

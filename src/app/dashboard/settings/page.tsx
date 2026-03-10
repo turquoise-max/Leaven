@@ -3,13 +3,21 @@ import { StoreSettingsForm } from '@/features/store/components/store-settings-fo
 import { RoleManagement } from '@/features/store/components/role-management'
 import { getStoreRoles, getStorePermissions } from '@/features/store/roles'
 import { cookies } from 'next/headers'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent } from '@/components/ui/card'
-import { Lock } from 'lucide-react'
+import { Lock, Settings, Users } from 'lucide-react'
+import Link from 'next/link'
+import { cn } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
 
-export default async function StoreSettingsPage() {
+interface SettingsPageProps {
+  searchParams: Promise<{ tab?: string }>
+}
+
+export default async function StoreSettingsPage({ searchParams }: SettingsPageProps) {
+  const resolvedSearchParams = await searchParams
+  const currentTab = resolvedSearchParams?.tab || 'general'
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -83,50 +91,93 @@ export default async function StoreSettingsPage() {
   // but initial migration creates default roles, so empty means likely error or no migration)
   const isMigrationNeeded = roles.length === 0 && permissions.length > 0 ? false : (roles.length === 0 || permissions.length === 0)
 
+  const navItems = [
+    {
+      id: 'general',
+      title: '기본 설정',
+      description: '매장 정보 및 영업 시간',
+      icon: Settings,
+    },
+    {
+      id: 'roles',
+      title: '역할 및 권한',
+      description: '직원 그룹 및 접근 제어',
+      icon: Users,
+    },
+  ]
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-medium">매장 설정</h3>
-        <p className="text-sm text-muted-foreground">
-          매장의 기본 정보와 운영 설정을 관리합니다.
-        </p>
-      </div>
-      
-      <Tabs defaultValue="general" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="general">기본 설정</TabsTrigger>
-          <TabsTrigger value="roles">역할 및 권한</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="general" className="max-w-2xl">
-          <StoreSettingsForm initialData={store} />
-        </TabsContent>
-        
-        <TabsContent value="roles">
-          {isMigrationNeeded ? (
-            <div className="p-6 border rounded-md bg-yellow-50 text-yellow-900 dark:bg-yellow-900/20 dark:text-yellow-200">
-              <h4 className="font-semibold mb-2 flex items-center gap-2">
-                ⚠️ 데이터베이스 업데이트 필요
-              </h4>
-              <p className="text-sm mb-4">
-                역할 및 권한 관리 기능을 사용하기 위해서는 데이터베이스 구조 업데이트가 필요합니다.
-              </p>
-              <div className="text-xs bg-black/5 dark:bg-white/10 p-3 rounded font-mono">
-                supabase/migrations/20260304000000_add_role_permissions.sql
-              </div>
-              <p className="text-sm mt-4 text-muted-foreground">
-                위 마이그레이션 파일을 실행하여 테이블을 생성해주세요.
-              </p>
-            </div>
-          ) : (
-            <RoleManagement 
-              storeId={store.id} 
-              roles={roles} 
-              permissions={permissions} 
-            />
+    <div className="pb-10 pt-2">
+      <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">
+        {/* Left Sidebar Navigation */}
+        <aside className="lg:w-1/4 shrink-0">
+          <nav className="flex space-x-2 lg:flex-col lg:space-x-0 lg:space-y-1 overflow-x-auto pb-2 lg:pb-0 scrollbar-hide">
+            {navItems.map((item) => {
+              const Icon = item.icon
+              const isActive = currentTab === item.id
+              
+              return (
+                <Link
+                  key={item.id}
+                  href={`?tab=${item.id}`}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors whitespace-nowrap lg:whitespace-normal",
+                    isActive
+                      ? "bg-primary/10 text-primary dark:bg-primary/20 hover:bg-primary/10"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )}
+                >
+                  <Icon className={cn("w-4 h-4 shrink-0", isActive ? "text-primary" : "text-muted-foreground")} />
+                  <span>{item.title}</span>
+                </Link>
+              )
+            })}
+          </nav>
+        </aside>
+
+        {/* Right Content Area */}
+        <div className="flex-1 lg:max-w-4xl min-w-0">
+          {currentTab === 'general' && (
+            <StoreSettingsForm initialData={store} />
           )}
-        </TabsContent>
-      </Tabs>
+
+          {currentTab === 'roles' && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-2xl font-semibold tracking-tight">역할 및 권한</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  직원들의 역할을 분류하고 상세 권한을 제어합니다.
+                </p>
+              </div>
+              
+              <div className="w-full h-px bg-border/50 my-6" />
+
+              {isMigrationNeeded ? (
+                <div className="p-6 border rounded-xl bg-yellow-50 text-yellow-900 dark:bg-yellow-900/20 dark:text-yellow-200">
+                  <h4 className="font-semibold mb-2 flex items-center gap-2">
+                    ⚠️ 데이터베이스 업데이트 필요
+                  </h4>
+                  <p className="text-sm mb-4">
+                    역할 및 권한 관리 기능을 사용하기 위해서는 데이터베이스 구조 업데이트가 필요합니다.
+                  </p>
+                  <div className="text-xs bg-black/5 dark:bg-white/10 p-3 rounded font-mono">
+                    supabase/migrations/20260304000000_add_role_permissions.sql
+                  </div>
+                  <p className="text-sm mt-4 text-muted-foreground">
+                    위 마이그레이션 파일을 실행하여 테이블을 생성해주세요.
+                  </p>
+                </div>
+              ) : (
+                <RoleManagement 
+                  storeId={store.id} 
+                  roles={roles} 
+                  permissions={permissions} 
+                />
+              )}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
