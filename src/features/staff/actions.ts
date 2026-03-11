@@ -161,6 +161,7 @@ export async function createManualStaff(storeId: string, formData: FormData) {
   const weeklyHoliday = weeklyHolidayStr && weeklyHolidayStr !== 'null' ? parseInt(weeklyHolidayStr) : null
   const contractEndDate = formData.get('contractEndDate') as string
   const insuranceStatusJson = formData.get('insuranceStatus') as string
+  const customWageSettingsJson = formData.get('customWageSettings') as string
   
   let workSchedules = []
   try {
@@ -178,6 +179,15 @@ export async function createManualStaff(storeId: string, formData: FormData) {
     }
   } catch (e) {
     console.error('Failed to parse insuranceStatus:', e)
+  }
+
+  let customWageSettings = null
+  try {
+    if (customWageSettingsJson) {
+      customWageSettings = JSON.parse(customWageSettingsJson)
+    }
+  } catch (e) {
+    console.error('Failed to parse customWageSettings:', e)
   }
 
   if (!name) return { error: '이름을 입력해주세요.' }
@@ -209,6 +219,7 @@ export async function createManualStaff(storeId: string, formData: FormData) {
     weekly_holiday: weeklyHoliday,
     contract_end_date: contractEndDate || null,
     insurance_status: insuranceStatus,
+    custom_wage_settings: customWageSettings,
   })
 
   if (error) return { error: error.message }
@@ -254,6 +265,7 @@ export async function updateStaffInfo(storeId: string, targetMemberId: string, f
   const weeklyHoliday = weeklyHolidayStr && weeklyHolidayStr !== 'null' ? parseInt(weeklyHolidayStr) : null
   const contractEndDate = formData.get('contractEndDate') as string
   const insuranceStatusJson = formData.get('insuranceStatus') as string
+  const customWageSettingsJson = formData.get('customWageSettings') as string
   
   let workSchedules = []
   try {
@@ -271,6 +283,15 @@ export async function updateStaffInfo(storeId: string, targetMemberId: string, f
     }
   } catch (e) {
     console.error('Failed to parse insuranceStatus:', e)
+  }
+
+  let customWageSettings = null
+  try {
+    if (customWageSettingsJson) {
+      customWageSettings = JSON.parse(customWageSettingsJson)
+    }
+  } catch (e) {
+    console.error('Failed to parse customWageSettings:', e)
   }
 
   // 추가: 대상 멤버가 점주인지 확인 (점주 역할 변경 불가)
@@ -316,6 +337,7 @@ export async function updateStaffInfo(storeId: string, targetMemberId: string, f
       weekly_holiday: weeklyHoliday,
       contract_end_date: contractEndDate || null,
       insurance_status: insuranceStatus,
+      custom_wage_settings: customWageSettings,
     })
     .eq('id', targetMemberId) // user_id 대신 member id(pk) 사용 권장 (수기 등록 직원은 user_id가 없으므로)
     .eq('store_id', storeId)

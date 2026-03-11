@@ -156,16 +156,33 @@ export async function deleteStore(storeId: string) {
 
 export async function getStoreRoles(storeId: string) {
   const supabase = await createClient()
-  
+
   const { data, error } = await supabase
     .from('store_roles')
     .select('*')
     .eq('store_id', storeId)
-    .order('priority', { ascending: false })
-    
+    .order('priority', { ascending: true })
+
   if (error) {
     console.error('Error fetching store roles:', error)
     return []
+  }
+
+  return data
+}
+
+export async function getStoreSettings(storeId: string) {
+  const supabase = await createClient()
+  
+  const { data, error } = await supabase
+    .from('stores')
+    .select('wage_start_day, wage_end_day, pay_day, wage_exceptions')
+    .eq('id', storeId)
+    .single()
+    
+  if (error) {
+    console.error('Error fetching store settings:', error)
+    return null
   }
   
   return data

@@ -9,6 +9,15 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Checkbox } from '@/components/ui/checkbox'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -90,23 +99,36 @@ export function StoreSettingsForm({ initialData }: StoreSettingsFormProps) {
   const [isDeleting, setIsDeleting] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
 
-  const initialFormState = useMemo(() => ({
-    name: initialData.name || '',
-    owner_name: initialData.owner_name || '',
-    business_number: initialData.business_number || '',
-    store_phone: initialData.store_phone || '',
-    description: initialData.description || '',
-    zip_code: initialData.zip_code || '',
-    address: initialData.address || '',
-    address_detail: initialData.address_detail || '',
-    image_url: initialData.image_url || null,
-    stamp_image_url: initialData.stamp_image_url || null,
-    opening_hours: initialData.opening_hours || {},
-    wage_start_day: initialData.wage_start_day != null ? String(initialData.wage_start_day) : '1',
-    wage_end_day: initialData.wage_end_day != null ? String(initialData.wage_end_day) : '0',
-    pay_day: initialData.pay_day != null ? String(initialData.pay_day) : '10',
-    wage_exceptions: initialData.wage_exceptions || {},
-  }), [initialData])
+  const initialFormState = useMemo(() => {
+    const wStart = initialData.wage_start_day != null ? initialData.wage_start_day : 1
+    const wEnd = initialData.wage_end_day != null ? initialData.wage_end_day : 0
+    const isDefaultPeriod = wStart === 1 && wEnd === 0
+    const isPayDayLast = initialData.pay_day === 0
+
+    return {
+      name: initialData.name || '',
+      owner_name: initialData.owner_name || '',
+      business_number: initialData.business_number || '',
+      store_phone: initialData.store_phone || '',
+      description: initialData.description || '',
+      zip_code: initialData.zip_code || '',
+      address: initialData.address || '',
+      address_detail: initialData.address_detail || '',
+      image_url: initialData.image_url || null,
+      stamp_image_url: initialData.stamp_image_url || null,
+      opening_hours: initialData.opening_hours || {},
+      
+      wage_start_day: String(wStart),
+      wage_end_day: String(wEnd),
+      pay_day: initialData.pay_day != null ? String(initialData.pay_day) : '10',
+      wage_exceptions: initialData.wage_exceptions || {},
+      
+      wage_period_type: isDefaultPeriod ? 'default' : 'custom',
+      pay_month: initialData.wage_exceptions?.pay_month || 'next',
+      holiday_rule: initialData.wage_exceptions?.holiday_rule || 'prev',
+      is_pay_day_last: isPayDayLast,
+    }
+  }, [initialData])
 
   const [formData, setFormData] = useState(initialFormState)
   const [isDirty, setIsDirty] = useState(false)
@@ -182,10 +204,21 @@ export function StoreSettingsForm({ initialData }: StoreSettingsFormProps) {
     if (formData.image_url) submitData.append('image_url', formData.image_url)
     if (formData.stamp_image_url) submitData.append('stamp_image_url', formData.stamp_image_url)
     submitData.append('opening_hours', JSON.stringify(formData.opening_hours))
-    submitData.append('wage_start_day', formData.wage_start_day)
-    submitData.append('wage_end_day', formData.wage_end_day)
-    submitData.append('pay_day', formData.pay_day)
-    submitData.append('wage_exceptions', JSON.stringify(formData.wage_exceptions))
+
+    const startDay = formData.wage_period_type === 'default' ? '1' : formData.wage_start_day
+    const endDay = formData.wage_period_type === 'default' ? '0' : formData.wage_end_day
+    const payDay = formData.is_pay_day_last ? '0' : formData.pay_day
+
+    submitData.append('wage_start_day', startDay)
+    submitData.append('wage_end_day', endDay)
+    submitData.append('pay_day', payDay)
+
+    const finalExceptions = {
+      ...formData.wage_exceptions,
+      pay_month: formData.pay_month,
+      holiday_rule: formData.holiday_rule
+    }
+    submitData.append('wage_exceptions', JSON.stringify(finalExceptions))
 
     const result = await updateStore(submitData)
     
@@ -435,58 +468,130 @@ export function StoreSettingsForm({ initialData }: StoreSettingsFormProps) {
         <div className="flex flex-col">
           <div className="flex flex-col md:flex-row gap-6 py-6 border-b border-border/50">
             <div className="w-full md:w-1/3 shrink-0 space-y-1">
-              <Label className="text-base font-medium">정산 기간</Label>
-              <p className="text-sm text-muted-foreground">매월 며칠부터 며칠까지 일한 급여를 계산할지 설정합니다. (0 입력 시 말일)</p>
+              <Label className="text-base font-medium">정산 기간 (급여 산정 기준일)</Label>
+              <p className="text-sm text-muted-foreground">매월 며칠부터 며칠까지 일한 급여를 계산할지 설정합니다.</p>
             </div>
-            <div className="w-full md:w-2/3 max-w-xl flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <Input
-                  id="wage_start_day"
-                  name="wage_start_day"
-                  type="number"
-                  min="1"
-                  max="31"
-                  value={formData.wage_start_day || ''}
-                  onChange={handleInputChange}
-                  className="w-[72px] text-center"
-                />
-                <span className="text-sm text-muted-foreground">일</span>
-              </div>
-              <span className="text-muted-foreground/50">~</span>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="wage_end_day"
-                  name="wage_end_day"
-                  type="number"
-                  min="0"
-                  max="31"
-                  value={formData.wage_end_day || ''}
-                  onChange={handleInputChange}
-                  className="w-[72px] text-center"
-                />
-                <span className="text-sm text-muted-foreground">{formData.wage_end_day === '0' ? '말일' : '일'}</span>
-              </div>
+            <div className="w-full md:w-2/3 max-w-xl space-y-4">
+              <RadioGroup 
+                value={formData.wage_period_type} 
+                onValueChange={(val) => setFormData(prev => ({ ...prev, wage_period_type: val }))}
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="default" id="period-default" />
+                  <Label htmlFor="period-default" className="font-normal cursor-pointer">매월 1일 ~ 말일 <span className="text-muted-foreground text-xs ml-1">(가장 많이 사용)</span></Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="custom" id="period-custom" />
+                  <Label htmlFor="period-custom" className="font-normal cursor-pointer">직접 설정</Label>
+                </div>
+              </RadioGroup>
+
+              {formData.wage_period_type === 'custom' && (
+                <div className="flex items-center gap-3 p-4 bg-muted/20 rounded-lg border mt-2 flex-wrap">
+                  <div className="flex items-center gap-2 bg-background p-1.5 rounded-md border shadow-sm">
+                    <span className="px-2 py-1 bg-muted rounded text-sm font-medium text-muted-foreground">전월</span>
+                    <Input
+                      type="number" min="1" max="31"
+                      value={formData.wage_start_day}
+                      onChange={(e) => {
+                        let val = parseInt(e.target.value)
+                        if (isNaN(val)) val = 1
+                        if (val > 31) val = 31
+                        if (val < 1) val = 1
+                        
+                        setFormData(prev => ({
+                          ...prev,
+                          wage_start_day: String(val),
+                          wage_end_day: String(val === 1 ? 0 : val - 1)
+                        }))
+                      }}
+                      className="w-[56px] h-8 text-center border-none shadow-none focus-visible:ring-0 px-1 font-medium"
+                    />
+                    <span className="text-sm font-medium pr-2">일</span>
+                  </div>
+                  
+                  <span className="text-muted-foreground font-medium">~</span>
+                  
+                  <div className="flex items-center gap-2 bg-background p-1.5 rounded-md border shadow-sm">
+                    <span className="px-2 py-1 bg-primary/10 text-primary rounded text-sm font-medium">당월</span>
+                    <Input
+                      type="number" min="0" max="31"
+                      value={formData.wage_end_day}
+                      onChange={(e) => {
+                        let val = parseInt(e.target.value)
+                        if (isNaN(val)) val = 0
+                        if (val > 31) val = 31
+                        if (val < 0) val = 0
+                        setFormData(prev => ({ ...prev, wage_end_day: String(val) }))
+                      }}
+                      className="w-[56px] h-8 text-center border-none shadow-none focus-visible:ring-0 px-1 font-medium"
+                    />
+                    <span className="text-sm font-medium pr-2">{formData.wage_end_day === '0' ? '말일' : '일'}</span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
           <div className="flex flex-col md:flex-row gap-6 py-6 border-b border-border/50">
             <div className="w-full md:w-1/3 shrink-0 space-y-1">
               <Label className="text-base font-medium">급여 지급일</Label>
-              <p className="text-sm text-muted-foreground">매월 급여를 지급하는 날짜를 설정합니다.</p>
+              <p className="text-sm text-muted-foreground">정산된 급여를 언제 줄 것인지 정합니다.</p>
             </div>
-            <div className="w-full md:w-2/3 max-w-xl flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">익월 (또는 당월)</span>
-              <Input
-                id="pay_day"
-                name="pay_day"
-                type="number"
-                min="1"
-                max="31"
-                value={formData.pay_day || ''}
-                onChange={handleInputChange}
-                className="w-[72px] text-center"
-              />
-              <span className="text-sm text-muted-foreground">일</span>
+            <div className="w-full md:w-2/3 max-w-xl space-y-4">
+               <div className="flex items-center gap-3">
+                 <Select value={formData.pay_month} onValueChange={(v) => setFormData(prev => ({ ...prev, pay_month: v }))}>
+                   <SelectTrigger className="w-[100px] h-9">
+                     <SelectValue placeholder="지급 월" />
+                   </SelectTrigger>
+                   <SelectContent>
+                     <SelectItem value="current">당월</SelectItem>
+                     <SelectItem value="next">익월</SelectItem>
+                   </SelectContent>
+                 </Select>
+
+                 <div className="flex items-center gap-2">
+                   <Input
+                     type="number" min="1" max="31"
+                     value={formData.is_pay_day_last ? '' : formData.pay_day}
+                     onChange={(e) => setFormData(prev => ({ ...prev, pay_day: e.target.value }))}
+                     disabled={formData.is_pay_day_last}
+                     className="w-[60px] h-9 text-center"
+                   />
+                   <span className="text-sm">일</span>
+                 </div>
+
+                 <div className="flex items-center space-x-2 ml-4">
+                   <Checkbox 
+                     id="pay-day-last" 
+                     checked={formData.is_pay_day_last}
+                     onCheckedChange={(c) => setFormData(prev => ({ ...prev, is_pay_day_last: !!c }))}
+                   />
+                   <Label htmlFor="pay-day-last" className="text-sm font-medium cursor-pointer">말일 지급</Label>
+                 </div>
+               </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col md:flex-row gap-6 py-6 border-b border-border/50">
+            <div className="w-full md:w-1/3 shrink-0 space-y-1">
+              <Label className="text-base font-medium">휴일 지급 규칙</Label>
+              <p className="text-sm text-muted-foreground">급여일이 주말이나 공휴일인 경우 매장의 규칙을 정합니다.</p>
+            </div>
+            <div className="w-full md:w-2/3 max-w-xl">
+               <Select value={formData.holiday_rule} onValueChange={(v) => setFormData(prev => ({ ...prev, holiday_rule: v }))}>
+                 <SelectTrigger className="w-[200px] h-9">
+                   <SelectValue placeholder="지급 규칙 선택" />
+                 </SelectTrigger>
+                 <SelectContent>
+                   <SelectItem value="prev">전 영업일에 지급</SelectItem>
+                   <SelectItem value="next">다음 영업일에 지급</SelectItem>
+                 </SelectContent>
+               </Select>
+               <p className="text-xs text-muted-foreground mt-2">
+                 * 전 영업일 지급: 10일이 일요일이면 8일 금요일 지급<br/>
+                 * 다음 영업일 지급: 10일이 일요일이면 11일 월요일 지급
+               </p>
             </div>
           </div>
 
@@ -508,7 +613,17 @@ export function StoreSettingsForm({ initialData }: StoreSettingsFormProps) {
                     {EMPLOYMENT_TYPES.map((type) => {
                       const wageExceptions = formData.wage_exceptions || {}
                       const hasException = !!wageExceptions[type.value]
-                      const exceptionData = wageExceptions[type.value] || { wage_start_day: '1', wage_end_day: '0', pay_day: '10' }
+                      const exceptionData = wageExceptions[type.value] || { 
+                        wage_start_day: '1', 
+                        wage_end_day: '0', 
+                        pay_day: '10',
+                        wage_period_type: 'default',
+                        pay_month: 'next',
+                        is_pay_day_last: false
+                      }
+                      
+                      const isDefaultPeriod = exceptionData.wage_period_type === 'default'
+                      const isPayDayLast = exceptionData.is_pay_day_last
 
                       return (
                         <div key={type.value} className="flex flex-col border rounded-lg bg-background overflow-hidden">
@@ -524,7 +639,14 @@ export function StoreSettingsForm({ initialData }: StoreSettingsFormProps) {
                                   ...prev,
                                   wage_exceptions: {
                                     ...(prev.wage_exceptions || {}),
-                                    [type.value]: { wage_start_day: '1', wage_end_day: '0', pay_day: '10' }
+                                    [type.value]: { 
+                                      wage_start_day: '1', 
+                                      wage_end_day: '0', 
+                                      pay_day: '10',
+                                      wage_period_type: 'default',
+                                      pay_month: 'next',
+                                      is_pay_day_last: false
+                                    }
                                   }
                                 }))}
                               >
@@ -549,54 +671,142 @@ export function StoreSettingsForm({ initialData }: StoreSettingsFormProps) {
                           </div>
                           
                           {hasException && (
-                            <div className="p-4 grid gap-4 sm:grid-cols-2">
-                              <div className="space-y-1.5">
-                                <Label className="text-xs text-muted-foreground">정산 기간</Label>
-                                <div className="flex items-center gap-2">
-                                  <Input 
-                                    type="number" 
-                                    className="h-8 w-[60px] text-sm text-center" 
-                                    value={exceptionData.wage_start_day}
-                                    onChange={(e) => setFormData(prev => ({
-                                      ...prev,
-                                      wage_exceptions: {
-                                        ...(prev.wage_exceptions || {}),
-                                        [type.value]: { ...exceptionData, wage_start_day: e.target.value }
-                                      }
-                                    }))}
-                                  />
-                                  <span className="text-xs text-muted-foreground">일 ~</span>
-                                  <Input 
-                                    type="number" 
-                                    className="h-8 w-[60px] text-sm text-center" 
-                                    value={exceptionData.wage_end_day}
-                                    onChange={(e) => setFormData(prev => ({
-                                      ...prev,
-                                      wage_exceptions: {
-                                        ...(prev.wage_exceptions || {}),
-                                        [type.value]: { ...exceptionData, wage_end_day: e.target.value }
-                                      }
-                                    }))}
-                                  />
-                                  <span className="text-xs text-muted-foreground">{exceptionData.wage_end_day === '0' ? '말일' : '일'}</span>
-                                </div>
+                            <div className="p-5 flex flex-col gap-6">
+                              <div className="space-y-3">
+                                <Label className="text-sm font-semibold">정산 기간 (급여 산정 기준일)</Label>
+                                <RadioGroup 
+                                  value={exceptionData.wage_period_type} 
+                                  onValueChange={(val) => setFormData(prev => ({
+                                    ...prev,
+                                    wage_exceptions: {
+                                      ...prev.wage_exceptions,
+                                      [type.value]: { ...exceptionData, wage_period_type: val, wage_start_day: val === 'default' ? '1' : exceptionData.wage_start_day, wage_end_day: val === 'default' ? '0' : exceptionData.wage_end_day }
+                                    }
+                                  }))}
+                                  className="flex flex-col gap-3"
+                                >
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="default" id={`period-default-${type.value}`} />
+                                    <Label htmlFor={`period-default-${type.value}`} className="font-normal cursor-pointer text-sm">매월 1일 ~ 말일</Label>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="custom" id={`period-custom-${type.value}`} />
+                                    <Label htmlFor={`period-custom-${type.value}`} className="font-normal cursor-pointer text-sm">직접 설정</Label>
+                                  </div>
+                                </RadioGroup>
+
+                                {exceptionData.wage_period_type === 'custom' && (
+                                  <div className="flex items-center gap-3 p-3 bg-muted/20 rounded-lg border flex-wrap">
+                                    <div className="flex items-center gap-2 bg-background p-1.5 rounded-md border shadow-sm">
+                                      <span className="px-2 py-1 bg-muted rounded text-[13px] font-medium text-muted-foreground">전월</span>
+                                      <Input
+                                        type="number" min="1" max="31"
+                                        value={exceptionData.wage_start_day}
+                                        onChange={(e) => {
+                                          let val = parseInt(e.target.value)
+                                          if (isNaN(val)) val = 1
+                                          if (val > 31) val = 31
+                                          if (val < 1) val = 1
+                                          
+                                          setFormData(prev => ({
+                                            ...prev,
+                                            wage_exceptions: {
+                                              ...prev.wage_exceptions,
+                                              [type.value]: {
+                                                ...exceptionData,
+                                                wage_start_day: String(val),
+                                                wage_end_day: String(val === 1 ? 0 : val - 1)
+                                              }
+                                            }
+                                          }))
+                                        }}
+                                        className="w-[48px] h-7 text-center border-none shadow-none focus-visible:ring-0 px-1 font-medium text-[13px]"
+                                      />
+                                      <span className="text-[13px] font-medium pr-1">일</span>
+                                    </div>
+                                    <span className="text-muted-foreground font-medium text-sm">~</span>
+                                    <div className="flex items-center gap-2 bg-background p-1.5 rounded-md border shadow-sm">
+                                      <span className="px-2 py-1 bg-primary/10 text-primary rounded text-[13px] font-medium">당월</span>
+                                      <Input
+                                        type="number" min="0" max="31"
+                                        value={exceptionData.wage_end_day}
+                                        onChange={(e) => {
+                                          let val = parseInt(e.target.value)
+                                          if (isNaN(val)) val = 0
+                                          if (val > 31) val = 31
+                                          if (val < 0) val = 0
+                                          
+                                          setFormData(prev => ({
+                                            ...prev,
+                                            wage_exceptions: {
+                                              ...prev.wage_exceptions,
+                                              [type.value]: { ...exceptionData, wage_end_day: String(val) }
+                                            }
+                                          }))
+                                        }}
+                                        className="w-[48px] h-7 text-center border-none shadow-none focus-visible:ring-0 px-1 font-medium text-[13px]"
+                                      />
+                                      <span className="text-[13px] font-medium pr-1">{exceptionData.wage_end_day === '0' ? '말일' : '일'}</span>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
-                              <div className="space-y-1.5">
-                                <Label className="text-xs text-muted-foreground">지급일</Label>
-                                <div className="flex items-center gap-2">
-                                  <Input 
-                                    type="number" 
-                                    className="h-8 w-[60px] text-sm text-center" 
-                                    value={exceptionData.pay_day}
-                                    onChange={(e) => setFormData(prev => ({
+                              
+                              <Separator />
+                              
+                              <div className="space-y-3">
+                                <Label className="text-sm font-semibold">급여 지급일</Label>
+                                <div className="flex flex-wrap items-center gap-3">
+                                  <Select 
+                                    value={exceptionData.pay_month} 
+                                    onValueChange={(v) => setFormData(prev => ({
                                       ...prev,
                                       wage_exceptions: {
-                                        ...(prev.wage_exceptions || {}),
-                                        [type.value]: { ...exceptionData, pay_day: e.target.value }
+                                        ...prev.wage_exceptions,
+                                        [type.value]: { ...exceptionData, pay_month: v }
                                       }
                                     }))}
-                                  />
-                                  <span className="text-xs text-muted-foreground">일</span>
+                                  >
+                                    <SelectTrigger className="w-[90px] h-8 text-[13px]">
+                                      <SelectValue placeholder="지급 월" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="current" className="text-[13px]">당월</SelectItem>
+                                      <SelectItem value="next" className="text-[13px]">익월</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+
+                                  <div className="flex items-center gap-2">
+                                    <Input
+                                      type="number" min="1" max="31"
+                                      value={exceptionData.is_pay_day_last ? '' : exceptionData.pay_day}
+                                      onChange={(e) => setFormData(prev => ({
+                                        ...prev,
+                                        wage_exceptions: {
+                                          ...prev.wage_exceptions,
+                                          [type.value]: { ...exceptionData, pay_day: e.target.value }
+                                        }
+                                      }))}
+                                      disabled={exceptionData.is_pay_day_last}
+                                      className="w-[50px] h-8 text-center text-[13px]"
+                                    />
+                                    <span className="text-[13px] font-medium">일</span>
+                                  </div>
+
+                                  <div className="flex items-center space-x-2 ml-2">
+                                    <Checkbox 
+                                      id={`pay-day-last-${type.value}`}
+                                      checked={exceptionData.is_pay_day_last}
+                                      onCheckedChange={(c) => setFormData(prev => ({
+                                        ...prev,
+                                        wage_exceptions: {
+                                          ...prev.wage_exceptions,
+                                          [type.value]: { ...exceptionData, is_pay_day_last: !!c, pay_day: !!c ? '0' : exceptionData.pay_day }
+                                        }
+                                      }))}
+                                    />
+                                    <Label htmlFor={`pay-day-last-${type.value}`} className="text-[13px] font-medium cursor-pointer">말일 지급</Label>
+                                  </div>
                                 </div>
                               </div>
                             </div>
