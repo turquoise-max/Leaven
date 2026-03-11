@@ -175,6 +175,14 @@ export function TaskList({ tasks, roles, storeId, canManage = false, isTemplateM
   const formatRecurrence = (rule: any) => {
     if (!rule) return '없음'
     
+    if (rule.nth_week !== undefined && rule.day !== undefined) {
+      const weekLabels = ['첫 번째', '두 번째', '세 번째', '네 번째', '마지막']
+      const daysMap = ['일', '월', '화', '수', '목', '금', '토']
+      const weekStr = weekLabels[rule.nth_week - 1] || `${rule.nth_week}번째`
+      const dayStr = daysMap[rule.day]
+      return `매월 ${weekStr} 주 ${dayStr}요일`
+    }
+    
     if (rule.is_last_day !== undefined || rule.date !== undefined) {
       if (rule.is_last_day) return '매월 말일'
       if (rule.date) return `매월 ${rule.date}일`
@@ -260,7 +268,6 @@ export function TaskList({ tasks, roles, storeId, canManage = false, isTemplateM
                 <TableHead>유형 / 시간</TableHead>
                 <TableHead>{isTemplateMode ? '반복 규칙' : '날짜'}</TableHead>
                 <TableHead>담당 역할</TableHead>
-                <TableHead className="text-right">관리</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -269,7 +276,15 @@ export function TaskList({ tasks, roles, storeId, canManage = false, isTemplateM
                 const isAll = roleIds.includes('all') || roleIds.length === 0
 
                 return (
-                  <TableRow key={task.id}>
+                  <TableRow 
+                    key={task.id}
+                    className={canManage ? "cursor-pointer hover:bg-muted/50 transition-colors" : ""}
+                    onClick={() => {
+                      if (canManage) {
+                        handleEditClick(task)
+                      }
+                    }}
+                  >
                     <TableCell>
                       <div className="flex items-center justify-center" title={getTypeName(task.task_type)}>
                         {getTypeIcon(task.task_type)}
@@ -345,31 +360,6 @@ export function TaskList({ tasks, roles, storeId, canManage = false, isTemplateM
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="text-right">
-                      {canManage && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="w-4 h-4" />
-                              <span className="sr-only">메뉴 열기</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleEditClick(task)}>
-                              <Pencil className="w-4 h-4 mr-2" />
-                              수정
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              className="text-red-600 focus:text-red-600"
-                              onClick={() => setDeleteId(task.id)}
-                            >
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              삭제
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )}
-                    </TableCell>
                   </TableRow>
                 )
               })}
@@ -384,6 +374,12 @@ export function TaskList({ tasks, roles, storeId, canManage = false, isTemplateM
           open={isEditOpen}
           onOpenChange={setIsEditOpen}
           storeId={storeId}
+          onDeleteRequest={() => {
+            if (editingTask) {
+              setDeleteId(editingTask.id)
+              setIsEditOpen(false)
+            }
+          }}
         />
       ) : (
         <EditTaskDialog 

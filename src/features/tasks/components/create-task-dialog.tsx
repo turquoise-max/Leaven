@@ -116,14 +116,14 @@ export function CreateTaskDialog({
           {trigger || (
             <Button>
               <Plus className="w-4 h-4 mr-2" />
-              새 업무 등록
+              새 업무 일정 등록
             </Button>
           )}
         </DialogTrigger>
       )}
       <DialogContent className="sm:max-w-4xl h-[85vh] max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0">
         <DialogHeader className="p-6 pb-2">
-          <DialogTitle>새 업무 등록</DialogTitle>
+          <DialogTitle>새 업무 일정 등록</DialogTitle>
           <DialogDescription>
             매장에서 수행할 새로운 업무를 등록합니다.
           </DialogDescription>

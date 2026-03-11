@@ -418,10 +418,26 @@ export async function removeStaff(storeId: string, memberId: string) {
     return { error: '권한이 없습니다.' }
   }
 
-  // 삭제(delete) 대신 퇴사일(resigned_at) 업데이트로 기록 보존 (Soft Delete)
+  // 1. Get current role info to save as snapshot
+  const { data: member } = await supabase
+    .from('store_members')
+    .select('role_info:store_roles(name), details')
+    .eq('id', memberId)
+    .eq('store_id', storeId)
+    .single()
+
+  const roleInfo = Array.isArray(member?.role_info) ? member?.role_info[0] : member?.role_info
+  const lastRoleName = roleInfo?.name || '알 수 없는 역할'
+  const details = member?.details || {}
+
+  // 2. 삭제(delete) 대신 퇴사일(resigned_at) 업데이트 및 status를 'inactive'로 변경하여 기록 보존 (Soft Delete)
   const { error } = await supabase
     .from('store_members')
-    .update({ resigned_at: new Date().toISOString() })
+    .update({ 
+      resigned_at: new Date().toISOString(),
+      status: 'inactive',
+      details: { ...details, last_role_name: lastRoleName }
+    })
     .eq('id', memberId)
     .eq('store_id', storeId)
 

@@ -6,9 +6,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
-import { Plus, Loader2, AlertTriangle, Clock, Calendar, Briefcase, Trash2, ArrowUp, ArrowDown, CheckSquare } from 'lucide-react'
-import { ChecklistItem, Task } from '../actions'
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Plus, Loader2, AlertTriangle, Clock, Calendar, Briefcase, Trash2, ArrowUp, ArrowDown, CheckSquare, Users, Repeat } from 'lucide-react'
+import { ChecklistItem } from '../actions'
 import {
   Select,
   SelectContent,
@@ -22,6 +21,24 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import { GripVertical } from 'lucide-react'
 
 export interface TaskFormData {
   title: string
@@ -34,8 +51,8 @@ export interface TaskFormData {
   is_recurring: boolean
 
   // Date & Time
-  start_date: string // YYYY-MM-DD (Single date or Start date of recursion)
-  end_date: string   // YYYY-MM-DD (End date of recursion)
+  start_date: string // YYYY-MM-DD
+  end_date: string   // YYYY-MM-DD
   start_time: string // HH:mm
   end_time: string   // HH:mm
   
@@ -45,10 +62,72 @@ export interface TaskFormData {
   repeat_type: 'weekly' | 'monthly'
   repeat_days: number[]
   repeat_interval: number
+  
+  // Monthly Repeat Config
+  repeat_monthly_type: 'date' | 'nth_week'
   is_last_day?: boolean // 매월 말일 여부
+  nth_week?: number // 1~5 (5는 마지막 주)
+  nth_day?: number  // 0~6 (일~토)
   
   checklist: ChecklistItem[]
   status?: 'todo' | 'in_progress' | 'done'
+}
+
+interface SortableChecklistItemProps {
+  item: ChecklistItem
+  index: number
+  totalCount: number
+  onDelete: (id: string) => void
+}
+
+function SortableChecklistItem({ item, index, totalCount, onDelete }: SortableChecklistItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id: item.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : 1,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`group flex items-center gap-3 p-3 rounded-xl border bg-background transition-all relative overflow-hidden ${isDragging ? 'shadow-md ring-1 ring-primary/50 opacity-90' : 'hover:shadow-sm'}`}
+    >
+      <div className="absolute left-0 top-0 bottom-0 w-1 bg-muted group-hover:bg-primary/50 transition-colors"></div>
+      
+      {/* Drag Handle */}
+      <button
+        type="button"
+        className="text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing ml-1"
+        {...attributes}
+        {...listeners}
+      >
+        <GripVertical className="w-4 h-4" />
+      </button>
+      
+      <div className="w-4 h-4 rounded border border-muted-foreground/30 flex-shrink-0"></div>
+      <span className="flex-1 text-sm font-medium text-foreground">{item.text}</span>
+      
+      <Button 
+        type="button" 
+        variant="ghost" 
+        size="icon" 
+        className="h-8 w-8 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+        onClick={() => onDelete(item.id)}
+      >
+        <Trash2 className="w-4 h-4" />
+      </Button>
+    </div>
+  )
 }
 
 interface TaskFormProps {
@@ -63,6 +142,16 @@ interface TaskFormProps {
   isEditMode?: boolean
   isTemplateMode?: boolean
 }
+
+const weekDays = [
+  { label: '일', value: 0 },
+  { label: '월', value: 1 },
+  { label: '화', value: 2 },
+  { label: '수', value: 3 },
+  { label: '목', value: 4 },
+  { label: '금', value: 5 },
+  { label: '토', value: 6 },
+]
 
 export function TaskForm({ 
   storeId, 
@@ -82,12 +171,16 @@ export function TaskForm({
   const [checklist, setChecklist] = useState<ChecklistItem[]>(defaultValues?.checklist || [])
   const [newChecklistItem, setNewChecklistItem] = useState('')
 
+  // Init form data based on default task_type
+  const isDefaultAlways = defaultValues?.task_type === 'always'
+  
   const [formData, setFormData] = useState<Omit<TaskFormData, 'checklist'>>({
     title: defaultValues?.title || '',
     description: defaultValues?.description || '',
     is_critical: defaultValues?.is_critical || false,
     estimated_minutes: defaultValues?.estimated_minutes || 30,
     task_type: defaultValues?.task_type || 'scheduled',
+    // 템플릿 모드면 기본적으로 반복을 on으로 두는 것이 일반적 (상시 업무도 반복의 일종)
     is_recurring: isTemplateMode ? true : (defaultValues?.is_recurring || false),
     start_date: defaultValues?.start_date || new Date().toISOString().split('T')[0],
     end_date: defaultValues?.end_date || new Date().toISOString().split('T')[0],
@@ -95,27 +188,28 @@ export function TaskForm({
     end_time: defaultValues?.end_time || '',
     assigned_role_ids: defaultValues?.assigned_role_ids || ['all'],
     repeat_type: defaultValues?.repeat_type || 'weekly',
-    repeat_days: defaultValues?.repeat_days || [0, 1, 2, 3, 4, 5, 6], // 기본값: 매일
+    repeat_days: defaultValues?.repeat_days || [0, 1, 2, 3, 4, 5, 6],
     repeat_interval: defaultValues?.repeat_interval || 1,
+    repeat_monthly_type: defaultValues?.repeat_monthly_type || 'date',
     is_last_day: defaultValues?.is_last_day || false,
+    nth_week: defaultValues?.nth_week || 1,
+    nth_day: defaultValues?.nth_day || 1, // Default to Monday
     status: defaultValues?.status || 'todo'
   })
 
-  // Load roles
   useEffect(() => {
     if (storeId) {
       getStoreRoles(storeId).then(setRoles)
     }
   }, [storeId])
 
-  // Update checklist when defaultValues change (important for edit mode)
   useEffect(() => {
     if (defaultValues?.checklist) {
         setChecklist(defaultValues.checklist)
     }
   }, [defaultValues?.checklist])
 
-
+  // Handlers
   const handleAddChecklistItem = () => {
     if (!newChecklistItem.trim()) return
     const newItem: ChecklistItem = {
@@ -131,19 +225,35 @@ export function TaskForm({
     setChecklist(checklist.filter(item => item.id !== id))
   }
 
-  const handleMoveChecklistItem = (index: number, direction: 'up' | 'down') => {
-    if (direction === 'up' && index === 0) return
-    if (direction === 'down' && index === checklist.length - 1) return
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
 
-    const newChecklist = [...checklist]
-    const targetIndex = direction === 'up' ? index - 1 : index + 1
-    const [movedItem] = newChecklist.splice(index, 1)
-    newChecklist.splice(targetIndex, 0, movedItem)
-    setChecklist(newChecklist)
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+
+    if (active.id !== over?.id) {
+      setChecklist((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id)
+        const newIndex = items.findIndex((item) => item.id === over?.id)
+        
+        return arrayMove(items, oldIndex, newIndex)
+      })
+    }
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Validate
+    if (formData.task_type === 'scheduled' && (!formData.start_time || !formData.end_time)) {
+       // Just a simple validation, UI inputs are also required
+       return
+    }
+
     onSubmit({
       ...formData,
       checklist
@@ -159,83 +269,11 @@ export function TaskForm({
     })
   }
 
-  const weekDays = [
-    { label: '월', value: 1 },
-    { label: '화', value: 2 },
-    { label: '수', value: 3 },
-    { label: '목', value: 4 },
-    { label: '금', value: 5 },
-    { label: '토', value: 6 },
-    { label: '일', value: 0 },
-  ]
-  
-  // Quick Chips Helper
-  const setQuickDuration = (months: number) => {
-      const start = new Date(formData.start_date);
-      // UTC 00:00 보정을 위해 날짜만 추출해서 계산하거나, 그냥 로컬 시간으로 계산 후 포맷팅
-      // start_date는 YYYY-MM-DD
-      
-      // 안전한 날짜 계산을 위해 연/월/일 분리
-      const [y, m, d] = formData.start_date.split('-').map(Number);
-      
-      const targetDate = new Date(y, m - 1 + months, d); // 로컬 시간 기준 계산
-      
-      // YYYY-MM-DD 포맷
-      const year = targetDate.getFullYear();
-      const month = String(targetDate.getMonth() + 1).padStart(2, '0');
-      const day = String(targetDate.getDate()).padStart(2, '0');
-      
-      setFormData(prev => ({ ...prev, end_date: `${year}-${month}-${day}` }));
-  }
-
-  const quickOptions = {
-      weekly: [
-          { label: '1주일', value: 0.25 }, // 7일 처리 로직 연동
-          { label: '1개월', value: 1 },
-          { label: '3개월', value: 3 },
-          { label: '6개월', value: 6 },
-          { label: '1년', value: 12 },
-      ],
-      monthly: [
-          { label: '3개월', value: 3 },
-          { label: '6개월', value: 6 },
-          { label: '1년', value: 12 },
-      ]
-  }
-
-  const handleQuickChip = (value: number) => {
-      if (value < 1) {
-          // 1주일 (0.25) 처리
-          const start = new Date(formData.start_date);
-          start.setDate(start.getDate() + 7);
-          const year = start.getFullYear();
-          const month = String(start.getMonth() + 1).padStart(2, '0');
-          const day = String(start.getDate()).padStart(2, '0');
-          setFormData(prev => ({ ...prev, end_date: `${year}-${month}-${day}` }));
-      } else {
-          setQuickDuration(value);
-      }
-  }
-
-  // 매월 반복 시 날짜 변경 핸들러
-  const handleMonthlyDateChange = (day: string) => {
-      const d = parseInt(day);
-      if (isNaN(d) || d < 1 || d > 31) return;
-      
-      // start_date의 일자 변경
-      const [y, m] = formData.start_date.split('-');
-      const newDate = `${y}-${m}-${String(d).padStart(2, '0')}`;
-      
-      setFormData(prev => ({ ...prev, start_date: newDate }));
-  }
-
   const toggleRole = (roleId: string) => {
       setFormData(prev => {
           let newIds = [...prev.assigned_role_ids];
-          
-          // 'all'이 포함되어 있으면 전체 ID로 변환 후 처리
           if (newIds.includes('all')) {
-              newIds = roles.map(r => r.id);
+              newIds = [];
           }
 
           if (newIds.includes(roleId)) {
@@ -244,176 +282,220 @@ export function TaskForm({
               newIds.push(roleId);
           }
           
+          if (newIds.length === 0) {
+             newIds = ['all']
+          }
+
           return { ...prev, assigned_role_ids: newIds };
       });
   }
 
+  const handleMonthlyDateChange = (day: string) => {
+      const d = parseInt(day);
+      if (isNaN(d) || d < 1 || d > 31) return;
+      const [y, m] = formData.start_date.split('-');
+      const newDate = `${y}-${m}-${String(d).padStart(2, '0')}`;
+      setFormData(prev => ({ ...prev, start_date: newDate }));
+  }
+
   const isAllSelected = formData.assigned_role_ids.includes('all') || (roles.length > 0 && roles.every(r => formData.assigned_role_ids.includes(r.id)));
 
-  const handleSelectAll = () => {
-      setFormData(prev => {
-          if (isAllSelected) {
-              return { ...prev, assigned_role_ids: [] };
-          } else {
-              return { ...prev, assigned_role_ids: roles.map(r => r.id) };
-          }
-      });
+  const handleSelectAllRoles = () => {
+      setFormData(prev => ({
+         ...prev,
+         assigned_role_ids: ['all']
+      }));
+  }
+
+  const isAlways = formData.task_type === 'always'
+
+  // Summary Text for Repeat
+  const getRepeatSummary = () => {
+    if (formData.repeat_type === 'weekly') {
+      if (formData.repeat_days.length === 7) return '매일'
+      if (formData.repeat_days.length === 0) return '반복 없음'
+      return `매주 ${formData.repeat_days.map(d => weekDays.find(w => w.value === d)?.label).join(', ')}요일`
+    } else {
+      if (formData.repeat_monthly_type === 'nth_week') {
+         const weekLabels = ['첫 번째', '두 번째', '세 번째', '네 번째', '마지막']
+         const weekStr = weekLabels[(formData.nth_week || 1) - 1]
+         const dayStr = weekDays.find(w => w.value === formData.nth_day)?.label || ''
+         return `매월 ${weekStr} 주 ${dayStr}요일`
+      } else {
+         if (formData.is_last_day) return '매월 말일'
+         const d = formData.start_date.split('-')[2]
+         return `매월 ${d}일`
+      }
+    }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex-1 overflow-hidden flex flex-col h-full min-h-0">
-      <div className="flex-1 overflow-hidden flex flex-row divide-x h-full min-h-0">
-        {/* 좌측: 기본 정보 */}
-        <div className="flex-1 h-full min-w-0 relative flex flex-col">
-          <ScrollArea className="flex-1 h-full">
-            <div className="p-6 space-y-6">
-              <div className="space-y-4">
-                <h3 className="font-semibold text-sm flex items-center gap-2">
-                  <Briefcase className="w-4 h-4" />
-                  업무 기본 정보
-                </h3>
-                
-                <div className="grid gap-2">
-                  <Label htmlFor="title">업무명 <span className="text-red-500">*</span></Label>
-                  <Input
-                    id="title"
-                    value={formData.title}
-                    onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                    placeholder="예: 오픈 준비, 재고 확인"
-                    required
-                  />
+    <form onSubmit={handleSubmit} className="flex-1 overflow-hidden flex flex-col h-full bg-background">
+      <div className="flex-1 overflow-hidden flex flex-col md:flex-row h-full">
+        
+        {/* ======================= 좌측 패널 (기본 및 일정 정보) ======================= */}
+        <div className="flex-1 min-w-0 flex flex-col border-b md:border-b-0 md:border-r border-border">
+          <ScrollArea className="flex-1">
+            <div className="p-6 space-y-7">
+              
+              {/* 1. 업무명 */}
+              <div className="space-y-3">
+                <Label htmlFor="title" className="text-sm font-semibold flex items-center gap-2">
+                  <Briefcase className="w-4 h-4 text-primary" />
+                  업무명 <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="title"
+                  value={formData.title}
+                  onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder="예: 오픈 준비, 매장 청소, 재고 확인"
+                  className="text-base h-11"
+                  required
+                />
+              </div>
+
+              {/* 2. 시간 및 종일 설정 */}
+              <div className="space-y-4 bg-muted/30 p-4 rounded-xl border border-border/50">
+                <div className="flex items-center justify-between">
+                   <Label className="text-sm font-semibold flex items-center gap-2">
+                     <Clock className="w-4 h-4 text-blue-500" />
+                     수행 시간
+                   </Label>
+                   <div className="flex items-center gap-2 bg-background px-3 py-1.5 rounded-full border shadow-sm">
+                     <Checkbox 
+                        id="is_always"
+                        checked={isAlways}
+                        onCheckedChange={(checked) => setFormData(prev => ({ 
+                           ...prev, 
+                           task_type: checked ? 'always' : 'scheduled'
+                        }))}
+                     />
+                     <Label htmlFor="is_always" className="cursor-pointer text-sm font-medium">종일 (상시 업무)</Label>
+                   </div>
                 </div>
 
-                <div className="grid gap-2">
-                  <Label htmlFor="description">업무 상세 설명 (Note)</Label>
-                  <Textarea
-                    id="description"
-                    value={formData.description}
-                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                    placeholder="업무 내용을 자세히 입력하세요."
-                    className="resize-none min-h-[80px]"
-                  />
-                </div>
-
-                <div className="grid gap-3">
-                  <Label>업무 유형</Label>
-                  <RadioGroup 
-                    value={formData.task_type} 
-                    onValueChange={(val: any) => setFormData(prev => ({ 
-                      ...prev, 
-                      task_type: val,
-                      is_recurring: val === 'always' ? true : prev.is_recurring // 상시 업무는 기본적으로 기간 설정 필요
-                    }))}
-                    className="grid grid-cols-2 gap-2"
-                  >
-                    <div>
-                      <RadioGroupItem value="scheduled" id="type-scheduled" className="peer sr-only" />
-                      <Label
-                        htmlFor="type-scheduled"
-                        className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer text-center h-full"
-                      >
-                        <Clock className="mb-2 h-4 w-4" />
-                        <span className="text-xs">일반 업무 (시간 지정)</span>
-                      </Label>
+                {!isAlways && (
+                  <div className="flex items-center gap-3 animate-in fade-in zoom-in-95 duration-200">
+                    <div className="grid flex-1 gap-1.5">
+                        <Label className="text-xs text-muted-foreground ml-1">시작 시간</Label>
+                        <Input
+                          type="time"
+                          value={formData.start_time}
+                          onChange={(e) => setFormData(prev => ({ ...prev, start_time: e.target.value }))}
+                          required={!isAlways}
+                          className="h-10 bg-background"
+                        />
                     </div>
-                    <div>
-                      <RadioGroupItem value="always" id="type-always" className="peer sr-only" />
-                      <Label
-                        htmlFor="type-always"
-                        className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer text-center h-full"
-                      >
-                        <Briefcase className="mb-2 h-4 w-4" />
-                        <span className="text-xs">상시 업무 (시간 미지정)</span>
-                      </Label>
+                    <span className="mt-6 text-muted-foreground font-medium">~</span>
+                    <div className="grid flex-1 gap-1.5">
+                        <Label className="text-xs text-muted-foreground ml-1">종료 시간</Label>
+                        <Input
+                          type="time"
+                          value={formData.end_time}
+                          onChange={(e) => setFormData(prev => ({ ...prev, end_time: e.target.value }))}
+                          required={!isAlways}
+                          className="h-10 bg-background"
+                        />
                     </div>
-                  </RadioGroup>
-                </div>
-
-                {/* 반복 설정 토글 (일반 업무일 때, 템플릿 모드가 아니고 수정 모드가 아닐 때만) */}
-                {formData.task_type === 'scheduled' && !isEditMode && !isTemplateMode && (
-                    <div className="flex items-center justify-between space-x-2 border p-3 rounded-md bg-muted/30">
-                      <Label htmlFor="is_recurring" className="flex items-center gap-2 text-sm font-medium">
-                        <Calendar className="w-4 h-4" />
-                        반복 설정
-                      </Label>
-                      <Switch
-                        id="is_recurring"
-                        checked={formData.is_recurring}
-                        onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_recurring: checked }))}
-                      />
-                    </div>
+                  </div>
                 )}
+                {isAlways && (
+                  <p className="text-sm text-muted-foreground bg-blue-500/10 text-blue-600 dark:text-blue-400 p-3 rounded-lg flex items-start gap-2 animate-in fade-in zoom-in-95 duration-200">
+                     <Briefcase className="w-4 h-4 mt-0.5 shrink-0" />
+                     이 업무는 종일(상시) 업무로 취급되며, 특정 시간에 얽매이지 않고 하루 중 수시로 확인해야 하는 업무입니다.
+                  </p>
+                )}
+              </div>
 
-                {/* 기간 및 반복 설정 (반복이거나 상시 업무이거나 템플릿 모드일 때) */}
-                {(formData.is_recurring || formData.task_type === 'always' || isTemplateMode) && (!isEditMode || isTemplateMode) && (
-                  <div className="space-y-4 p-4 bg-muted/30 rounded-md border animate-in fade-in slide-in-from-top-2">
-                      
-                      {/* 1. 반복 주기 (Tabs) */}
-                      {formData.task_type === 'scheduled' && (
-                          <div className="space-y-3">
-                              <Label>반복 주기</Label>
-                              <Tabs 
-                                  value={formData.repeat_type} 
-                                  onValueChange={(val: any) => setFormData(prev => ({ ...prev, repeat_type: val }))}
-                                  className="w-full"
-                              >
-                                  <TabsList className="grid w-full grid-cols-2">
-                                      <TabsTrigger value="weekly">매주 (요일 선택)</TabsTrigger>
-                                      <TabsTrigger value="monthly">매월 (날짜 선택)</TabsTrigger>
-                                  </TabsList>
+              {/* 3. 반복 설정 */}
+              <div className="space-y-4 bg-muted/30 p-4 rounded-xl border border-border/50">
+                <div className="flex items-center justify-between">
+                   <div className="flex items-center gap-2">
+                     <Calendar className="w-4 h-4 text-green-500" />
+                     <Label className="text-sm font-semibold">반복 설정</Label>
+                     {formData.is_recurring && (
+                        <Badge variant="secondary" className="ml-2 bg-green-500/10 text-green-600 hover:bg-green-500/20 border-0">
+                          {getRepeatSummary()}
+                        </Badge>
+                     )}
+                   </div>
+                   <Switch 
+                     checked={formData.is_recurring}
+                     onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_recurring: checked }))}
+                   />
+                </div>
 
-                                  {/* 상세 조건 (Step 3) */}
-                                  <div className="mt-3">
-                                      <TabsContent value="weekly" className="mt-0 space-y-2">
-                                          <div className="flex items-center justify-between mb-1">
-                                            <Label className="text-xs text-muted-foreground">반복할 요일</Label>
-                                            {formData.repeat_days.length === 7 && (
-                                                <span className="text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 rounded">
-                                                    매일 반복
-                                                </span>
-                                            )}
+                {formData.is_recurring && (
+                  <div className="pt-2 animate-in fade-in slide-in-from-top-4 duration-300">
+                      <Tabs 
+                          value={formData.repeat_type} 
+                          onValueChange={(val: any) => setFormData(prev => ({ ...prev, repeat_type: val }))}
+                          className="w-full"
+                      >
+                          <TabsList className="grid w-full grid-cols-2 bg-background border mb-4">
+                              <TabsTrigger value="weekly">매주 반복</TabsTrigger>
+                              <TabsTrigger value="monthly">매월 반복</TabsTrigger>
+                          </TabsList>
+
+                          <TabsContent value="weekly" className="mt-0">
+                              <div className="bg-background border rounded-lg p-3">
+                                <Label className="text-xs text-muted-foreground mb-3 block">반복할 요일을 선택하세요</Label>
+                                <div className="flex justify-between gap-1">
+                                    {weekDays.map((day) => {
+                                        const isSelected = formData.repeat_days.includes(day.value);
+                                        return (
+                                            <button
+                                                key={day.value}
+                                                type="button"
+                                                onClick={() => toggleDay(day.value)}
+                                                className={`
+                                                    w-9 h-9 sm:w-10 sm:h-10 rounded-full text-sm font-medium flex items-center justify-center transition-all
+                                                    ${isSelected 
+                                                        ? 'bg-primary text-primary-foreground shadow-md scale-105' 
+                                                        : 'bg-muted/50 hover:bg-muted text-muted-foreground border border-border'}
+                                                `}
+                                            >
+                                                {day.label}
+                                            </button>
+                                        )
+                                    })}
+                                </div>
+                              </div>
+                          </TabsContent>
+
+                          <TabsContent value="monthly" className="mt-0">
+                              <div className="bg-background border rounded-lg flex flex-col divide-y divide-border">
+                                  {/* 날짜 지정 옵션 */}
+                                  <div className="p-4 flex items-start gap-3">
+                                      <div className="pt-1">
+                                          <div className="flex items-center space-x-2">
+                                              <input 
+                                                  type="radio" 
+                                                  id="monthly_date" 
+                                                  name="monthly_type" 
+                                                  checked={formData.repeat_monthly_type === 'date'}
+                                                  onChange={() => setFormData(prev => ({ ...prev, repeat_monthly_type: 'date' }))}
+                                                  className="w-4 h-4 text-primary accent-primary cursor-pointer"
+                                              />
                                           </div>
-                                          <div className="flex justify-between gap-1">
-                                              {weekDays.map((day) => {
-                                                  const isSelected = formData.repeat_days.includes(day.value);
-                                                  return (
-                                                      <button
-                                                          key={day.value}
-                                                          type="button"
-                                                          onClick={() => toggleDay(day.value)}
-                                                          className={`
-                                                              w-8 h-8 rounded-full text-xs flex items-center justify-center transition-all
-                                                              ${isSelected 
-                                                                  ? 'bg-primary text-primary-foreground font-bold ring-2 ring-primary ring-offset-1' 
-                                                                  : 'bg-background hover:bg-muted text-muted-foreground border'}
-                                                          `}
-                                                      >
-                                                          {day.label}
-                                                      </button>
-                                                  )
-                                              })}
-                                          </div>
-                                      </TabsContent>
-
-                                      <TabsContent value="monthly" className="mt-0 space-y-3">
-                                          <div className="flex items-end gap-3 p-3 bg-background/50 rounded-md border border-dashed">
-                                              <div className="grid gap-1.5 flex-1">
-                                                  <Label className="text-xs text-muted-foreground">매월 반복일</Label>
-                                                  <div className="flex items-center gap-2">
-                                                      <Input 
-                                                          type="number" 
-                                                          min={1} 
-                                                          max={31}
-                                                          disabled={formData.is_last_day}
-                                                          value={formData.start_date.split('-')[2]} 
-                                                          onChange={(e) => handleMonthlyDateChange(e.target.value)}
-                                                          className="w-16 text-center"
-                                                      />
-                                                      <span className="text-sm">일에 반복</span>
-                                                  </div>
+                                      </div>
+                                      <div className={`flex-1 flex flex-col gap-3 transition-opacity ${formData.repeat_monthly_type !== 'date' ? 'opacity-50 pointer-events-none' : ''}`}>
+                                          <Label htmlFor="monthly_date" className="cursor-pointer font-medium text-sm">특정 날짜에 반복</Label>
+                                          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                                              <div className="flex items-center gap-2">
+                                                  <Input 
+                                                      type="number" 
+                                                      min={1} 
+                                                      max={31}
+                                                      disabled={formData.is_last_day}
+                                                      value={formData.start_date.split('-')[2]} 
+                                                      onChange={(e) => handleMonthlyDateChange(e.target.value)}
+                                                      className="w-16 h-9 text-center font-medium"
+                                                  />
+                                                  <span className="text-sm">일에 반복</span>
                                               </div>
                                               
-                                              <div className="flex items-center gap-2 pb-2">
+                                              <div className="flex items-center gap-2 bg-muted/50 p-2 rounded-md border border-border/50">
                                                   <Checkbox 
                                                       id="is_last_day"
                                                       checked={formData.is_last_day}
@@ -422,262 +504,242 @@ export function TaskForm({
                                                           is_last_day: checked === true
                                                       }))}
                                                   />
-                                                  <Label htmlFor="is_last_day" className="cursor-pointer text-sm">매월 말일</Label>
+                                                  <Label htmlFor="is_last_day" className="cursor-pointer text-sm">항상 매월 말일에 반복</Label>
                                               </div>
                                           </div>
-                                      </TabsContent>
+                                      </div>
                                   </div>
-                              </Tabs>
-                          </div>
-                      )}
 
-                      {/* 기간 설정은 템플릿 모드가 아닐 때만 노출 */}
-                      {!isTemplateMode && (
-                        <>
-                          <Separator className="my-2" />
-
-                          {/* 2. 기간 설정 (Step 4) */}
-                          <div className="space-y-3">
-                              <Label>기간 설정 <span className="text-red-500">*</span></Label>
-                              <div className="flex items-center gap-2">
-                                  <div className="grid flex-1 gap-1">
-                                      <span className="text-xs text-muted-foreground">시작일</span>
-                                      <Input 
-                                          type="date"
-                                          value={formData.start_date}
-                                          onChange={(e) => setFormData(prev => ({ ...prev, start_date: e.target.value }))}
-                                      />
-                                  </div>
-                                  <span className="mt-5 text-muted-foreground">~</span>
-                                  <div className="grid flex-1 gap-1">
-                                      <span className="text-xs text-muted-foreground">종료일</span>
-                                      <Input 
-                                          type="date"
-                                          value={formData.end_date}
-                                          onChange={(e) => setFormData(prev => ({ ...prev, end_date: e.target.value }))}
-                                      />
+                                  {/* 요일 지정 옵션 */}
+                                  <div className="p-4 flex items-start gap-3">
+                                      <div className="pt-1">
+                                          <div className="flex items-center space-x-2">
+                                              <input 
+                                                  type="radio" 
+                                                  id="monthly_nth" 
+                                                  name="monthly_type" 
+                                                  checked={formData.repeat_monthly_type === 'nth_week'}
+                                                  onChange={() => setFormData(prev => ({ ...prev, repeat_monthly_type: 'nth_week' }))}
+                                                  className="w-4 h-4 text-primary accent-primary cursor-pointer"
+                                              />
+                                          </div>
+                                      </div>
+                                      <div className={`flex-1 flex flex-col gap-3 transition-opacity ${formData.repeat_monthly_type !== 'nth_week' ? 'opacity-50 pointer-events-none' : ''}`}>
+                                          <Label htmlFor="monthly_nth" className="cursor-pointer font-medium text-sm">특정 번째 주 요일에 반복</Label>
+                                          <div className="flex items-center gap-2">
+                                              <Select 
+                                                  value={String(formData.nth_week)} 
+                                                  onValueChange={(val) => setFormData(prev => ({ ...prev, nth_week: parseInt(val) }))}
+                                              >
+                                                  <SelectTrigger className="w-24 h-9">
+                                                      <SelectValue placeholder="주차" />
+                                                  </SelectTrigger>
+                                                  <SelectContent>
+                                                      <SelectItem value="1">첫 번째</SelectItem>
+                                                      <SelectItem value="2">두 번째</SelectItem>
+                                                      <SelectItem value="3">세 번째</SelectItem>
+                                                      <SelectItem value="4">네 번째</SelectItem>
+                                                      <SelectItem value="5">마지막</SelectItem>
+                                                  </SelectContent>
+                                              </Select>
+                                              <span className="text-sm text-muted-foreground">주</span>
+                                              
+                                              <Select 
+                                                  value={String(formData.nth_day)} 
+                                                  onValueChange={(val) => setFormData(prev => ({ ...prev, nth_day: parseInt(val) }))}
+                                              >
+                                                  <SelectTrigger className="w-20 h-9">
+                                                      <SelectValue placeholder="요일" />
+                                                  </SelectTrigger>
+                                                  <SelectContent>
+                                                      {weekDays.map(day => (
+                                                          <SelectItem key={day.value} value={String(day.value)}>{day.label}요일</SelectItem>
+                                                      ))}
+                                                  </SelectContent>
+                                              </Select>
+                                          </div>
+                                      </div>
                                   </div>
                               </div>
-                              
-                              {/* Quick Chips */}
-                              <div className="flex flex-wrap gap-1.5 pt-1">
-                                  {(formData.task_type === 'always' ? quickOptions.weekly : quickOptions[formData.repeat_type]).map((option) => (
-                                      <Badge 
-                                          key={option.label}
-                                          variant="outline"
-                                          className="cursor-pointer hover:bg-secondary hover:text-secondary-foreground transition-colors px-2 py-1 font-normal"
-                                          onClick={() => handleQuickChip(option.value)}
-                                      >
-                                          + {option.label}
-                                      </Badge>
-                                  ))}
-                              </div>
-                          </div>
-                        </>
-                      )}
-                  </div>
-                )}
-
-                {/* 단건 날짜 설정 (반복 아닐 때 또는 수정 모드일 때, 템플릿 모드 아닐 때) */}
-                {(!formData.is_recurring || (isEditMode && !isTemplateMode)) && !isTemplateMode && (
-                  <div className="space-y-3 p-3 bg-muted/30 rounded-md border animate-in fade-in slide-in-from-top-2">
-                      <div className="grid gap-2">
-                          <Label>수행 날짜 <span className="text-red-500">*</span></Label>
-                          <Input 
-                              type="date"
-                              value={formData.start_date}
-                              onChange={(e) => setFormData(prev => ({ ...prev, start_date: e.target.value, end_date: e.target.value }))}
-                          />
-                      </div>
-                  </div>
-                )}
-
-                {/* 시간 설정 (일반 업무일 때만) */}
-                {formData.task_type === 'scheduled' && (
-                  <div className="grid gap-2 animate-in fade-in slide-in-from-top-2">
-                      <Label>
-                          수행 시간 <span className="text-red-500">*</span>
-                      </Label>
-                      <div className="flex items-center gap-2">
-                      <div className="grid flex-1 gap-1">
-                          <span className="text-xs text-muted-foreground">시작</span>
-                          <Input
-                          type="time"
-                          value={formData.start_time}
-                          onChange={(e) => setFormData(prev => ({ ...prev, start_time: e.target.value }))}
-                          />
-                      </div>
-                      <span className="mt-5">~</span>
-                      <div className="grid flex-1 gap-1">
-                          <span className="text-xs text-muted-foreground">종료</span>
-                          <Input
-                          type="time"
-                          value={formData.end_time}
-                          onChange={(e) => setFormData(prev => ({ ...prev, end_time: e.target.value }))}
-                          />
-                      </div>
-                      </div>
+                          </TabsContent>
+                      </Tabs>
                   </div>
                 )}
               </div>
+
             </div>
           </ScrollArea>
         </div>
 
-        {/* 우측: 담당 역할 및 체크리스트 */}
-        <div className="flex-1 h-full min-w-0 relative flex flex-col">
-          <ScrollArea className="flex-1 h-full">
-            <div className="p-6 space-y-6">
-              <div className="space-y-4">
-                <h3 className="font-semibold text-sm flex items-center gap-2">
-                  <CheckSquare className="w-4 h-4" />
-                  담당 역할 지정 및 체크리스트
-                </h3>
 
-                {/* 담당 역할 지정 (Checkbox List UI - Multi Selection) */}
-                <div className="grid gap-2">
-                  <div className="flex items-center justify-between">
-                      <Label>담당 역할 지정</Label>
-                      <Button 
-                          type="button" 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-6 text-xs"
-                          onClick={handleSelectAll}
-                      >
-                          {isAllSelected ? '전체 해제' : '전체 선택'}
-                      </Button>
-                  </div>
-                  <div className="border rounded-md p-2 max-h-[200px] overflow-y-auto bg-card">
-                      <div className="space-y-1">
-                          {/* 개별 역할 목록 */}
-                          {roles.map((role) => {
-                              const isSelected = formData.assigned_role_ids.includes('all') || formData.assigned_role_ids.includes(role.id);
-                              
-                              return (
-                                  <div 
-                                      key={role.id}
-                                      className={`
-                                          flex items-center gap-3 p-2 rounded-md transition-colors text-sm
-                                          ${isSelected ? 'bg-primary/10' : 'hover:bg-muted'}
-                                  `}
-                              >
-                                  <Checkbox 
-                                      id={`role-${role.id}`}
-                                      checked={isSelected}
-                                      onCheckedChange={() => toggleRole(role.id)}
-                                  />
-                                  <div 
-                                    className="flex items-center gap-2 flex-1 cursor-pointer"
-                                    onClick={() => toggleRole(role.id)}
-                                  >
-                                  <div 
-                                      className="w-2 h-2 rounded-full flex-shrink-0" 
-                                      style={{ backgroundColor: role.color }}
-                                      />
-                                      <span className="font-medium">{role.name}</span>
-                                  </div>
-                              </div>
-                            )
-                          })}
-                      </div>
-                  </div>
+        {/* ======================= 우측 패널 ======================= */}
+        <div className="flex-1 min-w-0 flex flex-col bg-muted/5">
+          <ScrollArea className="flex-1">
+            <div className="p-6 space-y-8">
+
+              {/* === 우측 공통 (항상 보임) === */}
+              {/* 담당 역할 */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                   <Label className="text-sm font-semibold flex items-center gap-2">
+                     <Users className="w-4 h-4 text-purple-500" />
+                     담당 역할 지정
+                   </Label>
+                   <Button 
+                       type="button" 
+                       variant={isAllSelected ? "secondary" : "outline"}
+                       size="sm" 
+                       className="h-7 text-xs rounded-full"
+                       onClick={handleSelectAllRoles}
+                   >
+                       {isAllSelected ? '전체 해제' : '전체 선택'}
+                   </Button>
                 </div>
-
-                {/* 중요 업무 설정 */}
-                <div className="flex items-center justify-between space-x-2 border p-3 rounded-md bg-muted/30">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="is_critical" className="flex items-center gap-2 cursor-pointer">
-                      중요 업무 설정
-                      {formData.is_critical && <AlertTriangle className="w-3 h-3 text-red-500" />}
-                    </Label>
-                    <p className="text-xs text-muted-foreground">
-                      체크 시 중요 업무로 강조 표시됩니다.
-                    </p>
-                  </div>
-                  <Switch
-                    id="is_critical"
-                    checked={formData.is_critical}
-                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_critical: checked }))}
-                  />
-                </div>
-
-                <Separator />
-
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label>체크리스트 ({checklist.length})</Label>
-                  </div>
-                  
-                  <div className="flex gap-2">
-                    <Input 
-                      value={newChecklistItem}
-                      onChange={(e) => setNewChecklistItem(e.target.value)}
-                      placeholder="할 일 항목 추가"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault()
-                          handleAddChecklistItem()
-                        }
-                      }}
-                    />
-                    <Button type="button" size="icon" onClick={handleAddChecklistItem}>
-                      <Plus className="w-4 h-4" />
-                    </Button>
-                  </div>
-
-                  <div className="space-y-2 mt-2">
-                    {checklist.length === 0 && (
-                      <div className="text-center py-8 text-muted-foreground text-sm border-2 border-dashed rounded-md">
-                        체크리스트가 없습니다.
-                      </div>
-                    )}
-                    
-                    {checklist.map((item, index) => (
-                      <div key={item.id} className="group flex items-center gap-2 p-2 rounded-md border bg-card hover:bg-accent/50 transition-colors">
-                        <div className="flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            type="button"
-                            onClick={() => handleMoveChecklistItem(index, 'up')}
-                            disabled={index === 0}
-                            className="text-muted-foreground hover:text-foreground disabled:opacity-30"
-                          >
-                            <ArrowUp className="w-3 h-3" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleMoveChecklistItem(index, 'down')}
-                            disabled={index === checklist.length - 1}
-                            className="text-muted-foreground hover:text-foreground disabled:opacity-30"
-                          >
-                            <ArrowDown className="w-3 h-3" />
-                          </button>
-                        </div>
-                        
-                        <span className="flex-1 text-sm">{item.text}</span>
-                        
-                        <Button 
-                          type="button" 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 text-muted-foreground hover:text-red-500"
-                          onClick={() => handleDeleteChecklistItem(item.id)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
+                
+                <div className="flex flex-wrap gap-2">
+                    {roles.map((role) => {
+                        const isSelected = formData.assigned_role_ids.includes('all') || formData.assigned_role_ids.includes(role.id);
+                        return (
+                            <button
+                                key={role.id}
+                                type="button"
+                                onClick={() => toggleRole(role.id)}
+                                className={`
+                                    flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm transition-all
+                                    ${isSelected 
+                                        ? 'border-primary bg-primary/10 text-foreground font-medium shadow-sm' 
+                                        : 'border-border bg-background text-muted-foreground hover:bg-muted/50'}
+                                `}
+                            >
+                                <div 
+                                    className="w-2 h-2 rounded-full" 
+                                    style={{ backgroundColor: role.color }}
+                                />
+                                {role.name}
+                            </button>
+                        )
+                    })}
                 </div>
               </div>
+              
+              <Separator />
+
+              {/* === 조건부 렌더링 영역 === */}
+              {!isAlways ? (
+                // [일반 업무 모드] - 중요도 & 체크리스트
+                <div className="space-y-8 animate-in fade-in duration-300">
+                  
+                  {/* 중요 업무 설정 */}
+                  <div className="flex items-center justify-between bg-background p-4 rounded-xl border border-border shadow-sm">
+                    <div className="space-y-1">
+                      <Label htmlFor="is_critical" className="text-sm font-semibold flex items-center gap-2 cursor-pointer">
+                        <AlertTriangle className={`w-4 h-4 ${formData.is_critical ? 'text-red-500' : 'text-muted-foreground'}`} />
+                        중요 업무 표시
+                      </Label>
+                      <p className="text-xs text-muted-foreground pl-6">
+                        이 업무를 강조 표시하여 직원들이 놓치지 않게 합니다.
+                      </p>
+                    </div>
+                    <Switch
+                      id="is_critical"
+                      checked={formData.is_critical}
+                      onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_critical: checked }))}
+                      className="data-[state=checked]:bg-red-500"
+                    />
+                  </div>
+
+                  {/* 체크리스트 */}
+                  <div className="space-y-4">
+                    <div className="flex flex-col gap-1.5">
+                      <Label className="text-sm font-semibold flex items-center gap-2">
+                        <CheckSquare className="w-4 h-4 text-orange-500" />
+                        세부 체크리스트 <span className="text-muted-foreground font-normal text-xs ml-1">({checklist.length})</span>
+                      </Label>
+                      <p className="text-xs text-muted-foreground pl-6">이 업무를 완료하기 위해 필요한 세부 작업들을 추가하세요.</p>
+                    </div>
+                    
+                    <div className="flex gap-2 bg-background p-1 rounded-lg border shadow-sm">
+                      <Input 
+                        value={newChecklistItem}
+                        onChange={(e) => setNewChecklistItem(e.target.value)}
+                        placeholder="할 일 항목 입력 (예: 바닥 쓸기)"
+                        className="border-0 focus-visible:ring-0 bg-transparent"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            handleAddChecklistItem()
+                          }
+                        }}
+                      />
+                      <Button type="button" size="sm" onClick={handleAddChecklistItem} className="rounded-md px-3">
+                        추가
+                      </Button>
+                    </div>
+
+                    <div className="space-y-2 mt-4">
+                      {checklist.length === 0 && (
+                        <div className="text-center py-10 text-muted-foreground text-sm border border-dashed rounded-xl bg-background/50">
+                          등록된 세부 항목이 없습니다.
+                        </div>
+                      )}
+                      
+                      <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={handleDragEnd}
+                      >
+                        <SortableContext
+                          items={checklist.map(item => item.id)}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          {checklist.map((item, index) => (
+                            <SortableChecklistItem
+                              key={item.id}
+                              item={item}
+                              index={index}
+                              totalCount={checklist.length}
+                              onDelete={handleDeleteChecklistItem}
+                            />
+                          ))}
+                        </SortableContext>
+                      </DndContext>
+                    </div>
+                  </div>
+                </div>
+
+              ) : (
+
+                // [상시 업무 모드] - 공지 및 설명란
+                <div className="space-y-4 animate-in fade-in duration-300 h-full flex flex-col">
+                  <div className="flex flex-col gap-1.5">
+                    <Label className="text-sm font-semibold flex items-center gap-2">
+                      <Briefcase className="w-4 h-4 text-orange-500" />
+                      공지 및 상시 체크 상황
+                    </Label>
+                    <p className="text-xs text-muted-foreground pl-6">
+                      상시 업무는 대시보드에 고정 노출됩니다. 직원들이 수시로 확인해야 할 지시사항이나 가이드를 작성해주세요.
+                    </p>
+                  </div>
+                  
+                  <Textarea
+                    id="description"
+                    value={formData.description}
+                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="예: 홀 테이블이 비워지면 즉시 정리해주세요. 쓰레기통이 80% 이상 차면 바로 비워주세요."
+                    className="flex-1 min-h-[200px] bg-background border-border shadow-sm text-sm leading-relaxed p-4 rounded-xl resize-none"
+                  />
+                </div>
+              )}
+              
             </div>
           </ScrollArea>
         </div>
       </div>
 
-      <div className="p-4 border-t bg-muted/10 flex justify-between shrink-0">
+      {/* ======================= 하단 액션 바 ======================= */}
+      <div className="p-4 border-t bg-background/80 backdrop-blur-sm flex justify-between shrink-0 z-10">
         {showDelete && onDelete ? (
-            <Button type="button" variant="destructive" onClick={onDelete}>
+            <Button type="button" variant="ghost" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={onDelete}>
                 <Trash2 className="w-4 h-4 mr-2" />
                 삭제
             </Button>
@@ -685,10 +747,10 @@ export function TaskForm({
             <div></div> // Spacer
         )}
         <div className="flex gap-2">
-            <Button type="button" variant="outline" onClick={onCancel}>
+            <Button type="button" variant="outline" onClick={onCancel} className="px-6">
                 취소
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading} className="px-8 shadow-md">
                 {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 {submitLabel}
             </Button>

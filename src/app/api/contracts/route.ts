@@ -4,7 +4,7 @@ import { sendContract } from '@/lib/modusign/client'
 
 export async function POST(req: Request) {
   try {
-    const { storeId, staffId } = await req.json()
+    const { storeId, staffId, channels } = await req.json()
 
     if (!storeId || !staffId) {
       return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 })
@@ -40,7 +40,8 @@ export async function POST(req: Request) {
     const roleInfo = Array.isArray(staffData.role_info) ? staffData.role_info[0] : staffData.role_info
     const schedules = (staffData.work_schedules as any[]) || []
 
-    const isFulltime = staffData.wage_type === 'monthly'
+    // 임금 형태(wage_type)가 아닌 고용 형태(employment_type)를 기준으로 정규직 판별
+    const isFulltime = ['fulltime', 'contract'].includes(staffData.employment_type)
     const templateId = isFulltime 
       ? process.env.MODUSIGN_TEMPLATE_ID_FULLTIME 
       : process.env.MODUSIGN_TEMPLATE_ID_PARTTIME
@@ -139,7 +140,7 @@ export async function POST(req: Request) {
       fields = {
         // 도입부
         'company_name': store.name || '',
-        'employee_name': staffName,
+        'employee_name_1': staffName,
         
         // 제 1 조 (근로 형태 및 근로 기간)
         'start_year': hiredDate.getFullYear(),
@@ -178,9 +179,8 @@ export async function POST(req: Request) {
         'basic_weekly_hours': totalWeeklyHours || 40,
         'basic_monthly_hours': Math.round((totalWeeklyHours || 40) * 4.345),
         'meal_allowance': formatter.format(mealAllowance),
-        'total_salary': formatter.format(totalWage),
         
-        // 비어있는 추가 항목 줄
+        // 추가 항목 줄 (비어있는 3줄)
         'extra_item_1_name': '',
         'extra_item_1_amount': '',
         'extra_item_1_desc': '',
@@ -191,19 +191,21 @@ export async function POST(req: Request) {
         'extra_item_3_amount': '',
         'extra_item_3_desc': '',
         
+        // 합계 줄
+        'total_salary': formatter.format(totalWage),
+        
+        // 교부 확인란
+        'employee_name_2': staffName,
+
         // 계약 작성 일자
         'contract_year': now.getFullYear(),
         'contract_month': now.getMonth() + 1,
         'contract_day': now.getDate(),
         
-        // 사용자 입력란
+        // 회사(사용자) 입력란
         'company_reg_number': store.business_number || '',
         'company_address': store.address ? `${store.address} ${store.address_detail || ''}`.trim() : '',
-        'company_rep_name': store.owner_name || '',
-        
-        // 근로자 입력란 (직원이 서명 시 직접 입력하도록 비워둠)
-        'employee_birth': '',
-        'employee_address': ''
+        'company_rep_name': store.owner_name || ''
       }
     } else {
       // --- 아르바이트용 템플릿 필드 ---
@@ -319,15 +321,29 @@ export async function POST(req: Request) {
 
     // 4. 모두싸인 API 호출
     const title = `[${store.name || '매장'}] ${staffName} 근로계약서`
+    
+    // 채널 설정 적용
+    const sendEmail = channels?.email ?? !!staffEmail
+    const sendKakao = channels?.kakao ?? false
+    
+    // signingMethod.value 설정 시 전화번호 형식(010-0000-0000 -> 01000000000 등)이 필요할 수 있으나,
+    // 모두싸인은 기본적으로 형태에 맞춰 주면 알아서 파싱합니다.
+    const methodType = sendKakao && staffPhone ? 'KAKAOTALK' : 'EMAIL'
+    const methodValue = methodType === 'KAKAOTALK' ? staffPhone.replace(/[^0-9]/g, '') : staffEmail
+
     const result = await sendContract({
       templateId,
       title,
       participants: [
         {
           name: staffName,
-          email: staffEmail || undefined,
-          phone: staffPhone || undefined,
-          role: '근로자'
+          email: sendEmail && staffEmail ? staffEmail : undefined,
+          phone: sendKakao && staffPhone ? staffPhone : undefined,
+          role: '근로자',
+          signingMethod: {
+            type: methodType,
+            value: methodValue
+          }
         }
       ],
       fields

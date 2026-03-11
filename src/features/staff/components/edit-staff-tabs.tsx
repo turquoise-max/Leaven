@@ -134,7 +134,7 @@ export function PersonalInfoTab({ formData, onChange, canEdit }: TabProps) {
         </div>
         <div className="grid gap-2 flex-1 pt-2">
           <Label htmlFor="memo">직원 메모</Label>
-          <Textarea id="memo" name="memo" value={formData.memo} onChange={(e) => onChange({ memo: e.target.value })} disabled={!canEdit} placeholder="직원에 대한 특이사항이나 메모를 남겨주세요." className="h-full min-h-[120px] max-h-[200px] resize-none" />
+          <Textarea id="memo" name="memo" value={formData.memo} onChange={(e) => onChange({ memo: e.target.value })} disabled={!canEdit} placeholder="직원에 대한 특이사항이나 메모를 남겨주세요." className="h-full min-h-30 max-h-50 resize-none" />
         </div>
       </div>
       
@@ -167,10 +167,10 @@ function TimePicker({ value, onChange, disabled }: { value: string, onChange: (v
   return (
     <div className="flex items-center gap-1">
       <Select value={hour} onValueChange={(h) => onChange(`${h}:${minute}`)} disabled={disabled}>
-        <SelectTrigger className="w-[64px] h-9 px-2 text-center focus:ring-0 bg-background">
+        <SelectTrigger className="w-16 h-9 px-2 text-center focus:ring-0 bg-background">
           <SelectValue placeholder="HH" />
         </SelectTrigger>
-        <SelectContent position="popper" className="h-[200px]" side="bottom" align="start">
+        <SelectContent position="popper" className="h-50" side="bottom" align="start">
           {HOURS.map((h) => (
             <SelectItem key={h} value={h} className="text-center justify-center pl-2">{h}</SelectItem>
           ))}
@@ -178,7 +178,7 @@ function TimePicker({ value, onChange, disabled }: { value: string, onChange: (v
       </Select>
       <span className="text-muted-foreground font-medium">:</span>
       <Select value={minute} onValueChange={(m) => onChange(`${hour}:${m}`)} disabled={disabled}>
-        <SelectTrigger className="w-[64px] h-9 px-2 text-center focus:ring-0 bg-background">
+        <SelectTrigger className="w-16 h-9 px-2 text-center focus:ring-0 bg-background">
           <SelectValue placeholder="MM" />
         </SelectTrigger>
         <SelectContent position="popper" side="bottom" align="start">
@@ -221,7 +221,7 @@ export function WorkSettingsTab({ formData, onChange, canEdit, roles, isOwner, w
 
   return (
     <div className="flex flex-col md:flex-row gap-8 h-full">
-      <div className="w-full md:w-[280px] shrink-0 space-y-6">
+      <div className="w-full md:w-70 shrink-0 space-y-6">
         <div className="grid gap-2">
           <Label>역할 (직무)</Label>
           {isOwner ? (
@@ -300,8 +300,8 @@ export function WorkSettingsTab({ formData, onChange, canEdit, roles, isOwner, w
         <div className="flex-1 overflow-y-auto min-h-0">
           <div className="divide-y divide-border/50">
             {formData.workSchedules.map((schedule, index) => (
-              <div key={index} className={cn("flex items-center gap-2 px-3 h-[52px] transition-colors", schedule.is_holiday ? "bg-muted/10" : "bg-background hover:bg-muted/5")}>
-                <div className="flex items-center gap-2 w-[72px] shrink-0">
+              <div key={index} className={cn("flex items-center gap-2 px-3 h-13 transition-colors", schedule.is_holiday ? "bg-muted/10" : "bg-background hover:bg-muted/5")}>
+                <div className="flex items-center gap-2 w-18 shrink-0">
                   <Checkbox 
                     id={`day-${index}`} checked={!schedule.is_holiday}
                     onCheckedChange={(checked) => handleScheduleChange(index, 'is_holiday', !checked)}
@@ -324,7 +324,7 @@ export function WorkSettingsTab({ formData, onChange, canEdit, roles, isOwner, w
                       <Input
                         type="number" value={schedule.break_minutes}
                         onChange={(e) => handleScheduleChange(index, 'break_minutes', parseInt(e.target.value) || 0)}
-                        className="w-[46px] h-6 text-xs text-center px-1 bg-background"
+                        className="w-11.5 h-6 text-xs text-center px-1 bg-background"
                         min={0} step={10} disabled={!canEdit}
                       />
                       <span className="text-[11px] text-muted-foreground">분</span>
@@ -522,7 +522,7 @@ export function ContractSettingsTab({ formData, onChange, canEdit, weeklyTotalMi
                                     onChange({ customWageSettings: { ...customSet, wage_start_day: String(val), wage_end_day: String(val === 1 ? 0 : val - 1) } })
                                   }}
                                   disabled={!canEdit}
-                                  className="w-[42px] h-6 text-center border-none shadow-none focus-visible:ring-0 px-1 text-[13px]"
+                                  className="w-10.5 h-6 text-center border-none shadow-none focus-visible:ring-0 px-1 text-[13px]"
                                 />
                                 <span className="text-[12px] font-medium pr-1">일</span>
                               </div>
@@ -540,7 +540,7 @@ export function ContractSettingsTab({ formData, onChange, canEdit, weeklyTotalMi
                                     onChange({ customWageSettings: { ...customSet, wage_end_day: String(val) } })
                                   }}
                                   disabled={!canEdit}
-                                  className="w-[42px] h-6 text-center border-none shadow-none focus-visible:ring-0 px-1 text-[13px]"
+                                  className="w-10.5 h-6 text-center border-none shadow-none focus-visible:ring-0 px-1 text-[13px]"
                                 />
                                 <span className="text-[12px] font-medium pr-1">{customSet.wage_end_day === '0' ? '말일' : '일'}</span>
                               </div>
@@ -552,7 +552,7 @@ export function ContractSettingsTab({ formData, onChange, canEdit, weeklyTotalMi
                           <Label className="text-[12px] text-muted-foreground">급여 지급일</Label>
                           <div className="flex flex-wrap items-center gap-2">
                             <Select value={customSet.pay_month} onValueChange={(v: any) => onChange({ customWageSettings: { ...customSet, pay_month: v } })} disabled={!canEdit}>
-                              <SelectTrigger className="w-[80px] h-7 text-[12px]">
+                              <SelectTrigger className="w-20 h-7 text-[12px]">
                                 <SelectValue placeholder="지급 월" />
                               </SelectTrigger>
                               <SelectContent>
@@ -567,7 +567,7 @@ export function ContractSettingsTab({ formData, onChange, canEdit, weeklyTotalMi
                                 value={customSet.is_pay_day_last ? '' : customSet.pay_day}
                                 onChange={(e) => onChange({ customWageSettings: { ...customSet, pay_day: e.target.value } })}
                                 disabled={customSet.is_pay_day_last || !canEdit}
-                                className="w-[46px] h-7 text-center text-[12px]"
+                                className="w-11.5 h-7 text-center text-[12px]"
                               />
                               <span className="text-[12px] font-medium">일</span>
                             </div>

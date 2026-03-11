@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
-import { X, Filter, Sparkles, ChevronDown, Trash2 } from 'lucide-react'
+import { X, Filter, Sparkles, ChevronDown, Trash2, Plus } from 'lucide-react'
 import { CalendarHeader } from '@/components/common/calendar-header'
 import { AutoScheduleDialog } from './auto-schedule-dialog'
 import {
@@ -455,33 +455,32 @@ export function ScheduleCalendar({
           {isMounted && (
             <div className="flex items-center gap-2">
               {canManage && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="h-8 gap-1.5 text-xs mr-2 border-dashed border-primary/50 hover:bg-primary/5 hover:border-primary"
-                    >
-                      일괄 관리 <ChevronDown className="w-3 h-3 opacity-50" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-[140px]">
-                    <DropdownMenuItem onClick={() => {
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5 text-xs text-yellow-600 border-yellow-200 bg-yellow-50 hover:bg-yellow-100 hover:text-yellow-700 dark:bg-yellow-900/20 dark:border-yellow-900/50 dark:hover:bg-yellow-900/40"
+                    onClick={() => {
                       setAutoScheduleMode('create')
                       setAutoScheduleOpen(true)
-                    }}>
-                      <Sparkles className="w-4 h-4 mr-2 text-yellow-500 fill-yellow-500" />
-                      자동 생성
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => {
+                    }}
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline-block">자동 생성</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5 text-xs text-destructive border-destructive/20 bg-destructive/5 hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => {
                       setAutoScheduleMode('delete')
                       setAutoScheduleOpen(true)
-                    }} className="text-destructive focus:text-destructive">
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      일괄 삭제
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                    }}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline-block">전체 삭제</span>
+                  </Button>
+                </>
               )}
 
               <Select 
@@ -588,6 +587,21 @@ export function ScheduleCalendar({
         staffList={staffList}
         initialMode={autoScheduleMode}
       />
+
+      {canManage && (
+        <Button
+          className="fixed bottom-6 right-6 md:bottom-20 md:right-20 h-14 w-14 rounded-full shadow-lg z-50 flex items-center justify-center p-0 transition-transform hover:scale-105 active:scale-95"
+          onClick={() => {
+            setDialogMode('create')
+            setSelectedDate(null)
+            setInitialTime(undefined)
+            setSelectedEvent(null)
+            setScheduleDialogOpen(true)
+          }}
+        >
+          <Plus className="w-6 h-6" />
+        </Button>
+      )}
     </>
   )
 }

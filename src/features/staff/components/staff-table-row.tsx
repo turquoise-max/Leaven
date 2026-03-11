@@ -24,7 +24,7 @@ const getDisplayPhone = (staff: StaffMember) => {
 }
 
 const getRoleBadge = (staff: StaffMember) => {
-  const roleName = staff.role_info?.name || (staff.role === 'owner' ? '점주' : (staff.role === 'manager' ? '매니저' : '직원'))
+  const roleName = staff.role_info?.name || (staff.details as any)?.last_role_name || (staff.role === 'owner' ? '점주' : (staff.role === 'manager' ? '매니저' : '직원'))
   const roleColor = staff.role_info?.color || (staff.role === 'owner' ? '#7c3aed' : (staff.role === 'manager' ? '#4f46e5' : '#808080'))
   
   const isSystem = staff.role_info?.is_system

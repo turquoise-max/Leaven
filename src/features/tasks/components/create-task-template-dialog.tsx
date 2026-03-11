@@ -44,10 +44,17 @@ export function CreateTaskTemplateDialog({ storeId }: CreateTaskTemplateDialogPr
       if (data.task_type === 'always' || data.repeat_type === 'weekly') {
         recurrence_rule = data.repeat_days.length > 0 ? { days: data.repeat_days } : null;
       } else if (data.repeat_type === 'monthly') {
-        recurrence_rule = {
-          date: data.is_last_day ? null : parseInt(data.start_date.split('-')[2], 10),
-          is_last_day: data.is_last_day
-        };
+        if (data.repeat_monthly_type === 'nth_week') {
+          recurrence_rule = {
+            nth_week: data.nth_week,
+            day: data.nth_day
+          };
+        } else {
+          recurrence_rule = {
+            date: data.is_last_day ? null : parseInt(data.start_date.split('-')[2], 10),
+            is_last_day: data.is_last_day
+          };
+        }
       }
 
       const result = await createTask({
@@ -68,12 +75,12 @@ export function CreateTaskTemplateDialog({ storeId }: CreateTaskTemplateDialogPr
       if (result?.error) {
         toast.error('오류 발생', { description: result.error as string })
       } else {
-        toast.success('업무 템플릿이 생성되었습니다.')
+        toast.success('업무 일정이 생성되었습니다.')
         setOpen(false)
       }
     } catch (error) {
       console.error(error)
-      toast.error('템플릿 생성 중 오류가 발생했습니다.')
+      toast.error('업무 일정 등록 중 오류가 발생했습니다.')
     } finally {
       setLoading(false)
     }
@@ -84,12 +91,12 @@ export function CreateTaskTemplateDialog({ storeId }: CreateTaskTemplateDialogPr
       <DialogTrigger asChild>
         <Button className="gap-2">
           <Plus className="w-4 h-4" />
-          새 템플릿 추가
+          새 일정 추가
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-4xl h-[85vh] max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0">
         <DialogHeader className="p-6 pb-2">
-          <DialogTitle>새 업무 템플릿 추가</DialogTitle>
+          <DialogTitle>새 업무 일정 등록</DialogTitle>
         </DialogHeader>
         <div className="flex-1 overflow-hidden">
           <TaskForm 

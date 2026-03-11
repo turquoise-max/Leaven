@@ -157,9 +157,9 @@ export function EditTaskDialog({ task, open, onOpenChange, storeId }: EditTaskDi
     <>
         <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-4xl h-[85vh] max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0">
-            <DialogHeader className="p-6 pb-2">
-            <DialogTitle>업무 수정</DialogTitle>
-            <DialogDescription>
+        <DialogHeader className="p-6 pb-2">
+          <DialogTitle>업무 일정 수정</DialogTitle>
+          <DialogDescription>
                 등록된 업무 정보를 수정합니다.
             </DialogDescription>
             </DialogHeader>

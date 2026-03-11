@@ -403,7 +403,7 @@ export function StoreSettingsForm({ initialData }: StoreSettingsFormProps) {
                   value={formData.zip_code}
                   readOnly
                   placeholder="우편번호"
-                  className="bg-muted max-w-[150px]"
+                  className="bg-muted max-w-37.5"
                 />
                 <Button type="button" variant="outline" onClick={handleAddressSearch}>
                   <Search className="w-4 h-4 mr-2" />
@@ -490,23 +490,23 @@ export function StoreSettingsForm({ initialData }: StoreSettingsFormProps) {
                 <div className="flex items-center gap-3 p-4 bg-muted/20 rounded-lg border mt-2 flex-wrap">
                   <div className="flex items-center gap-2 bg-background p-1.5 rounded-md border shadow-sm">
                     <span className="px-2 py-1 bg-muted rounded text-sm font-medium text-muted-foreground">전월</span>
-                    <Input
-                      type="number" min="1" max="31"
-                      value={formData.wage_start_day}
-                      onChange={(e) => {
-                        let val = parseInt(e.target.value)
-                        if (isNaN(val)) val = 1
-                        if (val > 31) val = 31
-                        if (val < 1) val = 1
-                        
-                        setFormData(prev => ({
-                          ...prev,
-                          wage_start_day: String(val),
-                          wage_end_day: String(val === 1 ? 0 : val - 1)
-                        }))
-                      }}
-                      className="w-[56px] h-8 text-center border-none shadow-none focus-visible:ring-0 px-1 font-medium"
-                    />
+                      <Input
+                        type="number" min="1" max="31"
+                        value={formData.wage_start_day}
+                        onChange={(e) => {
+                          let val = parseInt(e.target.value)
+                          if (isNaN(val)) val = 1
+                          if (val > 31) val = 31
+                          if (val < 1) val = 1
+                          
+                          setFormData(prev => ({
+                            ...prev,
+                            wage_start_day: String(val),
+                            wage_end_day: String(val === 1 ? 0 : val - 1)
+                          }))
+                        }}
+                        className="w-14 h-8 text-center border-none shadow-none focus-visible:ring-0 px-1 font-medium"
+                      />
                     <span className="text-sm font-medium pr-2">일</span>
                   </div>
                   
@@ -514,18 +514,18 @@ export function StoreSettingsForm({ initialData }: StoreSettingsFormProps) {
                   
                   <div className="flex items-center gap-2 bg-background p-1.5 rounded-md border shadow-sm">
                     <span className="px-2 py-1 bg-primary/10 text-primary rounded text-sm font-medium">당월</span>
-                    <Input
-                      type="number" min="0" max="31"
-                      value={formData.wage_end_day}
-                      onChange={(e) => {
-                        let val = parseInt(e.target.value)
-                        if (isNaN(val)) val = 0
-                        if (val > 31) val = 31
-                        if (val < 0) val = 0
-                        setFormData(prev => ({ ...prev, wage_end_day: String(val) }))
-                      }}
-                      className="w-[56px] h-8 text-center border-none shadow-none focus-visible:ring-0 px-1 font-medium"
-                    />
+                      <Input
+                        type="number" min="0" max="31"
+                        value={formData.wage_end_day}
+                        onChange={(e) => {
+                          let val = parseInt(e.target.value)
+                          if (isNaN(val)) val = 0
+                          if (val > 31) val = 31
+                          if (val < 0) val = 0
+                          setFormData(prev => ({ ...prev, wage_end_day: String(val) }))
+                        }}
+                        className="w-14 h-8 text-center border-none shadow-none focus-visible:ring-0 px-1 font-medium"
+                      />
                     <span className="text-sm font-medium pr-2">{formData.wage_end_day === '0' ? '말일' : '일'}</span>
                   </div>
                 </div>
@@ -541,7 +541,7 @@ export function StoreSettingsForm({ initialData }: StoreSettingsFormProps) {
             <div className="w-full md:w-2/3 max-w-xl space-y-4">
                <div className="flex items-center gap-3">
                  <Select value={formData.pay_month} onValueChange={(v) => setFormData(prev => ({ ...prev, pay_month: v }))}>
-                   <SelectTrigger className="w-[100px] h-9">
+                   <SelectTrigger className="w-25 h-9">
                      <SelectValue placeholder="지급 월" />
                    </SelectTrigger>
                    <SelectContent>
@@ -556,7 +556,7 @@ export function StoreSettingsForm({ initialData }: StoreSettingsFormProps) {
                      value={formData.is_pay_day_last ? '' : formData.pay_day}
                      onChange={(e) => setFormData(prev => ({ ...prev, pay_day: e.target.value }))}
                      disabled={formData.is_pay_day_last}
-                     className="w-[60px] h-9 text-center"
+                     className="w-15 h-9 text-center"
                    />
                    <span className="text-sm">일</span>
                  </div>
@@ -580,7 +580,7 @@ export function StoreSettingsForm({ initialData }: StoreSettingsFormProps) {
             </div>
             <div className="w-full md:w-2/3 max-w-xl">
                <Select value={formData.holiday_rule} onValueChange={(v) => setFormData(prev => ({ ...prev, holiday_rule: v }))}>
-                 <SelectTrigger className="w-[200px] h-9">
+                 <SelectTrigger className="w-50 h-9">
                    <SelectValue placeholder="지급 규칙 선택" />
                  </SelectTrigger>
                  <SelectContent>
@@ -720,7 +720,7 @@ export function StoreSettingsForm({ initialData }: StoreSettingsFormProps) {
                                             }
                                           }))
                                         }}
-                                        className="w-[48px] h-7 text-center border-none shadow-none focus-visible:ring-0 px-1 font-medium text-[13px]"
+                                        className="w-12 h-7 text-center border-none shadow-none focus-visible:ring-0 px-1 font-medium text-[13px]"
                                       />
                                       <span className="text-[13px] font-medium pr-1">일</span>
                                     </div>
@@ -744,7 +744,7 @@ export function StoreSettingsForm({ initialData }: StoreSettingsFormProps) {
                                             }
                                           }))
                                         }}
-                                        className="w-[48px] h-7 text-center border-none shadow-none focus-visible:ring-0 px-1 font-medium text-[13px]"
+                                        className="w-12 h-7 text-center border-none shadow-none focus-visible:ring-0 px-1 font-medium text-[13px]"
                                       />
                                       <span className="text-[13px] font-medium pr-1">{exceptionData.wage_end_day === '0' ? '말일' : '일'}</span>
                                     </div>
@@ -767,7 +767,7 @@ export function StoreSettingsForm({ initialData }: StoreSettingsFormProps) {
                                       }
                                     }))}
                                   >
-                                    <SelectTrigger className="w-[90px] h-8 text-[13px]">
+                                    <SelectTrigger className="w-22.5 h-8 text-[13px]">
                                       <SelectValue placeholder="지급 월" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -788,7 +788,7 @@ export function StoreSettingsForm({ initialData }: StoreSettingsFormProps) {
                                         }
                                       }))}
                                       disabled={exceptionData.is_pay_day_last}
-                                      className="w-[50px] h-8 text-center text-[13px]"
+                                      className="w-12.5 h-8 text-center text-[13px]"
                                     />
                                     <span className="text-[13px] font-medium">일</span>
                                   </div>

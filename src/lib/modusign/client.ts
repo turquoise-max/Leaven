@@ -8,6 +8,10 @@ interface CreateDocumentFromTemplateParams {
     email?: string
     phone?: string
     role: string // 서명자 역할 (일반적으로 'signer')
+    signingMethod?: {
+      type: 'EMAIL' | 'KAKAOTALK'
+      value: string
+    }
   }[]
   // 입력 필드 매핑 (템플릿에 지정된 필드 이름과 값을 매칭)
   fields?: Record<string, string | number>
@@ -32,6 +36,7 @@ export async function sendContract(params: CreateDocumentFromTemplateParams) {
     name: p.name,
     email: p.email,
     phone: p.phone,
+    signingMethod: p.signingMethod,
   }))
 
   const requesterInputMappings = params.fields ? Object.entries(params.fields).map(([dataLabel, value]) => ({

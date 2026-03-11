@@ -66,6 +66,7 @@ export interface StaffMember {
     national: boolean
     health: boolean
   } | null
+  details?: any
 
   profile: {
     full_name: string | null

@@ -27,6 +27,7 @@ import {
   ContractSettingsTab,
   StaffFormData
 } from './edit-staff-tabs'
+import { SendContractDialog } from './send-contract-dialog'
 
 interface EditStaffDialogProps {
   open: boolean
@@ -73,7 +74,7 @@ export function EditStaffDialog({
   const [storeSettings, setStoreSettings] = useState<any>(null)
   const [formData, setFormData] = useState<StaffFormData>(DEFAULT_FORM_DATA)
   const [isDirty, setIsDirty] = useState(false)
-  const [sendingContract, setSendingContract] = useState(false)
+  const [showSendDialog, setShowSendDialog] = useState(false)
 
   const handleFormChange = (updates: Partial<StaffFormData>) => {
     setFormData(prev => ({ ...prev, ...updates }))
@@ -298,34 +299,9 @@ export function EditStaffDialog({
     }
   }
 
-  const handleSendContract = async () => {
+  const handleSendContractClick = () => {
     if (!canManage || !staff) return
-    const currentName = formData.name || staff.name || '직원'
-    if (!confirm(`${currentName} 님에게 전자 근로계약서 서명 요청을 발송하시겠습니까?`)) return
-
-    setSendingContract(true)
-    try {
-      const response = await fetch('/api/contracts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          storeId,
-          staffId: staff.id
-        })
-      })
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        throw new Error(result.error || '계약서 발송에 실패했습니다.')
-      }
-
-      toast.success('근로계약서 발송 완료', { description: '카카오톡 또는 이메일로 서명 요청이 발송되었습니다.' })
-    } catch (error: any) {
-      toast.error('근로계약서 발송 실패', { description: error.message })
-    } finally {
-      setSendingContract(false)
-    }
+    setShowSendDialog(true)
   }
 
   const isPending = staff?.status === 'pending_approval' || staff?.status === 'invited'
@@ -480,7 +456,7 @@ export function EditStaffDialog({
                 </div>
 
                 <div className="flex gap-2">
-                  <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading || sendingContract}>
+                  <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
                     취소
                   </Button>
 
@@ -488,11 +464,11 @@ export function EditStaffDialog({
                     <Button 
                       type="button" 
                       variant="secondary"
-                      onClick={handleSendContract} 
-                      disabled={loading || sendingContract}
+                      onClick={handleSendContractClick} 
+                      disabled={loading}
                       className="bg-purple-100 text-purple-700 hover:bg-purple-200 hover:text-purple-800"
                     >
-                      {sendingContract ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSignature className="mr-2 h-4 w-4" />}
+                      <FileSignature className="mr-2 h-4 w-4" />
                       {isPending ? '계약서 발송' : '계약서 재발송'}
                     </Button>
                   )}
@@ -521,6 +497,17 @@ export function EditStaffDialog({
           </DialogFooter>
         </form>
       </DialogContent>
+
+      <SendContractDialog
+        open={showSendDialog}
+        onOpenChange={setShowSendDialog}
+        staff={staff}
+        storeId={storeId}
+        onSendSuccess={() => {
+          router.refresh()
+          onOpenChange(false)
+        }}
+      />
     </Dialog>
   )
 }

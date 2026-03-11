@@ -136,7 +136,7 @@ export function RoleManagement({ storeId, roles, permissions }: RoleManagementPr
   }
 
   const handleDeleteRole = async () => {
-    if (!selectedRole || selectedRole.is_system) return
+    if (!selectedRole || selectedRole.priority >= 100) return
     if (!confirm(`'${selectedRole.name}' 역할을 삭제하시겠습니까?`)) return
 
     setLoading(true)
@@ -201,7 +201,7 @@ export function RoleManagement({ storeId, roles, permissions }: RoleManagementPr
   }
 
   const togglePermission = (code: string) => {
-    if (selectedRole?.name === '점주' && selectedRole?.is_system) return // Owner permissions cannot be changed
+    if (selectedRole && selectedRole.priority >= 100) return // Owner permissions cannot be changed
     
     setRolePermissions(prev => 
       prev.includes(code) 
@@ -210,7 +210,7 @@ export function RoleManagement({ storeId, roles, permissions }: RoleManagementPr
     )
   }
 
-  const isOwner = selectedRole?.name === '점주' && selectedRole?.is_system
+  const isOwner = selectedRole ? selectedRole.priority >= 100 : false
 
   return (
     <div className="flex flex-col md:flex-row gap-6 min-h-[600px]">
@@ -242,7 +242,7 @@ export function RoleManagement({ storeId, roles, permissions }: RoleManagementPr
                   />
                   <span className="truncate">{role.name}</span>
                 </div>
-                {role.is_system && <Lock className="h-3 w-3 opacity-50" />}
+                {role.priority >= 100 && <Lock className="h-3 w-3 opacity-50" />}
               </button>
             ))}
           </div>
@@ -273,7 +273,7 @@ export function RoleManagement({ storeId, roles, permissions }: RoleManagementPr
                     : "역할의 이름과 권한을 설정합니다."}
                 </p>
               </div>
-              {!selectedRole.is_system && (
+              {!isOwner && (
                 <Button 
                   variant="ghost" 
                   size="sm" 
@@ -296,7 +296,7 @@ export function RoleManagement({ storeId, roles, permissions }: RoleManagementPr
                     id="roleName" 
                     value={editName} 
                     onChange={e => setEditName(e.target.value)}
-                    disabled={selectedRole.is_system || loading}
+                    disabled={loading}
                   />
                 </div>
                 <div className="space-y-2">

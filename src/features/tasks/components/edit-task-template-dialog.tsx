@@ -17,9 +17,10 @@ interface EditTaskTemplateDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   storeId: string
+  onDeleteRequest?: () => void
 }
 
-export function EditTaskTemplateDialog({ task, open, onOpenChange, storeId }: EditTaskTemplateDialogProps) {
+export function EditTaskTemplateDialog({ task, open, onOpenChange, storeId, onDeleteRequest }: EditTaskTemplateDialogProps) {
   const [loading, setLoading] = useState(false)
   const [defaultValues, setDefaultValues] = useState<Partial<TaskFormData> | undefined>()
 
@@ -33,10 +34,19 @@ export function EditTaskTemplateDialog({ task, open, onOpenChange, storeId }: Ed
       let repeat_days = [0, 1, 2, 3, 4, 5, 6]
       let is_last_day = false
       let start_date = getTodayDateString() // 임의의 오늘 날짜
+      let repeat_monthly_type: 'date' | 'nth_week' = 'date'
+      let nth_week = 1
+      let nth_day = 1
 
       if (task.recurrence_rule) {
-        if (task.recurrence_rule.date !== undefined || task.recurrence_rule.is_last_day !== undefined) {
+        if (task.recurrence_rule.nth_week !== undefined && task.recurrence_rule.day !== undefined) {
           repeat_type = 'monthly'
+          repeat_monthly_type = 'nth_week'
+          nth_week = task.recurrence_rule.nth_week
+          nth_day = task.recurrence_rule.day
+        } else if (task.recurrence_rule.date !== undefined || task.recurrence_rule.is_last_day !== undefined) {
+          repeat_type = 'monthly'
+          repeat_monthly_type = 'date'
           is_last_day = task.recurrence_rule.is_last_day === true
           if (task.recurrence_rule.date) {
             const [y, m] = start_date.split('-')
@@ -67,7 +77,10 @@ export function EditTaskTemplateDialog({ task, open, onOpenChange, storeId }: Ed
         checklist: task.checklist || [],
         repeat_type: repeat_type,
         repeat_days: repeat_days,
+        repeat_monthly_type: repeat_monthly_type,
         is_last_day: is_last_day,
+        nth_week: nth_week,
+        nth_day: nth_day,
         repeat_interval: 1,
       })
     }
@@ -94,10 +107,17 @@ export function EditTaskTemplateDialog({ task, open, onOpenChange, storeId }: Ed
       if (data.task_type === 'always' || data.repeat_type === 'weekly') {
         recurrence_rule = data.repeat_days.length > 0 ? { days: data.repeat_days } : null;
       } else if (data.repeat_type === 'monthly') {
-        recurrence_rule = {
-          date: data.is_last_day ? null : parseInt(data.start_date.split('-')[2], 10),
-          is_last_day: data.is_last_day
-        };
+        if (data.repeat_monthly_type === 'nth_week') {
+          recurrence_rule = {
+            nth_week: data.nth_week,
+            day: data.nth_day
+          };
+        } else {
+          recurrence_rule = {
+            date: data.is_last_day ? null : parseInt(data.start_date.split('-')[2], 10),
+            is_last_day: data.is_last_day
+          };
+        }
       }
 
       const result = await updateTask({
@@ -117,12 +137,12 @@ export function EditTaskTemplateDialog({ task, open, onOpenChange, storeId }: Ed
       if (result?.error) {
         toast.error('오류 발생', { description: result.error as string })
       } else {
-        toast.success('업무 템플릿이 수정되었습니다.')
+        toast.success('업무 일정이 수정되었습니다.')
         onOpenChange(false)
       }
     } catch (error) {
       console.error(error)
-      toast.error('템플릿 수정 중 오류가 발생했습니다.')
+      toast.error('업무 일정 수정 중 오류가 발생했습니다.')
     } finally {
       setLoading(false)
     }
@@ -132,7 +152,7 @@ export function EditTaskTemplateDialog({ task, open, onOpenChange, storeId }: Ed
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-4xl h-[85vh] max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0">
         <DialogHeader className="p-6 pb-2">
-          <DialogTitle>업무 템플릿 수정</DialogTitle>
+          <DialogTitle>업무 일정 수정</DialogTitle>
         </DialogHeader>
         <div className="flex-1 overflow-hidden">
           {defaultValues && (
@@ -144,6 +164,8 @@ export function EditTaskTemplateDialog({ task, open, onOpenChange, storeId }: Ed
               loading={loading}
               isEditMode={true}
               isTemplateMode={true}
+              showDelete={!!onDeleteRequest}
+              onDelete={onDeleteRequest}
             />
           )}
         </div>

@@ -117,22 +117,47 @@ export async function updateRole(storeId: string, roleId: string, data: { name?:
 export async function deleteRole(storeId: string, roleId: string) {
   const supabase = await createClient()
   
-  // Check if it's a system role
-  const { data: role } = await supabase.from('store_roles').select('is_system').eq('id', roleId).single()
-  if (role?.is_system) {
-    return { error: '기본 역할은 삭제할 수 없습니다.' }
+  // Check if it's the owner role (priority >= 100)
+  const { data: role } = await supabase.from('store_roles').select('priority, name').eq('id', roleId).single()
+  if (role && role.priority >= 100) {
+    return { error: '최고 관리자(점주) 역할은 삭제할 수 없습니다.' }
   }
 
-  // Check if any member is using this role
-  const { count } = await supabase
+  // 1. Get role name for snapshot
+  const roleName = role?.name || '알 수 없는 역할'
+
+  // 2. Check if any active member is using this role
+  const { count: activeCount } = await supabase
     .from('store_members')
     .select('*', { count: 'exact', head: true })
     .eq('role_id', roleId)
+    .eq('status', 'active')
   
-  if (count && count > 0) {
-    return { error: '이 역할을 사용 중인 직원이 있어 삭제할 수 없습니다.' }
+  if (activeCount && activeCount > 0) {
+    return { error: '현재 이 역할을 사용 중인 직원(재직자)이 있어 삭제할 수 없습니다.' }
+  }
+
+  // 3. For inactive members using this role, save role name to details and set role_id to null
+  const { data: inactiveMembers } = await supabase
+    .from('store_members')
+    .select('id, details')
+    .eq('role_id', roleId)
+    .eq('status', 'inactive')
+    
+  if (inactiveMembers && inactiveMembers.length > 0) {
+    for (const member of inactiveMembers) {
+      const details = member.details || {}
+      await supabase
+        .from('store_members')
+        .update({
+          role_id: null,
+          details: { ...details, last_role_name: roleName }
+        })
+        .eq('id', member.id)
+    }
   }
   
+  // 4. Finally, delete the role
   const { error } = await supabase
     .from('store_roles')
     .delete()

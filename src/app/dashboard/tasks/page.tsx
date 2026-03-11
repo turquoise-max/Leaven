@@ -88,7 +88,7 @@ export default async function TasksPage() {
           {canManage && (
             <TabsTrigger value="templates" className="flex items-center gap-2">
               <List className="w-4 h-4" />
-              업무 템플릿 관리
+              반복 업무 관리
             </TabsTrigger>
           )}
         </TabsList>
