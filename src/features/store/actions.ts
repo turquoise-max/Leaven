@@ -45,6 +45,16 @@ export async function updateStore(formData: FormData) {
   const wageEndDay = formData.get('wage_end_day') ? parseInt(formData.get('wage_end_day') as string, 10) : 0
   const payDay = formData.get('pay_day') ? parseInt(formData.get('pay_day') as string, 10) : 10
 
+  let wageExceptions = {}
+  try {
+    const exceptionsStr = formData.get('wage_exceptions') as string
+    if (exceptionsStr) {
+      wageExceptions = JSON.parse(exceptionsStr)
+    }
+  } catch (e) {
+    console.error('Error parsing wage exceptions:', e)
+  }
+
   let openingHours = {}
   try {
     const openingHoursStr = formData.get('opening_hours') as string
@@ -72,6 +82,7 @@ export async function updateStore(formData: FormData) {
       wage_start_day: wageStartDay,
       wage_end_day: wageEndDay,
       pay_day: payDay,
+      wage_exceptions: wageExceptions,
       updated_at: new Date().toISOString(),
     })
     .eq('id', storeId)

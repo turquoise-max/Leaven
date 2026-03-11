@@ -333,6 +333,23 @@ export async function POST(req: Request) {
       fields
     })
 
+    // 5. 발송 성공 시 contract_status 업데이트
+    if (result && result.documentId) {
+      await supabase
+        .from('store_members')
+        .update({ 
+          contract_status: 'sent',
+          modusign_document_id: result.documentId
+        })
+        .eq('id', staffData.id)
+    } else {
+      // documentId가 없는 경우 (모두싸인 API 응답 포맷에 따라 다를 수 있음)
+      await supabase
+        .from('store_members')
+        .update({ contract_status: 'sent' })
+        .eq('id', staffData.id)
+    }
+
     return NextResponse.json({ success: true, data: result })
 
   } catch (error: any) {

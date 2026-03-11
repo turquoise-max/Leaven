@@ -17,8 +17,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
 import { toast } from 'sonner'
-import { AlertTriangle, Search, MapPin, Save, RotateCcw } from 'lucide-react'
+import { AlertTriangle, Search, MapPin, Save, RotateCcw, Plus, Trash2 } from 'lucide-react'
 import { ImageUpload } from './image-upload'
 import { OpeningHours } from './opening-hours'
 import { cn } from '@/lib/utils'
@@ -64,8 +70,17 @@ interface StoreSettingsFormProps {
     wage_start_day?: number
     wage_end_day?: number
     pay_day?: number
+    wage_exceptions?: any
   }
 }
+
+const EMPLOYMENT_TYPES = [
+  { value: 'fulltime', label: '정규직' },
+  { value: 'contract', label: '계약직' },
+  { value: 'parttime', label: '파트타임/알바' },
+  { value: 'probation', label: '수습/교육생' },
+  { value: 'daily', label: '일용직/단기' },
+]
 
 export function StoreSettingsForm({ initialData }: StoreSettingsFormProps) {
   const router = useRouter()
@@ -90,6 +105,7 @@ export function StoreSettingsForm({ initialData }: StoreSettingsFormProps) {
     wage_start_day: initialData.wage_start_day != null ? String(initialData.wage_start_day) : '1',
     wage_end_day: initialData.wage_end_day != null ? String(initialData.wage_end_day) : '0',
     pay_day: initialData.pay_day != null ? String(initialData.pay_day) : '10',
+    wage_exceptions: initialData.wage_exceptions || {},
   }), [initialData])
 
   const [formData, setFormData] = useState(initialFormState)
@@ -169,6 +185,7 @@ export function StoreSettingsForm({ initialData }: StoreSettingsFormProps) {
     submitData.append('wage_start_day', formData.wage_start_day)
     submitData.append('wage_end_day', formData.wage_end_day)
     submitData.append('pay_day', formData.pay_day)
+    submitData.append('wage_exceptions', JSON.stringify(formData.wage_exceptions))
 
     const result = await updateStore(submitData)
     
@@ -406,11 +423,11 @@ export function StoreSettingsForm({ initialData }: StoreSettingsFormProps) {
         </div>
       </section>
 
-      {/* SECTION: 급여 및 정산 설정 */}
+      {/* SECTION: 매장 기본 급여/정산 설정 */}
       <section>
         <div className="mb-6">
-          <h2 className="text-2xl font-semibold tracking-tight">급여 및 정산 설정</h2>
-          <p className="text-sm text-muted-foreground mt-1">전자 근로계약서에 들어갈 급여 정산 기간 및 지급일을 설정합니다.</p>
+          <h2 className="text-2xl font-semibold tracking-tight">매장 기본 급여/정산 설정</h2>
+          <p className="text-sm text-muted-foreground mt-1">우리 매장의 가장 기본적인 급여 산정 기간과 지급일을 설정해 주세요. <br className="hidden sm:block"/>(개인별/고용형태별 상세 설정은 직원 관리 메뉴에서 개별 변경할 수 있습니다.)</p>
         </div>
         
         <Separator className="mb-2" />
@@ -418,10 +435,10 @@ export function StoreSettingsForm({ initialData }: StoreSettingsFormProps) {
         <div className="flex flex-col">
           <div className="flex flex-col md:flex-row gap-6 py-6 border-b border-border/50">
             <div className="w-full md:w-1/3 shrink-0 space-y-1">
-              <Label className="text-base font-medium">급여 산정 기간</Label>
+              <Label className="text-base font-medium">정산 기간</Label>
               <p className="text-sm text-muted-foreground">매월 며칠부터 며칠까지 일한 급여를 계산할지 설정합니다. (0 입력 시 말일)</p>
             </div>
-            <div className="w-full md:w-2/3 max-w-xl flex items-center gap-4">
+            <div className="w-full md:w-2/3 max-w-xl flex items-center gap-3">
               <div className="flex items-center gap-2">
                 <Input
                   id="wage_start_day"
@@ -431,10 +448,11 @@ export function StoreSettingsForm({ initialData }: StoreSettingsFormProps) {
                   max="31"
                   value={formData.wage_start_day || ''}
                   onChange={handleInputChange}
-                  className="w-20"
+                  className="w-[72px] text-center"
                 />
-                <span>일 ~</span>
+                <span className="text-sm text-muted-foreground">일</span>
               </div>
+              <span className="text-muted-foreground/50">~</span>
               <div className="flex items-center gap-2">
                 <Input
                   id="wage_end_day"
@@ -444,9 +462,9 @@ export function StoreSettingsForm({ initialData }: StoreSettingsFormProps) {
                   max="31"
                   value={formData.wage_end_day || ''}
                   onChange={handleInputChange}
-                  className="w-20"
+                  className="w-[72px] text-center"
                 />
-                <span>일</span>
+                <span className="text-sm text-muted-foreground">{formData.wage_end_day === '0' ? '말일' : '일'}</span>
               </div>
             </div>
           </div>
@@ -457,7 +475,7 @@ export function StoreSettingsForm({ initialData }: StoreSettingsFormProps) {
               <p className="text-sm text-muted-foreground">매월 급여를 지급하는 날짜를 설정합니다.</p>
             </div>
             <div className="w-full md:w-2/3 max-w-xl flex items-center gap-2">
-              <span>매월</span>
+              <span className="text-sm text-muted-foreground">익월 (또는 당월)</span>
               <Input
                 id="pay_day"
                 name="pay_day"
@@ -466,10 +484,130 @@ export function StoreSettingsForm({ initialData }: StoreSettingsFormProps) {
                 max="31"
                 value={formData.pay_day || ''}
                 onChange={handleInputChange}
-                className="w-20"
+                className="w-[72px] text-center"
               />
-              <span>일</span>
+              <span className="text-sm text-muted-foreground">일</span>
             </div>
+          </div>
+
+          {/* 고용 형태별 예외 설정 아코디언 */}
+          <div className="py-2">
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="exceptions" className="border-none">
+                <AccordionTrigger className="hover:no-underline py-4 text-sm text-primary hover:text-primary/80 justify-start gap-2 [&[data-state=open]>svg:first-child]:rotate-45">
+                  <Plus className="w-4 h-4 transition-transform duration-200" />
+                  고용 형태별 예외 정책 추가하기
+                </AccordionTrigger>
+                <AccordionContent className="pt-2 pb-6">
+                  <div className="bg-muted/30 border rounded-xl p-4 space-y-6">
+                    <p className="text-sm text-muted-foreground">
+                      매장 기본 설정과 다르게 적용되는 고용 형태가 있다면 아래에 추가해주세요.<br/>
+                      미설정된 고용 형태는 '매장 기본 설정'을 따릅니다.
+                    </p>
+                    
+                    {EMPLOYMENT_TYPES.map((type) => {
+                      const wageExceptions = formData.wage_exceptions || {}
+                      const hasException = !!wageExceptions[type.value]
+                      const exceptionData = wageExceptions[type.value] || { wage_start_day: '1', wage_end_day: '0', pay_day: '10' }
+
+                      return (
+                        <div key={type.value} className="flex flex-col border rounded-lg bg-background overflow-hidden">
+                          <div className="flex items-center justify-between p-3 bg-muted/20 border-b">
+                            <span className="font-medium text-sm">{type.label}</span>
+                            {!hasException ? (
+                              <Button 
+                                type="button" 
+                                variant="outline" 
+                                size="sm" 
+                                className="h-7 text-xs"
+                                onClick={() => setFormData(prev => ({
+                                  ...prev,
+                                  wage_exceptions: {
+                                    ...(prev.wage_exceptions || {}),
+                                    [type.value]: { wage_start_day: '1', wage_end_day: '0', pay_day: '10' }
+                                  }
+                                }))}
+                              >
+                                예외 추가
+                              </Button>
+                            ) : (
+                              <Button 
+                                type="button" 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-7 text-xs text-red-500 hover:text-red-600 hover:bg-red-50"
+                                onClick={() => {
+                                  const newExceptions = { ...(formData.wage_exceptions || {}) }
+                                  delete newExceptions[type.value]
+                                  setFormData(prev => ({ ...prev, wage_exceptions: newExceptions }))
+                                }}
+                              >
+                                <Trash2 className="w-3.5 h-3.5 mr-1" />
+                                삭제
+                              </Button>
+                            )}
+                          </div>
+                          
+                          {hasException && (
+                            <div className="p-4 grid gap-4 sm:grid-cols-2">
+                              <div className="space-y-1.5">
+                                <Label className="text-xs text-muted-foreground">정산 기간</Label>
+                                <div className="flex items-center gap-2">
+                                  <Input 
+                                    type="number" 
+                                    className="h-8 w-[60px] text-sm text-center" 
+                                    value={exceptionData.wage_start_day}
+                                    onChange={(e) => setFormData(prev => ({
+                                      ...prev,
+                                      wage_exceptions: {
+                                        ...(prev.wage_exceptions || {}),
+                                        [type.value]: { ...exceptionData, wage_start_day: e.target.value }
+                                      }
+                                    }))}
+                                  />
+                                  <span className="text-xs text-muted-foreground">일 ~</span>
+                                  <Input 
+                                    type="number" 
+                                    className="h-8 w-[60px] text-sm text-center" 
+                                    value={exceptionData.wage_end_day}
+                                    onChange={(e) => setFormData(prev => ({
+                                      ...prev,
+                                      wage_exceptions: {
+                                        ...(prev.wage_exceptions || {}),
+                                        [type.value]: { ...exceptionData, wage_end_day: e.target.value }
+                                      }
+                                    }))}
+                                  />
+                                  <span className="text-xs text-muted-foreground">{exceptionData.wage_end_day === '0' ? '말일' : '일'}</span>
+                                </div>
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label className="text-xs text-muted-foreground">지급일</Label>
+                                <div className="flex items-center gap-2">
+                                  <Input 
+                                    type="number" 
+                                    className="h-8 w-[60px] text-sm text-center" 
+                                    value={exceptionData.pay_day}
+                                    onChange={(e) => setFormData(prev => ({
+                                      ...prev,
+                                      wage_exceptions: {
+                                        ...(prev.wage_exceptions || {}),
+                                        [type.value]: { ...exceptionData, pay_day: e.target.value }
+                                      }
+                                    }))}
+                                  />
+                                  <span className="text-xs text-muted-foreground">일</span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </div>
         </div>
       </section>

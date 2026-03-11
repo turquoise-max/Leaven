@@ -5,7 +5,7 @@ import { Switch } from '@/components/ui/switch'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { ChevronDown, ChevronUp, Clock, Coffee, Store } from 'lucide-react'
+import { ChevronDown, ChevronUp, Clock, Coffee, Store, CalendarOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface OpeningHoursData {
@@ -18,9 +18,18 @@ interface OpeningHoursData {
   closed: boolean
 }
 
+interface OpeningHoursMeta {
+  public_holiday_closed?: boolean
+  global_break_time?: {
+    enabled: boolean
+    start: string
+    end: string
+  }
+}
+
 interface OpeningHoursProps {
-  initialData: Record<string, OpeningHoursData>
-  onChange: (data: Record<string, OpeningHoursData>) => void
+  initialData: Record<string, any> // Includes days and 'meta'
+  onChange: (data: Record<string, any>) => void
 }
 
 const DAYS = [
@@ -34,8 +43,14 @@ const DAYS = [
 ]
 
 export function OpeningHours({ initialData, onChange }: OpeningHoursProps) {
-  const [hours, setHours] = useState<Record<string, OpeningHoursData>>(initialData || {})
+  const [hours, setHours] = useState<Record<string, any>>(initialData || {})
   const [expandedDay, setExpandedDay] = useState<string | null>(null)
+
+  // 추출된 메타 정보
+  const meta: OpeningHoursMeta = hours.meta || {
+    public_holiday_closed: false,
+    global_break_time: { enabled: false, start: '15:00', end: '17:00' }
+  }
 
   useEffect(() => {
     // 초기 데이터 로드 시 start_time/end_time이 없으면 open/close 값으로 채움 (마이그레이션)
@@ -43,6 +58,8 @@ export function OpeningHours({ initialData, onChange }: OpeningHoursProps) {
     let changed = false
     
     Object.keys(migratedData).forEach(key => {
+      if (key === 'meta') return
+      
       const dayData = migratedData[key]
       if (!dayData.start_time || !dayData.end_time) {
         migratedData[key] = {
@@ -57,6 +74,24 @@ export function OpeningHours({ initialData, onChange }: OpeningHoursProps) {
     setHours(migratedData)
     if (changed) onChange(migratedData)
   }, [initialData]) // onChange는 의존성 배열에서 제외 (무한 루프 방지)
+
+  const handleMetaChange = (field: keyof OpeningHoursMeta, value: any) => {
+    const newMeta = { ...meta, [field]: value }
+    const newData: Record<string, any> = { ...hours, meta: newMeta }
+    
+    // 만약 글로벌 브레이크 타임을 켰다면 개별 요일의 브레이크타임을 지워주는 정리 로직 (선택적)
+    if (field === 'global_break_time' && value.enabled) {
+      DAYS.forEach(({ key }) => {
+        if (newData[key]) {
+          delete newData[key].break_start
+          delete newData[key].break_end
+        }
+      })
+    }
+
+    setHours(newData)
+    onChange(newData)
+  }
 
   const handleToggle = (day: string) => {
     // hours[day]가 없으면 기본값(휴무 상태)으로 간주
@@ -131,8 +166,69 @@ export function OpeningHours({ initialData, onChange }: OpeningHoursProps) {
   }
 
   return (
-    <div className="space-y-4">
-      {DAYS.map(({ key, label }) => {
+    <div className="space-y-6">
+      {/* 글로벌 설정 영역 (상단) */}
+      <div className="flex flex-col gap-4 p-4 border rounded-xl bg-muted/20">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-red-100 text-red-600 rounded-lg dark:bg-red-900/30 dark:text-red-400">
+              <CalendarOff className="w-4 h-4" />
+            </div>
+            <div>
+              <Label htmlFor="public-holiday" className="text-base font-semibold">법정 공휴일 휴무</Label>
+              <p className="text-xs text-muted-foreground mt-0.5">대체공휴일 및 법정 공휴일에 자동으로 휴무 처리됩니다.</p>
+            </div>
+          </div>
+          <Switch 
+            id="public-holiday" 
+            checked={!!meta.public_holiday_closed}
+            onCheckedChange={(checked) => handleMetaChange('public_holiday_closed', checked)}
+          />
+        </div>
+
+        <div className="h-px bg-border/50" />
+
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-100 text-blue-600 rounded-lg dark:bg-blue-900/30 dark:text-blue-400">
+              <Coffee className="w-4 h-4" />
+            </div>
+            <div>
+              <Label htmlFor="global-break" className="text-base font-semibold">공통 브레이크 타임 설정</Label>
+              <p className="text-xs text-muted-foreground mt-0.5">매일 동일한 브레이크 타임을 적용합니다.</p>
+            </div>
+          </div>
+          <Switch 
+            id="global-break" 
+            checked={!!meta.global_break_time?.enabled}
+            onCheckedChange={(checked) => handleMetaChange('global_break_time', { ...meta.global_break_time, enabled: checked })}
+          />
+        </div>
+
+        {meta.global_break_time?.enabled && (
+          <div className="flex items-center gap-3 ml-[52px] mt-1 p-3 bg-background border rounded-lg animate-in fade-in slide-in-from-top-2">
+            <span className="text-sm font-medium text-muted-foreground">브레이크 타임:</span>
+            <div className="flex items-center gap-2">
+              <Input
+                type="time"
+                value={meta.global_break_time.start}
+                onChange={(e) => handleMetaChange('global_break_time', { ...meta.global_break_time, start: e.target.value })}
+                className="w-32 h-9 bg-muted/50"
+              />
+              <span className="text-muted-foreground">~</span>
+              <Input
+                type="time"
+                value={meta.global_break_time.end}
+                onChange={(e) => handleMetaChange('global_break_time', { ...meta.global_break_time, end: e.target.value })}
+                className="w-32 h-9 bg-muted/50"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-4">
+        {DAYS.map(({ key, label }) => {
         const dayData = hours[key] || { 
           open: '09:00', close: '22:00', 
           start_time: '09:00', end_time: '22:00', 
@@ -240,7 +336,14 @@ export function OpeningHours({ initialData, onChange }: OpeningHoursProps) {
                     <Coffee className="w-3 h-3" /> 브레이크
                   </Label>
                   <div className="flex items-center gap-2">
-                    {dayData.break_start ? (
+                    {meta.global_break_time?.enabled ? (
+                      <div className="px-3 py-1.5 bg-muted/50 rounded-md text-sm text-muted-foreground font-medium flex items-center gap-2 border">
+                        <span>전체 공통 설정 적용 중</span>
+                        <span className="text-foreground bg-background px-2 py-0.5 rounded shadow-sm text-xs">
+                          {meta.global_break_time.start} ~ {meta.global_break_time.end}
+                        </span>
+                      </div>
+                    ) : dayData.break_start ? (
                       <>
                         <Input
                           type="time"
@@ -277,7 +380,7 @@ export function OpeningHours({ initialData, onChange }: OpeningHoursProps) {
                         className="h-9 border-dashed text-muted-foreground hover:text-primary"
                         onClick={() => handleTimeChange(key, 'break_start', '15:00')}
                       >
-                        + 브레이크 타임 추가
+                        + 개별 브레이크 타임 추가
                       </Button>
                     )}
                   </div>
@@ -287,6 +390,7 @@ export function OpeningHours({ initialData, onChange }: OpeningHoursProps) {
           </div>
         )
       })}
+      </div>
     </div>
   )
 }

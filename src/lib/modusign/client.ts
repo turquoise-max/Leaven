@@ -27,6 +27,24 @@ export async function sendContract(params: CreateDocumentFromTemplateParams) {
   // 이메일:API키를 Base64로 인코딩 (모두싸인 Basic 인증 스펙)
   const credentials = Buffer.from(`${email}:${apiKey}`).toString('base64')
 
+  const participantMappings = params.participants.map(p => ({
+    role: p.role,
+    name: p.name,
+    email: p.email,
+    phone: p.phone,
+  }))
+
+  const requesterInputMappings = params.fields ? Object.entries(params.fields).map(([dataLabel, value]) => ({
+    dataLabel,
+    value: String(value)
+  })) : []
+
+  // 매핑 데이터 로깅 (템플릿 불일치 에러 디버깅 용도)
+  console.log('--- Modusign Payload ---')
+  console.log('participantMappings:', JSON.stringify(participantMappings, null, 2))
+  console.log('requesterInputMappings:', JSON.stringify(requesterInputMappings, null, 2))
+  console.log('------------------------')
+
   // 1. 템플릿으로 서명 요청 직접 발송 (올바른 엔드포인트 적용)
   const response = await fetch(`${MODUSIGN_API_URL}/documents/request-with-template`, {
     method: 'POST',
@@ -40,17 +58,9 @@ export async function sendContract(params: CreateDocumentFromTemplateParams) {
       document: {
         title: params.title,
         // 모두싸인 공식 API 스펙에 맞춘 참여자 매핑
-        participantMappings: params.participants.map(p => ({
-          role: p.role,
-          name: p.name,
-          email: p.email,
-          phone: p.phone,
-        })),
+        participantMappings,
         // 모두싸인 공식 API 스펙에 맞춘 입력 필드 매핑
-        requesterInputMappings: params.fields ? Object.entries(params.fields).map(([dataLabel, value]) => ({
-          dataLabel,
-          value: String(value)
-        })) : []
+        requesterInputMappings
       }
     }),
   })

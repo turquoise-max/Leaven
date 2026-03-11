@@ -143,10 +143,42 @@ export async function createManualStaff(storeId: string, formData: FormData) {
   const email = formData.get('email') as string
   const phone = formData.get('phone') as string
   const roleId = formData.get('roleId') as string // roleId 사용
+  const employmentType = formData.get('employmentType') as string || 'parttime'
   const wageType = formData.get('wageType') as string || 'hourly'
   const baseWage = parseInt(formData.get('baseWage') as string || '0')
   const workHours = formData.get('workHours') as string
   const hiredAt = formData.get('hiredAt') as string
+  const memo = formData.get('memo') as string
+  const workSchedulesJson = formData.get('workSchedules') as string
+
+  // New Contract Fields
+  const address = formData.get('address') as string
+  const birthDate = formData.get('birthDate') as string
+  const emergencyContact = formData.get('emergencyContact') as string
+  const customPayDayStr = formData.get('customPayDay') as string
+  const customPayDay = customPayDayStr ? parseInt(customPayDayStr) : null
+  const weeklyHolidayStr = formData.get('weeklyHoliday') as string
+  const weeklyHoliday = weeklyHolidayStr && weeklyHolidayStr !== 'null' ? parseInt(weeklyHolidayStr) : null
+  const contractEndDate = formData.get('contractEndDate') as string
+  const insuranceStatusJson = formData.get('insuranceStatus') as string
+  
+  let workSchedules = []
+  try {
+    if (workSchedulesJson) {
+      workSchedules = JSON.parse(workSchedulesJson)
+    }
+  } catch (e) {
+    console.error('Failed to parse workSchedules:', e)
+  }
+
+  let insuranceStatus = { employment: false, industrial: false, national: false, health: false }
+  try {
+    if (insuranceStatusJson) {
+      insuranceStatus = JSON.parse(insuranceStatusJson)
+    }
+  } catch (e) {
+    console.error('Failed to parse insuranceStatus:', e)
+  }
 
   if (!name) return { error: '이름을 입력해주세요.' }
 
@@ -156,15 +188,27 @@ export async function createManualStaff(storeId: string, formData: FormData) {
     user_id: null,
     role: 'staff', // Legacy
     role_id: roleId || null,
-    status: 'active', // 수기 등록은 바로 활동 상태
+    status: 'invited', // 수기 등록은 합류 대기 탭에 표시되도록 invited로 설정
     name,
     email: email || null,
     phone: phone || null,
+    memo: memo || null,
+    employment_type: employmentType as any,
     wage_type: wageType as any,
     base_wage: baseWage,
     work_hours: workHours || null,
-    hired_at: hiredAt ? new Date(hiredAt).toISOString() : null,
+    hired_at: hiredAt || null,
+    work_schedules: workSchedules,
     joined_at: new Date().toISOString(),
+    
+    // New fields
+    address: address || null,
+    birth_date: birthDate || null,
+    emergency_contact: emergencyContact || null,
+    custom_pay_day: customPayDay,
+    weekly_holiday: weeklyHoliday,
+    contract_end_date: contractEndDate || null,
+    insurance_status: insuranceStatus,
   })
 
   if (error) return { error: error.message }
@@ -191,6 +235,7 @@ export async function updateStaffInfo(storeId: string, targetMemberId: string, f
   const name = formData.get('name') as string
   const email = formData.get('email') as string
   const roleId = formData.get('roleId') as string // roleId 사용
+  const employmentType = formData.get('employmentType') as string
   const wageType = formData.get('wageType') as string
   const baseWage = parseInt(formData.get('baseWage') as string || '0')
   const phone = formData.get('phone') as string
@@ -198,6 +243,17 @@ export async function updateStaffInfo(storeId: string, targetMemberId: string, f
   const hiredAt = formData.get('hiredAt') as string
   const memo = formData.get('memo') as string
   const workSchedulesJson = formData.get('workSchedules') as string
+
+  // New Contract Fields
+  const address = formData.get('address') as string
+  const birthDate = formData.get('birthDate') as string
+  const emergencyContact = formData.get('emergencyContact') as string
+  const customPayDayStr = formData.get('customPayDay') as string
+  const customPayDay = customPayDayStr ? parseInt(customPayDayStr) : null
+  const weeklyHolidayStr = formData.get('weeklyHoliday') as string
+  const weeklyHoliday = weeklyHolidayStr && weeklyHolidayStr !== 'null' ? parseInt(weeklyHolidayStr) : null
+  const contractEndDate = formData.get('contractEndDate') as string
+  const insuranceStatusJson = formData.get('insuranceStatus') as string
   
   let workSchedules = []
   try {
@@ -206,6 +262,15 @@ export async function updateStaffInfo(storeId: string, targetMemberId: string, f
     }
   } catch (e) {
     console.error('Failed to parse workSchedules:', e)
+  }
+
+  let insuranceStatus = { employment: false, industrial: false, national: false, health: false }
+  try {
+    if (insuranceStatusJson) {
+      insuranceStatus = JSON.parse(insuranceStatusJson)
+    }
+  } catch (e) {
+    console.error('Failed to parse insuranceStatus:', e)
   }
 
   // 추가: 대상 멤버가 점주인지 확인 (점주 역할 변경 불가)
@@ -232,6 +297,7 @@ export async function updateStaffInfo(storeId: string, targetMemberId: string, f
     .update({
       role_id: newRoleId,
       // role: ... // Legacy role update logic needed if we want to sync
+      employment_type: employmentType as any,
       wage_type: wageType as any,
       base_wage: baseWage,
       work_hours: workHours || null,
@@ -241,6 +307,15 @@ export async function updateStaffInfo(storeId: string, targetMemberId: string, f
       email: email || null,
       memo: memo || null,
       work_schedules: workSchedules,
+      
+      // New fields
+      address: address || null,
+      birth_date: birthDate || null,
+      emergency_contact: emergencyContact || null,
+      custom_pay_day: customPayDay,
+      weekly_holiday: weeklyHoliday,
+      contract_end_date: contractEndDate || null,
+      insurance_status: insuranceStatus,
     })
     .eq('id', targetMemberId) // user_id 대신 member id(pk) 사용 권장 (수기 등록 직원은 user_id가 없으므로)
     .eq('store_id', storeId)
@@ -321,9 +396,10 @@ export async function removeStaff(storeId: string, memberId: string) {
     return { error: '권한이 없습니다.' }
   }
 
+  // 삭제(delete) 대신 퇴사일(resigned_at) 업데이트로 기록 보존 (Soft Delete)
   const { error } = await supabase
     .from('store_members')
-    .delete()
+    .update({ resigned_at: new Date().toISOString() })
     .eq('id', memberId)
     .eq('store_id', storeId)
 
