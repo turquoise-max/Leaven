@@ -13,7 +13,9 @@ export async function POST(req: Request) {
     // { event: { type: 'DOCUMENT_STATUS_CHANGED' }, document: { id: '...', status: 'COMPLETED' } }
     
     // 문서 서명 완료 이벤트인지 확인
-    const isCompleted = payload.document?.status === 'COMPLETED' || 
+    // 실제 Vercel 로그를 통해 payload.event.type === 'document_all_signed' 로 들어옴을 확인
+    const isCompleted = payload.event?.type === 'document_all_signed' || 
+                        payload.document?.status === 'COMPLETED' || 
                         payload.event === 'DOCUMENT_COMPLETED' || 
                         payload.event === 'document_completed' || 
                         payload.document_status === 'COMPLETED' ||
