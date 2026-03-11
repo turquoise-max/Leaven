@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
+export const dynamic = 'force-dynamic'
+
 // 모두싸인에서 서명 완료 등의 이벤트가 발생했을 때 호출되는 Webhook 엔드포인트
 export async function POST(req: Request) {
   try {
     const payload = await req.json()
+    console.log('Webhook Payload Received:', JSON.stringify(payload, null, 2))
     
     // 모두싸인 웹훅 페이로드 확인 (예시 구조 - v2)
     // { event: { type: 'DOCUMENT_STATUS_CHANGED' }, document: { id: '...', status: 'COMPLETED' } }
@@ -23,6 +26,8 @@ export async function POST(req: Request) {
     }
 
     if (isCompleted) {
+      console.log(`Document ${documentId} is COMPLETED. Updating staff status...`)
+      
       // 웹훅은 쿠키 세션이 없으므로 Service Role Key를 사용해 RLS 우회
       const supabase = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
