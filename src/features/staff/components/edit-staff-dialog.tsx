@@ -305,6 +305,7 @@ export function EditStaffDialog({
   }
 
   const isPending = staff?.status === 'pending_approval' || staff?.status === 'invited'
+  const isContractSent = staff?.contract_status === 'sent'
   const isOwner = staff?.role === 'owner'
   const isResigned = !!staff?.resigned_at
   const canEdit = canManage && !isResigned
@@ -334,6 +335,14 @@ export function EditStaffDialog({
         <form onSubmit={handleSave} className={cn("flex-1 overflow-hidden flex flex-col min-h-0", isResigned && "opacity-95")}>
           <div className="p-6 pb-4 flex flex-col gap-6 shrink-0">
             {/* Profile Header */}
+            {isPending && isContractSent && (
+              <div className="bg-blue-50/50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg flex items-center justify-between shadow-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                  <span className="text-sm font-medium">직원에게 전자 근로계약서가 발송되었습니다. 서명이 완료되면 자동으로 재직중으로 이관됩니다.</span>
+                </div>
+              </div>
+            )}
             <div className="flex items-center gap-6 p-6 bg-muted/20 rounded-xl border">
                <Avatar className="h-20 w-20 border-2 border-background shadow-sm shrink-0">
                  <AvatarImage src={avatarUrl} />
@@ -355,9 +364,11 @@ export function EditStaffDialog({
                      )}
                      <div className={cn(
                        "px-2.5 py-0.5 rounded-full text-[11px] font-semibold tracking-wide shadow-sm",
-                       isResigned ? "bg-red-50 text-red-700 border border-red-200" : "bg-muted text-muted-foreground border"
+                       isResigned ? "bg-red-50 text-red-700 border border-red-200" : 
+                       (isPending && isContractSent) ? "bg-blue-100 text-blue-700 border-blue-200" :
+                       isPending ? "bg-amber-100 text-amber-700 border-amber-200" : "bg-muted text-muted-foreground border"
                      )}>
-                       {isCreateMode ? '가입 대기 예정' : isResigned ? '퇴사자' : (isPending ? '승인 대기' : '재직중')}
+                       {isCreateMode ? '가입 대기 예정' : isResigned ? '퇴사자' : (isPending ? (isContractSent ? '서명 대기 중' : '승인 대기') : '재직중')}
                      </div>
                  </div>
                  <div className="text-sm text-muted-foreground flex gap-3 flex-wrap">
@@ -456,40 +467,44 @@ export function EditStaffDialog({
                 </div>
 
                 <div className="flex gap-2">
-                  <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
-                    취소
-                  </Button>
+                  {canEdit && isPending && (
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={handleApprove} 
+                      disabled={loading}
+                    >
+                      {isContractSent ? '서명 없이 즉시 합류' : '발송 없이 즉시 합류'}
+                    </Button>
+                  )}
 
                   {canEdit && (isPending || !isOwner) && (
                     <Button 
                       type="button" 
-                      variant="secondary"
+                      variant={isPending && !isContractSent ? 'default' : 'secondary'}
                       onClick={handleSendContractClick} 
                       disabled={loading}
-                      className="bg-purple-100 text-purple-700 hover:bg-purple-200 hover:text-purple-800"
+                      className={cn(
+                        "shadow-sm",
+                        isPending && !isContractSent ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-purple-100 text-purple-700 hover:bg-purple-200 hover:text-purple-800"
+                      )}
                     >
                       <FileSignature className="mr-2 h-4 w-4" />
-                      {isPending ? '계약서 발송' : '계약서 재발송'}
+                      {isPending && !isContractSent ? '근로계약서 발송' : (isContractSent ? '계약서 재발송' : '계약서 재발송')}
                     </Button>
                   )}
                   
-                  {canEdit && isPending ? (
-                    <Button 
-                      type="button" 
-                      onClick={handleApprove} 
-                      disabled={loading}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white w-32 shadow-sm"
-                    >
-                      {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
-                      승인 완료
+                  {(!isPending && canEdit) && (
+                    <Button type="submit" disabled={loading} className="w-32 shadow-sm">
+                      {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      정보 저장
                     </Button>
-                  ) : (
-                    canEdit && (
-                      <Button type="submit" disabled={loading} className="w-32 shadow-sm">
-                        {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                        정보 저장
-                      </Button>
-                    )
+                  )}
+                  {isPending && isContractSent && (
+                    <Button type="submit" disabled={loading} className="w-32 shadow-sm" variant="outline">
+                      {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      정보만 임시저장
+                    </Button>
                   )}
                 </div>
               </>
