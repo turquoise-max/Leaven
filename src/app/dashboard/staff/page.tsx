@@ -2,9 +2,6 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { hasPermission } from '@/features/auth/permissions'
 import { StaffList } from '@/features/staff/components/staff-list'
-import { InviteStaffDialog } from '@/features/staff/components/invite-staff-dialog'
-import { Button } from '@/components/ui/button'
-import { UserPlus } from 'lucide-react'
 import { cookies } from 'next/headers'
 import { StoreCodeDisplay } from '@/components/dashboard/store-code-display'
 import { getStaffList } from '@/features/staff/actions'
@@ -59,14 +56,6 @@ export default async function StaffManagementPage() {
             매장의 직원을 초대하고 권한을 관리합니다.
           </p>
         </div>
-        {canManage && (
-          <InviteStaffDialog storeId={member.store_id}>
-            <Button>
-              <UserPlus className="mr-2 h-4 w-4" />
-              직원 초대
-            </Button>
-          </InviteStaffDialog>
-        )}
       </div>
 
       <StaffList 

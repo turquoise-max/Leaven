@@ -21,6 +21,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
+import { TimePicker } from "@/components/ui/time-picker"
 import {
   DndContext,
   closestCenter,
@@ -378,23 +379,17 @@ export function TaskForm({
                   <div className="flex items-center gap-3 animate-in fade-in zoom-in-95 duration-200">
                     <div className="grid flex-1 gap-1.5">
                         <Label className="text-xs text-muted-foreground ml-1">시작 시간</Label>
-                        <Input
-                          type="time"
+                        <TimePicker
                           value={formData.start_time}
-                          onChange={(e) => setFormData(prev => ({ ...prev, start_time: e.target.value }))}
-                          required={!isAlways}
-                          className="h-10 bg-background"
+                          onChange={(val) => setFormData(prev => ({ ...prev, start_time: val }))}
                         />
                     </div>
-                    <span className="mt-6 text-muted-foreground font-medium">~</span>
+                    <span className="text-muted-foreground font-medium pt-5">~</span>
                     <div className="grid flex-1 gap-1.5">
                         <Label className="text-xs text-muted-foreground ml-1">종료 시간</Label>
-                        <Input
-                          type="time"
+                        <TimePicker
                           value={formData.end_time}
-                          onChange={(e) => setFormData(prev => ({ ...prev, end_time: e.target.value }))}
-                          required={!isAlways}
-                          className="h-10 bg-background"
+                          onChange={(val) => setFormData(prev => ({ ...prev, end_time: val }))}
                         />
                     </div>
                   </div>
@@ -449,7 +444,7 @@ export function TaskForm({
                                                 type="button"
                                                 onClick={() => toggleDay(day.value)}
                                                 className={`
-                                                    w-9 h-9 sm:w-10 sm:h-10 rounded-full text-sm font-medium flex items-center justify-center transition-all
+                                                    w-8 h-8 sm:w-9 sm:h-9 rounded-full text-[13px] font-medium flex items-center justify-center transition-all
                                                     ${isSelected 
                                                         ? 'bg-primary text-primary-foreground shadow-md scale-105' 
                                                         : 'bg-muted/50 hover:bg-muted text-muted-foreground border border-border'}

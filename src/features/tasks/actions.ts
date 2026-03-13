@@ -39,15 +39,18 @@ export interface Task {
 export interface TaskAssignment {
   id: string
   task_id: string
-  user_id: string
+  member_id: string
   schedule_id: string | null
   assigned_date: string
   start_time: string | null
   end_time: string | null
   status: 'pending' | 'in_progress' | 'completed' | 'verified'
   task?: Task
-  user?: {
-    full_name: string
+  member?: {
+    name: string
+    profile?: {
+      full_name: string
+    }
   }
 }
 
@@ -95,7 +98,7 @@ export interface UpdateTaskInput {
 export interface AssignTaskInput {
   store_id: string
   task_id: string
-  user_id: string
+  member_id: string
   assigned_date: string
   start_time: string
   estimated_minutes: number
@@ -434,7 +437,7 @@ export async function getTaskAssignments(storeId: string, date: string) {
     .select(`
       *,
       task:tasks(*),
-      user:profiles(full_name)
+      member:store_members(name, profile:profiles(full_name))
     `)
     .eq('store_id', storeId)
     .eq('assigned_date', date)
@@ -462,7 +465,7 @@ export async function assignTask(input: AssignTaskInput) {
     .insert([{
       store_id: input.store_id,
       task_id: input.task_id,
-      user_id: input.user_id,
+      member_id: input.member_id,
       assigned_date: input.assigned_date,
       start_time: input.start_time,
       end_time: end_time,
@@ -541,7 +544,7 @@ export async function getTaskAssignmentsBySchedule(storeId: string, scheduleId: 
     .select(`
       *,
       task:tasks(*),
-      user:profiles(full_name)
+      member:store_members(name, profile:profiles(full_name))
     `)
     .eq('store_id', storeId)
     .eq('schedule_id', scheduleId)
@@ -612,6 +615,22 @@ export async function getDashboardTasks(storeId: string, date: string) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     
+    if (!user) return []
+
+    // 1. 해당 유저의 오늘 날짜 근무 스케줄이 존재하는지 확인 (관리자/직원 무관)
+    const { data: scheduleData } = await supabase
+        .from('schedules')
+        .select('id')
+        .eq('store_id', storeId)
+        .eq('user_id', user.id)
+        .eq('date', date)
+        .maybeSingle()
+
+    // 오늘 스케줄이 없다면 대시보드 업무에 보여주지 않음
+    if (!scheduleData) {
+        return []
+    }
+    
     // date: YYYY-MM-DD (KST 기준)
     // 유틸리티를 활용하여 정확한 UTC 경계값(Start, End) 산출
     const startIso = toUTCISOString(date, '00:00')
@@ -627,16 +646,11 @@ export async function getDashboardTasks(storeId: string, date: string) {
         .lt('start_time', endIso)
         .order('start_time', { ascending: true })
 
-    if (user) {
-        const canManage = await hasPermission(user.id, storeId, 'manage_tasks')
-        const member = await getStoreMemberRole(user.id, storeId)
+    const member = await getStoreMemberRole(user.id, storeId)
         
-        if (!canManage && member?.role_id) {
-            // 본인 역할 할당 업무 또는 공통 업무
-            // 주의: .or() 와 이전 필터들이 AND로 묶여야 하므로, 
-            // Supabase client에서는 체이닝을 그대로 사용하면 앞선 eq, gte 조건과 결합됩니다.
-            query = query.or(`assigned_role_ids.cs.{${member.role_id}},assigned_role_ids.eq.{},assigned_role_ids.is.null`)
-        }
+    if (member?.role_id) {
+        // 본인 역할 할당 업무 또는 공통 업무
+        query = query.or(`assigned_role_ids.cs.{${member.role_id}},assigned_role_ids.eq.{},assigned_role_ids.is.null`)
     }
         
     const { data, error } = await query

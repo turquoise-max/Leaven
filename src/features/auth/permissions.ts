@@ -19,13 +19,13 @@ export const getStoreMemberRole = cache(async (userId: string, storeId: string) 
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('store_members')
-    .select('role, role_id')
+    .select('role, role_id, status')
     .eq('user_id', userId)
     .eq('store_id', storeId)
     .single()
   
   if (error || !data) return null
-  return data // Returns { role: string, role_id: string | null }
+  return data // Returns { role: string, role_id: string | null, status: string }
 })
 
 export async function hasPermission(
@@ -36,8 +36,16 @@ export async function hasPermission(
   const member = await getStoreMemberRole(userId, storeId)
   
   if (!member) return false
+
+  // 비활성(inactive)이거나 승인 대기(pending_approval) 상태인 경우 권한 제한
+  if (member.status !== 'active') {
+    // 관리 권한(manage_*)이나 민감한 조회 권한(view_salary 등)은 모두 차단
+    if (permission.startsWith('manage_') || permission === 'view_salary') {
+      return false
+    }
+  }
   
-  // 1. Owner always has full permissions
+  // 1. Owner always has full permissions (활성 상태일 때만 위에서 통과됨. owner가 active가 아닌 경우는 드물지만 방어적 프로그래밍)
   if (member.role === 'owner') return true 
 
   const supabase = await createClient()

@@ -63,22 +63,22 @@ export function AutoScheduleDialog({
   })
   
   const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>(
-    staffList.map(s => s.user_id)
+    staffList.map(s => s.id)
   )
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedStaffIds(staffList.map(s => s.user_id))
+      setSelectedStaffIds(staffList.map(s => s.id))
     } else {
       setSelectedStaffIds([])
     }
   }
 
-  const handleStaffToggle = (userId: string, checked: boolean) => {
+  const handleStaffToggle = (memberId: string, checked: boolean) => {
     if (checked) {
-      setSelectedStaffIds(prev => [...prev, userId])
+      setSelectedStaffIds(prev => [...prev, memberId])
     } else {
-      setSelectedStaffIds(prev => prev.filter(id => id !== userId))
+      setSelectedStaffIds(prev => prev.filter(id => id !== memberId))
     }
   }
 
@@ -310,15 +310,15 @@ export function AutoScheduleDialog({
                       }
 
                       return (
-                        <div key={staff.user_id} className="flex items-start gap-3">
+                        <div key={staff.id} className="flex items-start gap-3">
                           <Checkbox 
-                            id={`staff-${staff.user_id}`}
-                            checked={selectedStaffIds.includes(staff.user_id)}
-                            onCheckedChange={(checked) => handleStaffToggle(staff.user_id, checked as boolean)}
+                            id={`staff-${staff.id}`}
+                            checked={selectedStaffIds.includes(staff.id)}
+                            onCheckedChange={(checked) => handleStaffToggle(staff.id, checked as boolean)}
                           />
                           <div className="grid gap-0.5">
                             <Label 
-                              htmlFor={`staff-${staff.user_id}`}
+                              htmlFor={`staff-${staff.id}`}
                               className="font-medium cursor-pointer"
                             >
                               {staff.profile?.full_name || '이름 없음'}

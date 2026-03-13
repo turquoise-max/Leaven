@@ -12,27 +12,44 @@ import { StaffMember } from './staff-list'
 const DAYS = ['일', '월', '화', '수', '목', '금', '토']
 
 const getDisplayName = (staff: StaffMember) => {
-  return staff.name || staff.profile?.full_name || '이름 없음'
+  if (staff.name && staff.name.trim() !== '') return staff.name
+  if (staff.profile?.full_name && staff.profile.full_name.trim() !== '') return staff.profile.full_name
+  return '이름 없음'
 }
 
 const getDisplayEmail = (staff: StaffMember) => {
-  return staff.profile?.email || staff.email || ''
+  if (staff.email && staff.email.trim() !== '') return staff.email
+  if (staff.profile?.email && staff.profile.email.trim() !== '') return staff.profile.email
+  return ''
 }
 
 const getDisplayPhone = (staff: StaffMember) => {
-  return staff.profile?.phone || staff.phone || ''
+  if (staff.phone && staff.phone.trim() !== '') return staff.phone
+  if (staff.profile?.phone && staff.profile.phone.trim() !== '') return staff.profile.phone
+  return ''
 }
 
 const getRoleBadge = (staff: StaffMember) => {
-  const roleName = staff.role_info?.name || (staff.details as any)?.last_role_name || (staff.role === 'owner' ? '점주' : (staff.role === 'manager' ? '매니저' : '직원'))
-  const roleColor = staff.role_info?.color || (staff.role === 'owner' ? '#7c3aed' : (staff.role === 'manager' ? '#4f46e5' : '#808080'))
-  
-  const isSystem = staff.role_info?.is_system
-  const rName = staff.role_info?.name || staff.role
+  let roleName = '역할 미설정'
+  let roleColor = '#808080'
   let Icon = User
-  if (rName === '점주' || rName === 'owner' || (isSystem && rName === 'Owner')) {
+
+  if (staff.role_info) {
+    roleName = staff.role_info.name
+    roleColor = staff.role_info.color || roleColor
+  } else if ((staff.details as any)?.last_role_name) {
+    roleName = (staff.details as any).last_role_name
+  } else if (staff.role === 'owner') {
+    roleName = '점주'
+    roleColor = '#7c3aed'
+  } else if (staff.role === 'manager') {
+    roleName = '매니저'
+    roleColor = '#4f46e5'
+  }
+
+  if (roleName === '점주' || roleName === 'Owner') {
      Icon = ShieldAlert
-  } else if (rName === '매니저' || rName === 'manager' || (isSystem && rName === 'Manager')) {
+  } else if (roleName === '매니저' || roleName === 'Manager') {
      Icon = ShieldCheck
   }
 
@@ -158,8 +175,10 @@ interface StaffTableRowProps {
   isResigned?: boolean
   canManage: boolean
   processingId: string | null
-  onApprove: (id: string) => void
-  onReject: (id: string) => void
+  onApprove: (id: string, name: string) => void
+  onReject: (id: string, name: string) => void
+  onDeleteRecord?: (id: string, name: string) => void
+  onRestoreRecord?: (id: string, name: string) => void
   onClick: () => void
 }
 
@@ -169,7 +188,9 @@ export function StaffTableRow({
   canManage, 
   processingId, 
   onApprove, 
-  onReject, 
+  onReject,
+  onDeleteRecord,
+  onRestoreRecord,
   onClick 
 }: StaffTableRowProps) {
   const email = getDisplayEmail(staff)
@@ -315,7 +336,7 @@ export function StaffTableRow({
         </div>
       </TableCell>
 
-      {/* 5. 승인/거절 액션 & 화살표 아이콘 */}
+      {/* 5. 승인/거절/삭제 액션 & 화살표 아이콘 */}
       <TableCell className="w-[100px] align-middle text-right pr-6">
         <div className="flex items-center justify-end gap-3 h-full">
           {staff.status === 'pending_approval' && !isResigned && canManage && (
@@ -323,23 +344,49 @@ export function StaffTableRow({
               <Button 
                 size="sm" 
                 variant="outline" 
-                className="h-8 w-8 p-0 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 hover:border-red-300 shadow-sm transition-colors"
-                onClick={() => onReject(staff.id)}
+                className="h-8 px-2 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 hover:border-red-300 shadow-sm transition-colors text-xs"
+                onClick={() => onReject(staff.id, getDisplayName(staff))}
                 disabled={processingId === staff.id}
-                title="가입 거절"
               >
-                <X className="h-4 w-4" />
+                <X className="h-3 w-3 mr-1" />
+                거절
               </Button>
               <Button 
                 size="sm" 
                 className="h-8 px-2 bg-emerald-600 hover:bg-emerald-700 shadow-sm transition-colors text-xs"
-                onClick={() => onApprove(staff.id)}
+                onClick={() => onApprove(staff.id, getDisplayName(staff))}
                 disabled={processingId === staff.id}
-                title="가입 승인"
               >
                 <Check className="h-3 w-3 mr-1" />
                 승인
               </Button>
+            </div>
+          )}
+
+          {isResigned && canManage && (
+            <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+              {onRestoreRecord && (
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="h-8 px-2 text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 shadow-sm transition-colors text-[10px]"
+                  onClick={() => onRestoreRecord(staff.id, getDisplayName(staff))}
+                  disabled={processingId === staff.id}
+                >
+                  복원
+                </Button>
+              )}
+              {onDeleteRecord && (
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="h-8 px-2 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 hover:border-red-300 shadow-sm transition-colors text-[10px]"
+                  onClick={() => onDeleteRecord(staff.id, getDisplayName(staff))}
+                  disabled={processingId === staff.id}
+                >
+                  영구 삭제
+                </Button>
+              )}
             </div>
           )}
           

@@ -48,8 +48,8 @@ export default async function DashboardPage() {
     activeMember = members.find(m => m.status === 'active') || members[0]
   }
 
-  // 매장에 소속되어 있지 않거나, 활성 상태가 아니라면 온보딩으로 이동
-  if (!activeMember || activeMember.status !== 'active') {
+  // 매장에 소속되어 있지 않다면 온보딩으로 이동
+  if (!activeMember) {
     redirect('/onboarding')
   }
 

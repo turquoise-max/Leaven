@@ -17,7 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { EditStaffDialog } from './edit-staff-dialog'
 import { StaffTableRow } from './staff-table-row'
-import { approveRequest, rejectRequest, removeStaff } from '../actions'
+import { approveRequest, rejectRequest, removeStaff, deleteStaffRecord, restoreStaff } from '../actions'
 import { toast } from 'sonner'
 import {
   Tooltip,
@@ -25,6 +25,16 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
 
 interface RoleInfo {
@@ -39,7 +49,7 @@ export interface StaffMember {
   id: string
   user_id: string | null
   role: string // Legacy role string
-  status: 'active' | 'invited' | 'pending_approval'
+  status: 'active' | 'invited' | 'pending_approval' | 'inactive'
   contract_status?: 'none' | 'sent' | 'signed'
   employment_type?: 'fulltime' | 'parttime' | 'contract' | 'probation' | 'daily'
   wage_type?: 'hourly' | 'daily' | 'monthly' | 'yearly'
@@ -90,6 +100,24 @@ export function StaffList({ initialData, storeId, canManage }: StaffListProps) {
   const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [processingId, setProcessingId] = useState<string | null>(null)
+  const [isMounted, setIsMounted] = useState(false)
+
+  // Confirm Modal State
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean
+    type: 'approve' | 'reject' | 'delete' | 'restore' | null
+    staffId: string | null
+    staffName: string | null
+  }>({
+    open: false,
+    type: null,
+    staffId: null,
+    staffName: null
+  })
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   useEffect(() => {
     setStaffList(initialData)
@@ -110,34 +138,63 @@ export function StaffList({ initialData, storeId, canManage }: StaffListProps) {
   const activeStaff = staffList.filter(s => !s.resigned_at && s.status === 'active').sort(sortStaff)
   const resignedStaff = staffList.filter(s => s.resigned_at).sort((a, b) => new Date(b.resigned_at!).getTime() - new Date(a.resigned_at!).getTime())
 
-  const handleApprove = async (memberId: string) => {
-    setProcessingId(memberId)
-    const result = await approveRequest(storeId, memberId)
-    setProcessingId(null)
-
-    if (result.error) {
-      toast.error('승인 실패', { description: result.error })
-    } else {
-      toast.success('승인 완료', { description: '직원의 가입 요청을 승인했습니다.' })
-      // Optimistic update
-      setStaffList(prev => prev.map(s => s.id === memberId ? { ...s, status: 'active' } : s))
-    }
+  const handleApproveClick = (memberId: string, staffName: string) => {
+    setConfirmDialog({ open: true, type: 'approve', staffId: memberId, staffName })
   }
 
-  const handleReject = async (memberId: string) => {
-    if (!confirm('정말 거절하시겠습니까? 해당 요청은 삭제됩니다.')) return
+  const handleRejectClick = (memberId: string, staffName: string) => {
+    setConfirmDialog({ open: true, type: 'reject', staffId: memberId, staffName })
+  }
 
-    setProcessingId(memberId)
-    const result = await rejectRequest(storeId, memberId)
-    setProcessingId(null)
+  const handleDeleteRecordClick = (memberId: string, staffName: string) => {
+    setConfirmDialog({ open: true, type: 'delete', staffId: memberId, staffName })
+  }
 
-    if (result.error) {
-      toast.error('거절 실패', { description: result.error })
-    } else {
-      toast.success('거절 완료', { description: '가입 요청을 거절했습니다.' })
-      // Optimistic update
-      setStaffList(prev => prev.filter(s => s.id !== memberId))
+  const handleRestoreRecordClick = (memberId: string, staffName: string) => {
+    setConfirmDialog({ open: true, type: 'restore', staffId: memberId, staffName })
+  }
+
+  const executeAction = async () => {
+    const { type, staffId } = confirmDialog
+    if (!staffId || !type) return
+
+    setProcessingId(staffId)
+    setConfirmDialog({ open: false, type: null, staffId: null, staffName: null })
+
+    if (type === 'approve') {
+      const result = await approveRequest(storeId, staffId)
+      if (result.error) {
+        toast.error('승인 실패', { description: result.error })
+      } else {
+        toast.success('승인 완료', { description: '직원의 가입 요청을 승인했습니다.' })
+        setStaffList(prev => prev.map(s => s.id === staffId ? { ...s, status: 'active' } : s))
+      }
+    } else if (type === 'reject') {
+      const result = await rejectRequest(storeId, staffId)
+      if (result.error) {
+        toast.error('거절 실패', { description: result.error })
+      } else {
+        toast.success('거절 완료', { description: '가입 요청을 거절했습니다.' })
+        setStaffList(prev => prev.filter(s => s.id !== staffId))
+      }
+    } else if (type === 'delete') {
+      const result = await deleteStaffRecord(storeId, staffId)
+      if (result.error) {
+        toast.error('삭제 실패', { description: result.error })
+      } else {
+        toast.success('삭제 완료', { description: '퇴사자 기록을 완전히 삭제했습니다.' })
+        setStaffList(prev => prev.filter(s => s.id !== staffId))
+      }
+    } else if (type === 'restore') {
+      const result = await restoreStaff(storeId, staffId)
+      if (result.error) {
+        toast.error('복원 실패', { description: result.error })
+      } else {
+        toast.success('복원 완료', { description: '직원을 재직 상태로 복원했습니다.' })
+        setStaffList(prev => prev.map(s => s.id === staffId ? { ...s, status: 'active', resigned_at: null } : s))
+      }
     }
+    setProcessingId(null)
   }
 
   const handleRemove = async (memberId: string, staffName: string) => {
@@ -149,9 +206,27 @@ export function StaffList({ initialData, storeId, canManage }: StaffListProps) {
       toast.error('퇴사 처리 실패', { description: result.error })
     } else {
       toast.success('퇴사 처리 완료', { description: '직원이 퇴사 처리되었습니다.' })
-      // Optimistic update
-      setStaffList(prev => prev.filter(s => s.id !== memberId))
+      // Optimistic update: 기존 정보들을 그대로 유지하고 상태와 퇴사일만 업데이트합니다.
+      setStaffList(prev => prev.map(s => {
+        if (s.id === memberId) {
+          const lastRoleName = s.role_info?.name || (s.role === 'owner' ? '점주' : s.role === 'manager' ? '매니저' : '직원')
+          return { 
+            ...s, 
+            status: 'inactive', 
+            resigned_at: new Date().toISOString(),
+            name: s.name || s.profile?.full_name || '이름 없음',
+            email: s.email || s.profile?.email || '',
+            phone: s.phone || s.profile?.phone || '',
+            details: { ...s.details, last_role_name: lastRoleName }
+          } as StaffMember
+        }
+        return s
+      }))
     }
+  }
+
+  if (!isMounted) {
+    return null // Hydration 불일치 방지
   }
 
   return (
@@ -182,7 +257,7 @@ export function StaffList({ initialData, storeId, canManage }: StaffListProps) {
               }}
             >
               <UserPlus className="mr-2 h-4 w-4" />
-              직원 수기 등록
+              새 직원 등록
             </Button>
           )}
         </div>
@@ -213,8 +288,10 @@ export function StaffList({ initialData, storeId, canManage }: StaffListProps) {
                         isResigned={isResigned}
                         canManage={canManage}
                         processingId={processingId}
-                        onApprove={handleApprove}
-                        onReject={handleReject}
+                        onApprove={handleApproveClick}
+                        onReject={handleRejectClick}
+                        onDeleteRecord={handleDeleteRecordClick}
+                        onRestoreRecord={handleRestoreRecordClick}
                         onClick={() => {
                           if (!canManage) return
                           setEditingStaff(staff)
@@ -260,7 +337,80 @@ export function StaffList({ initialData, storeId, canManage }: StaffListProps) {
         staff={editingStaff}
         storeId={storeId}
         canManage={canManage}
+        onSuccess={(action: 'approve' | 'reject' | 'remove', staffId: string) => {
+          if (action === 'approve') {
+            setStaffList(prev => prev.map(s => s.id === staffId ? { ...s, status: 'active' } : s))
+          } else if (action === 'reject') {
+            setStaffList(prev => prev.filter(s => s.id !== staffId))
+          } else if (action === 'remove') {
+            // 퇴사 시 상태를 inactive로, resigned_at을 현재 시간으로 설정 (기존 정보 보존)
+            setStaffList(prev => prev.map(s => {
+              if (s.id === staffId) {
+                const lastRoleName = s.role_info?.name || (s.role === 'owner' ? '점주' : s.role === 'manager' ? '매니저' : '직원')
+                return { 
+                  ...s, 
+                  status: 'inactive', 
+                  resigned_at: new Date().toISOString(),
+                  name: s.name || s.profile?.full_name || '이름 없음',
+                  email: s.email || s.profile?.email || '',
+                  phone: s.phone || s.profile?.phone || '',
+                  details: { ...s.details, last_role_name: lastRoleName }
+                } as StaffMember
+              }
+              return s
+            }))
+          }
+        }}
       />
+
+      <AlertDialog 
+        open={confirmDialog.open} 
+        onOpenChange={(open) => setConfirmDialog(prev => ({ ...prev, open }))}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmDialog.type === 'approve' ? '가입 승인 및 근로계약 안내' : confirmDialog.type === 'delete' ? '퇴사자 기록 영구 삭제' : confirmDialog.type === 'restore' ? '직원 복원' : '가입 요청 거절'}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="leading-relaxed text-sm text-muted-foreground">
+                {confirmDialog.type === 'approve' ? (
+                  <>
+                    <span className="font-semibold text-foreground">{confirmDialog.staffName}</span> 직원의 가입을 승인하시겠습니까?<br /><br />
+                    <span className="text-orange-600 font-medium">주의:</span> 아직 이 직원과 전자 근로계약서 작성이 완료되지 않았을 수 있습니다. 
+                    승인 시 직원은 즉시 재직자 상태로 전환되며 매장의 데이터(스케줄 등)를 볼 수 있게 됩니다.
+                  </>
+                ) : confirmDialog.type === 'delete' ? (
+                  <>
+                    정말 <span className="font-semibold text-foreground">{confirmDialog.staffName}</span> 직원의 기록을 <span className="text-red-600 font-semibold">영구 삭제</span>하시겠습니까?<br />
+                    이 작업은 되돌릴 수 없으며, 모든 관련된 과거 정보가 삭제됩니다.
+                  </>
+                ) : confirmDialog.type === 'restore' ? (
+                  <>
+                    <span className="font-semibold text-foreground">{confirmDialog.staffName}</span> 직원을 다시 재직 상태로 복원하시겠습니까?<br />
+                    이전의 개인 정보와 역할이 그대로 유지된 채 재직자 목록으로 이동됩니다.
+                  </>
+                ) : (
+                  <>
+                    정말 <span className="font-semibold text-foreground">{confirmDialog.staffName}</span> 직원의 가입 요청을 거절하시겠습니까?<br />
+                    거절된 직원은 매장에 합류할 수 없으며 요청 목록에서 삭제됩니다.
+                  </>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>돌아가기</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={executeAction}
+              className={confirmDialog.type === 'approve' || confirmDialog.type === 'restore' ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-red-600 hover:bg-red-700 text-white"}
+            >
+              {confirmDialog.type === 'approve' ? '그냥 승인하기' : confirmDialog.type === 'delete' ? '영구 삭제' : confirmDialog.type === 'restore' ? '복원하기' : '거절하기'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   )
 }

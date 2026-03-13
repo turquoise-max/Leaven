@@ -107,9 +107,10 @@ export async function acceptInvitation(storeId: string) {
 
   if (!user) return { error: 'Unauthorized' }
 
+  // 직원이 초대를 수락하더라도 점주의 최종 확인 전까지는 'pending_approval'(합류 대기) 상태로 둡니다.
   const { error } = await supabase
     .from('store_members')
-    .update({ status: 'active', joined_at: new Date().toISOString() })
+    .update({ status: 'pending_approval', joined_at: new Date().toISOString() })
     .eq('store_id', storeId)
     .eq('user_id', user.id)
     .eq('status', 'invited')

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Role, Permission, createRole, updateRole, deleteRole, updateRolePermissions, getRolePermissions, ensureDefaultRoles } from '@/features/store/roles'
+import { Role, Permission, createRole, updateRole, deleteRole, checkRoleUsage, updateRolePermissions, getRolePermissions, ensureDefaultRoles } from '@/features/store/roles'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -11,9 +11,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Plus, Trash2, Save, Shield, Lock, RotateCcw } from 'lucide-react'
+import { Plus, Trash2, Save, Shield, Lock, RotateCcw, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 const permissionDescriptions: Record<string, string> = {
   'manage_inventory': '재고 수량을 수정하고 입출고 내역을 관리합니다.',
@@ -44,6 +54,15 @@ export function RoleManagement({ storeId, roles, permissions }: RoleManagementPr
   // Form State for Editing
   const [editName, setEditName] = useState('')
   const [editColor, setEditColor] = useState('#808080')
+
+  // Delete Confirmation State
+  const [deleteConfirmDialog, setDeleteConfirmDialog] = useState<{
+    open: boolean
+    affectedMembers: { id: string, name: string, status: string }[]
+  }>({
+    open: false,
+    affectedMembers: []
+  })
 
   // Calculate isDirty
   const isDirty = useMemo(() => {
@@ -135,11 +154,31 @@ export function RoleManagement({ storeId, roles, permissions }: RoleManagementPr
     }
   }
 
-  const handleDeleteRole = async () => {
+  const handleDeleteClick = async () => {
     if (!selectedRole || selectedRole.priority >= 100) return
-    if (!confirm(`'${selectedRole.name}' 역할을 삭제하시겠습니까?`)) return
+    
+    setLoading(true)
+    // 역할 삭제 전 해당 역할을 사용하는 직원이 있는지 확인
+    const result = await checkRoleUsage(storeId, selectedRole.id)
+    setLoading(false)
+
+    if (result.error) {
+      toast.error(result.error)
+      return
+    }
+
+    // 직원이 있든 없든 동일한 경고 모달을 띄움
+    setDeleteConfirmDialog({
+      open: true,
+      affectedMembers: result.affectedMembers || []
+    })
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!selectedRole || selectedRole.priority >= 100) return
 
     setLoading(true)
+    // 모달에서 최종 확인을 눌렀으므로 삭제 진행
     const result = await deleteRole(storeId, selectedRole.id)
     setLoading(false)
 
@@ -147,7 +186,8 @@ export function RoleManagement({ storeId, roles, permissions }: RoleManagementPr
       toast.error(result.error)
     } else {
       toast.success('역할이 삭제되었습니다.')
-      setSelectedRole(null) // Will be handled by useEffect
+      setDeleteConfirmDialog({ open: false, affectedMembers: [] })
+      setSelectedRole(null)
     }
   }
 
@@ -278,7 +318,7 @@ export function RoleManagement({ storeId, roles, permissions }: RoleManagementPr
                   variant="ghost" 
                   size="sm" 
                   className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                  onClick={handleDeleteRole}
+                  onClick={handleDeleteClick}
                   disabled={loading}
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
@@ -418,6 +458,69 @@ export function RoleManagement({ storeId, roles, permissions }: RoleManagementPr
           </div>
         </div>
       </div>
+
+      <AlertDialog 
+        open={deleteConfirmDialog.open} 
+        onOpenChange={(open) => {
+          if (!loading) setDeleteConfirmDialog(prev => ({ ...prev, open }))
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              역할 삭제 경고
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-4 pt-2 text-foreground text-sm">
+                <div>
+                  현재 <span className="font-semibold">'{selectedRole?.name}'</span> 역할을 가지고 있는 직원이 <span className="font-semibold text-destructive">{deleteConfirmDialog.affectedMembers.length}명</span> 있습니다. 
+                  <br />
+                  이 역할을 삭제하면 아래 직원들의 역할이 <span className="font-semibold text-destructive">역할 미설정</span> 상태로 일괄 변경됩니다.
+                </div>
+                
+                <div className="bg-muted p-3 rounded-md max-h-40 overflow-y-auto">
+                  {deleteConfirmDialog.affectedMembers.length > 0 ? (
+                    <ul className="space-y-2 text-sm">
+                      {deleteConfirmDialog.affectedMembers.map(member => (
+                        <li key={member.id} className="flex justify-between items-center bg-background/50 px-2 py-1.5 rounded border border-border/50">
+                          <span>{member.name}</span>
+                          <Badge variant="secondary" className="text-[10px]">
+                            {member.status === 'active' ? '재직자' : 
+                             member.status === 'inactive' ? '퇴사자' : '합류 대기'}
+                          </Badge>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
+                      현재 이 역할을 사용 중인 직원이 없습니다.
+                    </div>
+                  )}
+                </div>
+                
+                <div className="font-medium text-destructive">
+                  정말로 삭제를 진행하시겠습니까?
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={loading}>취소</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={(e) => {
+                e.preventDefault()
+                handleConfirmDelete()
+              }} 
+              className="bg-destructive hover:bg-destructive/90 text-white"
+              disabled={loading}
+            >
+              {loading ? '삭제 중...' : '삭제'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   )
 }

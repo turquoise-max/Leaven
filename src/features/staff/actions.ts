@@ -72,20 +72,30 @@ export async function inviteStaff(storeId: string, formData: FormData) {
     .eq('email', email)
     .single()
 
-  if (!profile) {
-    return { error: '해당 이메일로 가입된 사용자를 찾을 수 없습니다.' }
-  }
+  if (profile) {
+    // 3. 가입된 사용자라면, 이미 멤버인지 확인
+    const { data: existingMember } = await supabase
+      .from('store_members')
+      .select('id')
+      .eq('store_id', storeId)
+      .eq('user_id', profile.id)
+      .single()
 
-  // 3. 이미 멤버인지 확인
-  const { data: existingMember } = await supabase
-    .from('store_members')
-    .select('id')
-    .eq('store_id', storeId)
-    .eq('user_id', profile.id)
-    .single()
+    if (existingMember) {
+      return { error: '이미 매장에 등록된 직원입니다.' }
+    }
+  } else {
+    // 가입되지 않은 이메일의 경우 이메일 중복 초대 확인
+    const { data: existingInvited } = await supabase
+      .from('store_members')
+      .select('id')
+      .eq('store_id', storeId)
+      .eq('email', email)
+      .single()
 
-  if (existingMember) {
-    return { error: '이미 매장에 등록된 직원입니다.' }
+    if (existingInvited) {
+      return { error: '이미 초대된 이메일입니다.' }
+    }
   }
 
   // 4. 멤버 추가 (초대 상태)
@@ -109,7 +119,8 @@ export async function inviteStaff(storeId: string, formData: FormData) {
 
   const { error } = await supabase.from('store_members').insert({
     store_id: storeId,
-    user_id: profile.id,
+    user_id: profile ? profile.id : null,
+    email: !profile ? email : null,
     role: 'staff', // Legacy column - keep as 'staff' for now or handle correctly
     role_id: targetRoleId || null,
     status: 'invited',
@@ -197,7 +208,7 @@ export async function createManualStaff(storeId: string, formData: FormData) {
     store_id: storeId,
     user_id: null,
     role: 'staff', // Legacy
-    role_id: roleId || null,
+    role_id: roleId || null, // 빈 문자열("")이면 null로 처리
     status: 'invited', // 수기 등록은 합류 대기 탭에 표시되도록 invited로 설정
     name,
     email: email || null,
@@ -316,7 +327,7 @@ export async function updateStaffInfo(storeId: string, targetMemberId: string, f
   const { data, error } = await supabase
     .from('store_members')
     .update({
-      role_id: newRoleId,
+      role_id: newRoleId || null, // 빈 문자열("")이면 null로 처리하여 UUID syntax error 방지
       // role: ... // Legacy role update logic needed if we want to sync
       employment_type: employmentType as any,
       wage_type: wageType as any,
@@ -354,6 +365,62 @@ export async function updateStaffInfo(storeId: string, targetMemberId: string, f
   return { success: true, data }
 }
 
+export async function mergeManualStaff(storeId: string, pendingMemberId: string, manualMemberId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) return { error: 'Unauthorized' }
+
+  try {
+    await requirePermission(user.id, storeId, 'manage_staff')
+  } catch (error) {
+    return { error: '권한이 없습니다.' }
+  }
+
+  // 1. 가져오기: 가입 요청 정보 (pending_approval)
+  const { data: pendingMember, error: pError } = await supabase
+    .from('store_members')
+    .select('user_id, email, name, phone, joined_at')
+    .eq('id', pendingMemberId)
+    .eq('store_id', storeId)
+    .eq('status', 'pending_approval')
+    .single()
+
+  if (pError || !pendingMember) return { error: '가입 요청 정보를 찾을 수 없습니다.' }
+  if (!pendingMember.user_id) return { error: '매핑할 수 없는 가입 요청입니다 (user_id 없음).' }
+
+  // 2. 수기 등록(가계정) 레코드에 정보 병합 후 활성화(active)
+  // user_id 업데이트, email/name/phone 업데이트(필요하다면), status를 active로 변경
+  const { error: updateError } = await supabase
+    .from('store_members')
+    .update({
+      user_id: pendingMember.user_id,
+      email: pendingMember.email,
+      // name: pendingMember.name || name, // 수기 등록 이름 유지 또는 가입자 이름으로 덮어쓰기 선택 (가입자 이름 덮어쓰기)
+      // phone: pendingMember.phone || phone,
+      status: 'active',
+      joined_at: pendingMember.joined_at // 가입 요청한 날짜로 조인일 변경 (또는 수기 등록일 유지)
+    })
+    .eq('id', manualMemberId)
+    .eq('store_id', storeId)
+    .is('user_id', null) // 아직 매핑되지 않은 계정이어야 함
+
+  if (updateError) return { error: updateError.message }
+
+  // 3. 기존의 가입 요청(pending_approval) 레코드 삭제
+  const { error: deleteError } = await supabase
+    .from('store_members')
+    .delete()
+    .eq('id', pendingMemberId)
+    .eq('store_id', storeId)
+
+  if (deleteError) return { error: deleteError.message }
+
+  revalidatePath('/dashboard/staff')
+  revalidatePath('/dashboard', 'layout')
+  return { success: true }
+}
+
 export async function approveRequest(storeId: string, memberId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -371,7 +438,7 @@ export async function approveRequest(storeId: string, memberId: string) {
     .update({ status: 'active' })
     .eq('id', memberId)
     .eq('store_id', storeId)
-    .eq('status', 'pending_approval')
+    .in('status', ['pending_approval', 'invited'])
 
   if (error) return { error: error.message }
 
@@ -397,7 +464,7 @@ export async function rejectRequest(storeId: string, memberId: string) {
     .delete()
     .eq('id', memberId)
     .eq('store_id', storeId)
-    .eq('status', 'pending_approval')
+    .in('status', ['pending_approval', 'invited'])
 
   if (error) return { error: error.message }
 
@@ -418,25 +485,57 @@ export async function removeStaff(storeId: string, memberId: string) {
     return { error: '권한이 없습니다.' }
   }
 
-  // 1. Get current role info to save as snapshot
+  // 1. Get current info to save as snapshot
   const { data: member } = await supabase
     .from('store_members')
-    .select('role_info:store_roles(name), details')
+    .select(`
+      user_id,
+      role, 
+      name, email, phone, 
+      role_info:store_roles(name),
+      details
+    `)
     .eq('id', memberId)
     .eq('store_id', storeId)
     .single()
 
   const roleInfo = Array.isArray(member?.role_info) ? member?.role_info[0] : member?.role_info
-  const lastRoleName = roleInfo?.name || '알 수 없는 역할'
+  
+  // 프로필 정보 확실하게 가져오기 (조인 에러 방지)
+  let profileInfo = null
+  if (member?.user_id) {
+    const { data: prof } = await supabase
+      .from('profiles')
+      .select('full_name, email, phone')
+      .eq('id', member.user_id)
+      .single()
+    if (prof) profileInfo = prof
+  }
+  
+  const lastRoleName = roleInfo?.name || (member?.role === 'owner' ? '점주' : member?.role === 'manager' ? '매니저' : '알 수 없는 역할')
+  
+  // 우선순위: 1. 기존 store_members 컬럼 값 (수기 등록 또는 이미 박제된 값) 2. profiles 테이블 값 3. 기본값
+  const snapshotName = member?.name || profileInfo?.full_name || '이름 없음'
+  const snapshotEmail = member?.email || profileInfo?.email || ''
+  const snapshotPhone = member?.phone || profileInfo?.phone || ''
+  
   const details = member?.details || {}
 
   // 2. 삭제(delete) 대신 퇴사일(resigned_at) 업데이트 및 status를 'inactive'로 변경하여 기록 보존 (Soft Delete)
+  // 기존 정보 유지를 위해 role_id와 user_id 연결을 끊지 않고 그대로 유지하되, 만약의 경우를 대비해 프로필 데이터를 로컬 컬럼에 스냅샷으로 박제합니다.
   const { error } = await supabase
     .from('store_members')
     .update({ 
       resigned_at: new Date().toISOString(),
       status: 'inactive',
-      details: { ...details, last_role_name: lastRoleName }
+      name: snapshotName,
+      email: snapshotEmail,
+      phone: snapshotPhone,
+      details: { 
+        ...details, 
+        last_role_name: lastRoleName,
+        snapshot: true 
+      }
     })
     .eq('id', memberId)
     .eq('store_id', storeId)
@@ -445,6 +544,127 @@ export async function removeStaff(storeId: string, memberId: string) {
 
   revalidatePath('/dashboard/staff')
   revalidatePath('/dashboard', 'layout') // 사이드바 데이터 갱신
+  return { success: true }
+}
+
+export async function restoreStaff(storeId: string, memberId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) return { error: 'Unauthorized' }
+
+  try {
+    await requirePermission(user.id, storeId, 'manage_staff')
+  } catch (error) {
+    return { error: '권한이 없습니다.' }
+  }
+
+  // 복원 (상태를 active로, 퇴사일을 null로)
+  const { error } = await supabase
+    .from('store_members')
+    .update({ 
+      resigned_at: null,
+      status: 'active'
+    })
+    .eq('id', memberId)
+    .eq('store_id', storeId)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/dashboard/staff')
+  revalidatePath('/dashboard', 'layout') 
+  return { success: true }
+}
+
+export async function deleteStaffRecord(storeId: string, memberId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) return { error: 'Unauthorized' }
+
+  try {
+    await requirePermission(user.id, storeId, 'manage_staff')
+  } catch (error) {
+    return { error: '권한이 없습니다.' }
+  }
+
+  // 완전 삭제 (Hard Delete)
+  const { error } = await supabase
+    .from('store_members')
+    .delete()
+    .eq('id', memberId)
+    .eq('store_id', storeId)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/dashboard/staff')
+  revalidatePath('/dashboard', 'layout') 
+  return { success: true }
+}
+
+export async function inviteRegisteredStaff(storeId: string, memberId: string, email: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) return { error: 'Unauthorized' }
+
+  try {
+    await requirePermission(user.id, storeId, 'manage_staff')
+  } catch (error) {
+    return { error: '권한이 없습니다.' }
+  }
+
+  // 1. 이메일로 사용자 조회
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('email', email)
+    .single()
+
+  if (!profile) {
+    return { notRegistered: true }
+  }
+
+  // 2. 이미 다른 매장 멤버로 등록되어 있는지 확인 (옵션)
+  // 퇴사자('inactive' 상태)는 제외하여 재입사가 가능하도록 처리
+  const { data: existingMember } = await supabase
+    .from('store_members')
+    .select('id')
+    .eq('store_id', storeId)
+    .eq('user_id', profile.id)
+    .neq('id', memberId)
+    .neq('status', 'inactive')
+    .is('resigned_at', null)
+    .single()
+
+  if (existingMember) {
+    return { error: '해당 사용자는 이미 현재 매장에서 활동 중입니다.' }
+  }
+
+  // 3. 기존 퇴사자(재입사 대상)의 레코드에서 user_id 연결 해제 (Unique 제약 조건 충돌 방지)
+  // 기존 레코드는 기록용으로 남겨두고(이름/기록 유지), user_id만 null로 변경
+  await supabase
+    .from('store_members')
+    .update({ user_id: null })
+    .eq('store_id', storeId)
+    .eq('user_id', profile.id)
+    .eq('status', 'inactive')
+    .neq('id', memberId)
+
+  // 4. 수기 계정에 user_id 매핑 (상태는 invited 유지, 직원이 수락하면 active로 변경)
+  const { error: updateError } = await supabase
+    .from('store_members')
+    .update({ 
+      user_id: profile.id,
+      email: email
+    })
+    .eq('id', memberId)
+    .eq('store_id', storeId)
+
+  if (updateError) return { error: updateError.message }
+
+  revalidatePath('/dashboard/staff')
+  revalidatePath('/dashboard', 'layout')
   return { success: true }
 }
 

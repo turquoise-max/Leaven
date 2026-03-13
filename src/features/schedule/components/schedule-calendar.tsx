@@ -69,7 +69,7 @@ const dayHeaderFormat = {
 const renderEventContent = (eventInfo: any) => {
   const { event } = eventInfo
   const members = event.extendedProps.members || []
-  const title = event.title !== 'untitled' ? event.title : '근무'
+  let title = event.title !== 'untitled' ? event.title : '근무'
 
   // 스케줄 고유 색상이 있으면 사용, 없으면 첫 번째 멤버의 역할 색상 사용
   const baseColor = event.extendedProps.color || members[0]?.roleColor || '#808080'
@@ -77,6 +77,27 @@ const renderEventContent = (eventInfo: any) => {
     backgroundColor: hexToRgba(baseColor, 0.1),
     borderColor: baseColor,
     borderLeftWidth: '4px',
+  }
+
+  // 1명일 경우 캘린더에 렌더링될 메인 타이틀을 "[역할] 이름" 으로 세팅
+  // (만약 자동생성 스케줄처럼 title이 넘어왔다면, "[역할] 이름 (타이틀)" 형태도 고려 가능)
+  let displayTitle = title
+  if (members.length === 1) {
+      const m = members[0]
+      // title이 단순 '근무'가 아니라면 괄호 안에 병기
+      if (title && title !== '근무') {
+          displayTitle = `[${m.roleName}] ${m.userName} (${title})`
+      } else {
+          displayTitle = `[${m.roleName}] ${m.userName}`
+      }
+  } else if (members.length > 1) {
+      // 다수인 경우 첫 번째 멤버 외 n명
+      const m = members[0]
+      if (title && title !== '근무') {
+          displayTitle = `[${m.roleName}] ${m.userName} 외 ${members.length - 1}명 (${title})`
+      } else {
+          displayTitle = `[${m.roleName}] ${m.userName} 외 ${members.length - 1}명`
+      }
   }
 
   return (
@@ -89,7 +110,9 @@ const renderEventContent = (eventInfo: any) => {
           >
             {/* 타이틀 및 시간 */}
             <div className="flex flex-col gap-0.5 mb-1 pb-1 border-b border-black/10">
-                <span className="font-bold truncate text-[10px] sm:text-[11px] leading-tight text-foreground/90">{title}</span>
+                <span className="font-bold truncate text-[10px] sm:text-[11px] leading-tight text-foreground/90" title={displayTitle}>
+                    {displayTitle}
+                </span>
                 {/* 좁은 상태에서는 시간이 생략되거나 작게 보이도록 처리 */}
                 <span className="text-[9px] opacity-70 whitespace-nowrap truncate">{eventInfo.timeText}</span>
             </div>
@@ -101,6 +124,7 @@ const renderEventContent = (eventInfo: any) => {
                       key={member.id} 
                       className="w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center text-[8px] sm:text-[9px] font-bold text-white shadow-sm shrink-0"
                       style={{ backgroundColor: member.roleColor }}
+                      title={`[${member.roleName}] ${member.userName}`}
                     >
                       {member.userName.charAt(0)}
                     </div>
@@ -277,10 +301,11 @@ export function ScheduleCalendar({
     const mappedEvents = initialEvents.map((event) => {
       // 멤버 정보 매핑
       const members = (event.schedule_members || []).map((m: any) => {
-        const staff = staffList.find(s => s.user_id === m.user_id)
+        // member_id로 매핑
+        const staff = staffList.find(s => s.id === m.member_id)
         return {
-            id: m.user_id, 
-            userName: m.profile?.full_name || '미지정',
+            id: staff?.id || m.member_id, // value 매핑용 id (member_id 기준)
+            userName: staff?.name || staff?.profile?.full_name || m.member?.name || m.member?.profile?.full_name || '미지정',
             roleName: staff?.role_info?.name || staff?.role || 'Staff',
             roleColor: staff?.role_info?.color || '#808080',
             roleId: staff?.role_info?.id // 필터링용 Role ID
@@ -396,7 +421,7 @@ export function ScheduleCalendar({
         end: event.endStr,
         title: props.title,
         memo: props.memo,
-        schedule_members: props.members.map((m: any) => ({ user_id: m.id }))
+        schedule_members: props.members.map((m: any) => ({ member_id: m.id }))
     }
 
     setSelectedEvent(eventData)
@@ -459,18 +484,6 @@ export function ScheduleCalendar({
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-8 gap-1.5 text-xs text-yellow-600 border-yellow-200 bg-yellow-50 hover:bg-yellow-100 hover:text-yellow-700 dark:bg-yellow-900/20 dark:border-yellow-900/50 dark:hover:bg-yellow-900/40"
-                    onClick={() => {
-                      setAutoScheduleMode('create')
-                      setAutoScheduleOpen(true)
-                    }}
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline-block">자동 생성</span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
                     className="h-8 gap-1.5 text-xs text-destructive border-destructive/20 bg-destructive/5 hover:bg-destructive/10 hover:text-destructive"
                     onClick={() => {
                       setAutoScheduleMode('delete')
@@ -478,7 +491,7 @@ export function ScheduleCalendar({
                     }}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline-block">전체 삭제</span>
+                    <span className="hidden sm:inline-block">일괄 삭제</span>
                   </Button>
                 </>
               )}
@@ -493,8 +506,8 @@ export function ScheduleCalendar({
                 <SelectContent>
                   <SelectItem value="all">전체 직원</SelectItem>
                   {staffList.map((staff) => (
-                    <SelectItem key={staff.user_id} value={staff.user_id}>
-                      {staff.profile?.full_name || '이름 없음'}
+                    <SelectItem key={staff.id} value={staff.id}>
+                      {staff.name || staff.profile?.full_name || '이름 없음'}
                     </SelectItem>
                   ))}
                 </SelectContent>

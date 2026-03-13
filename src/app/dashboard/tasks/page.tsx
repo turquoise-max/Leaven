@@ -46,7 +46,7 @@ export default async function TasksPage() {
     activeMember = members.find(m => m.status === 'active') || members[0]
   }
 
-  if (!activeMember || activeMember.status !== 'active') {
+  if (!activeMember) {
     redirect('/onboarding')
   }
 

@@ -82,12 +82,27 @@ export function PersonalInfoTab({ formData, onChange, canEdit }: TabProps) {
   }
 
   // 비상연락망을 (텍스트 관계) + (전화번호) 두 칸으로 나누기 위한 로직
-  // 단일 문자열에서 전화번호(연속된 숫자와 하이픈) 부분을 추출
   const parseEmergencyContact = (contact: string) => {
-    const phoneMatch = contact.match(/[\d-]{9,13}/)
-    const phone = phoneMatch ? phoneMatch[0] : ''
-    const relation = contact.replace(phone, '').trim()
-    return { relation, phone }
+    if (!contact) return { relation: '', phone: '' }
+    
+    const parts = contact.trim().split(' ')
+    if (parts.length > 1) {
+      const lastPart = parts[parts.length - 1]
+      // 마지막 덩어리가 숫자와 하이픈으로만 이루어져 있다면 전화번호로 취급
+      if (/^[\d-]+$/.test(lastPart)) {
+        return {
+          phone: lastPart,
+          relation: parts.slice(0, parts.length - 1).join(' ')
+        }
+      }
+    } else {
+      // 덩어리가 하나뿐인데, 숫자나 하이픈으로만 구성되어 있다면 전화번호로 취급
+      if (/^[\d-]+$/.test(contact.trim())) {
+        return { relation: '', phone: contact.trim() }
+      }
+    }
+    
+    return { relation: contact, phone: '' }
   }
 
   const { relation: emRelation, phone: emPhone } = parseEmergencyContact(formData.emergencyContact || '')
@@ -144,12 +159,12 @@ export function PersonalInfoTab({ formData, onChange, canEdit }: TabProps) {
           <Input id="address" name="address" value={formData.address} onChange={(e) => onChange({ address: e.target.value })} placeholder="시/도 구/군 동 상세주소" disabled={!canEdit} />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="emRelation">비상연락망 (관계 메모)</Label>
-          <Input id="emRelation" value={emRelation} onChange={handleEmergencyRelationChange} placeholder="예: 어머니" disabled={!canEdit} />
-        </div>
-        <div className="grid gap-2">
           <Label htmlFor="emPhone">비상연락망 (전화번호)</Label>
           <Input id="emPhone" type="tel" value={emPhone} onChange={handleEmergencyPhoneChange} placeholder="010-0000-0000" disabled={!canEdit} maxLength={13} />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="emRelation">비상연락망 메모 (관계)</Label>
+          <Input id="emRelation" value={emRelation} onChange={handleEmergencyRelationChange} placeholder="예: 어머니" disabled={!canEdit} />
         </div>
       </div>
     </div>
@@ -157,39 +172,9 @@ export function PersonalInfoTab({ formData, onChange, canEdit }: TabProps) {
 }
 
 // --- 2. Work Settings Tab ---
+import { TimePicker } from '@/components/ui/time-picker'
+
 const DAYS = ['일', '월', '화', '수', '목', '금', '토']
-const HOURS = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'))
-const MINUTES = ['00', '10', '20', '30', '40', '50']
-
-function TimePicker({ value, onChange, disabled }: { value: string, onChange: (value: string) => void, disabled?: boolean }) {
-  const [hour, minute] = value ? value.split(':') : ['09', '00']
-
-  return (
-    <div className="flex items-center gap-1">
-      <Select value={hour} onValueChange={(h) => onChange(`${h}:${minute}`)} disabled={disabled}>
-        <SelectTrigger className="w-16 h-9 px-2 text-center focus:ring-0 bg-background">
-          <SelectValue placeholder="HH" />
-        </SelectTrigger>
-        <SelectContent position="popper" className="h-50" side="bottom" align="start">
-          {HOURS.map((h) => (
-            <SelectItem key={h} value={h} className="text-center justify-center pl-2">{h}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <span className="text-muted-foreground font-medium">:</span>
-      <Select value={minute} onValueChange={(m) => onChange(`${hour}:${m}`)} disabled={disabled}>
-        <SelectTrigger className="w-16 h-9 px-2 text-center focus:ring-0 bg-background">
-          <SelectValue placeholder="MM" />
-        </SelectTrigger>
-        <SelectContent position="popper" side="bottom" align="start">
-          {MINUTES.map((m) => (
-            <SelectItem key={m} value={m} className="text-center justify-center pl-2">{m}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  )
-}
 
 interface WorkTabProps extends TabProps {
   roles: any[]
@@ -227,9 +212,12 @@ export function WorkSettingsTab({ formData, onChange, canEdit, roles, isOwner, w
           {isOwner ? (
             <div className="h-10 px-3 py-2 rounded-md border bg-muted text-muted-foreground text-sm flex items-center">점주 (변경 불가)</div>
           ) : (
-            <Select name="roleId" value={formData.roleId} onValueChange={(v) => onChange({ roleId: v })} disabled={!canEdit}>
-              <SelectTrigger><SelectValue placeholder="역할 선택" /></SelectTrigger>
+            <Select name="roleId" value={formData.roleId || "none"} onValueChange={(v) => onChange({ roleId: v === 'none' ? '' : v })} disabled={!canEdit}>
+              <SelectTrigger><SelectValue placeholder="역할 미설정" /></SelectTrigger>
               <SelectContent>
+                <SelectItem value="none">
+                  <span className="text-muted-foreground">역할 미설정</span>
+                </SelectItem>
                 {roles.map((role) => (
                   <SelectItem key={role.id} value={role.id}>
                     <div className="flex items-center gap-2">

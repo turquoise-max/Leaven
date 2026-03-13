@@ -20,8 +20,8 @@ export async function getSchedules(storeId: string, startDate: string, endDate: 
       title,
       color,
       schedule_members (
-        user_id,
-        profile:profiles (full_name, avatar_url)
+        member_id,
+        member:store_members (name, user_id, profile:profiles(full_name, avatar_url))
       )
     `)
     .eq('store_id', storeId)
@@ -131,9 +131,9 @@ export async function createSchedule(storeId: string, formData: FormData) {
     }
 
     // 2. 멤버 연결
-    const membersToInsert = userIds.map(userId => ({
+    const membersToInsert = userIds.map(memberId => ({
         schedule_id: schedule.id,
-        user_id: userId
+        member_id: memberId
     }))
 
     const { error: membersError } = await supabase
@@ -261,9 +261,9 @@ export async function updateSchedule(storeId: string, scheduleId: string, formDa
   }
 
   // 2-2. 새 멤버 등록
-  const membersToInsert = userIds.map(userId => ({
+  const membersToInsert = userIds.map(memberId => ({
     schedule_id: scheduleId,
-    user_id: userId
+    member_id: memberId
   }))
 
   const { error: insertError } = await supabase
@@ -288,7 +288,17 @@ export async function getCurrentSchedule(storeId: string) {
   const now = getCurrentISOString()
   console.log(`[getCurrentSchedule] Checking for user ${user.id} at ${now}`)
 
-  // schedule_members를 통해 내 user_id가 포함된 스케줄 중
+  // First get the member_id for the current user in this store
+  const { data: memberData } = await supabase
+    .from('store_members')
+    .select('id')
+    .eq('store_id', storeId)
+    .eq('user_id', user.id)
+    .single()
+    
+  if (!memberData) return null
+
+  // schedule_members를 통해 내 member_id가 포함된 스케줄 중
   // 현재 시간이 start_time과 end_time 사이에 있는 것 조회
   const { data, error } = await supabase
     .from('schedules')
@@ -298,13 +308,14 @@ export async function getCurrentSchedule(storeId: string) {
       end_time,
       title,
       memo,
-      schedule_members!inner (user_id)
+      schedule_members!inner (member_id)
     `)
     .eq('store_id', storeId)
-    .eq('schedule_members.user_id', user.id)
+    .eq('schedule_members.member_id', memberData.id)
     .lte('start_time', now)
     .gte('end_time', now)
-    .maybeSingle() // 여러 개 겹칠 경우 하나만 (원칙적으로 겹치면 안 됨)
+    .limit(1)
+    .maybeSingle() // 여러 개 겹칠 경우 하나만
 
   if (error) {
     console.error('Error fetching current schedule:', error)

@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import Link from 'next/link'
 import { Store, Plus, Mail, Check, X, Building, Loader2, ArrowRight, LogOut, Package2, Settings } from 'lucide-react'
+import { CancelRequestButton } from '@/features/onboarding/components/cancel-request-button'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -172,7 +173,7 @@ export default async function HomePage() {
                       ) : member.status === 'pending_approval' ? (
                         <div className="flex items-center gap-1.5 text-orange-600 bg-orange-50 px-2.5 py-1 rounded-full text-xs font-medium border border-orange-100">
                           <Loader2 className="h-3 w-3 animate-spin" /> 
-                          <span>승인 대기 중</span>
+                          <span>합류 진행 중</span>
                         </div>
                       ) : (
                         <span className="text-muted-foreground text-xs">{member.status}</span>
@@ -189,18 +190,13 @@ export default async function HomePage() {
                       </Button>
                     ) : member.status === 'pending_approval' ? (
                       <div className="flex w-full gap-2">
-                        <Button disabled variant="outline" className="flex-1 text-muted-foreground border-orange-200 bg-orange-50/50">
-                          <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                          승인 대기 중...
+                        <Button asChild variant="outline" className="flex-1 text-orange-700 border-orange-200 bg-orange-50 hover:bg-orange-100">
+                          <Link href="/dashboard">
+                            합류 진행 중 (매장 입장)
+                            <ArrowRight className="ml-2 h-4 w-4" />
+                          </Link>
                         </Button>
-                        <form action={async () => {
-                          'use server'
-                          await cancelRequest(member.store.id)
-                        }}>
-                          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-red-600 hover:bg-red-50" title="신청 취소">
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </form>
+                        <CancelRequestButton storeId={member.store.id} />
                       </div>
                     ) : (
                       <Button disabled variant="outline" className="w-full bg-muted/50">

@@ -97,6 +97,17 @@ export default async function DashboardLayout({
       defaultLayout={defaultLayout}
       navCollapsedSize={4}
     >
+      {currentMember.status === 'pending_approval' && (
+        <div className="mb-6 rounded-lg bg-orange-50/80 border border-orange-200 p-4 text-orange-800 flex items-start gap-3 shadow-sm dark:bg-orange-950/20 dark:border-orange-900/50 dark:text-orange-300">
+          <div className="mt-0.5 shrink-0 text-orange-600 dark:text-orange-400">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+          </div>
+          <div>
+            <h4 className="font-semibold mb-1">매장 합류 진행 중입니다</h4>
+            <p className="text-sm text-orange-700/90 dark:text-orange-300/80">현재 점주님의 최종 승인을 기다리고 있거나, 전자 근로계약서 서명이 필요할 수 있습니다. 최종 승인 전까지는 일부 기능 접근이 제한됩니다.</p>
+          </div>
+        </div>
+      )}
       {children}
     </DashboardClientLayout>
   )

@@ -50,8 +50,8 @@ export default async function SchedulePage() {
       title,
       color,
       schedule_members (
-        user_id,
-        profile:profiles (full_name, email)
+        member_id,
+        member:store_members (name, user_id, profile:profiles (full_name, email))
       ),
       task_assignments(
         id,
@@ -73,8 +73,10 @@ export default async function SchedulePage() {
   const { data: rawStaffList } = await supabase
     .from('store_members')
     .select(`
+      id,
       user_id,
       role,
+      name,
       work_schedules,
       profile:profiles(id, full_name, email),
       role_info:store_roles(id, name, color, priority)

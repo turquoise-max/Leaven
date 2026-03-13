@@ -10,12 +10,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { updateStaffInfo, approveRequest, rejectRequest, removeStaff } from '../actions'
+import { updateStaffInfo, approveRequest, rejectRequest, removeStaff, inviteRegisteredStaff } from '../actions'
 import { getStoreRoles, getStoreSettings } from '@/features/store/actions'
 import { toast } from 'sonner'
-import { Loader2, User, FileSignature, Check, X, Mail, Phone } from 'lucide-react'
+import { Loader2, User, FileSignature, Check, X, Mail, Phone, AlertTriangle } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
@@ -35,6 +45,7 @@ interface EditStaffDialogProps {
   staff: any
   storeId: string
   canManage: boolean
+  onSuccess?: (action: 'approve' | 'reject' | 'remove', staffId: string) => void
 }
 
 const DEFAULT_SCHEDULES = Array.from({ length: 7 }, (_, i) => ({
@@ -65,6 +76,7 @@ export function EditStaffDialog({
   staff,
   storeId,
   canManage,
+  onSuccess,
 }: EditStaffDialogProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
@@ -75,6 +87,8 @@ export function EditStaffDialog({
   const [formData, setFormData] = useState<StaffFormData>(DEFAULT_FORM_DATA)
   const [isDirty, setIsDirty] = useState(false)
   const [showSendDialog, setShowSendDialog] = useState(false)
+  const [showApproveConfirm, setShowApproveConfirm] = useState(false)
+  const [showRejectConfirm, setShowRejectConfirm] = useState(false)
 
   const handleFormChange = (updates: Partial<StaffFormData>) => {
     setFormData(prev => ({ ...prev, ...updates }))
@@ -161,26 +175,27 @@ export function EditStaffDialog({
     }
   }, [staff, open])
 
-  // Legacy role matching logic
+  // Legacy role matching logic (Only for owner/manager. Leave staff as empty to represent 'No Role')
   useEffect(() => {
-    if (staff && roles.length > 0 && !staff.role_id && !formData.roleId) {
+    // If it's the first time matching and there's no role_id
+    // and formData.roleId is still empty, let's try to match owner/manager.
+    // If it's just 'staff', we deliberately leave it empty ("역할 미설정").
+    if (staff && roles.length > 0 && !staff.role_id && formData.roleId === '') {
        let matchingRole = null;
        if (staff.role === 'owner') {
           matchingRole = roles.find(r => r.name === '점주' || r.name === 'Owner' || (r.is_system && r.priority === 100))
        } else if (staff.role === 'manager') {
           matchingRole = roles.find(r => r.name === '매니저' || r.name === 'Manager')
-       } else {
-          matchingRole = roles.find(r => r.name === '직원' || r.name === 'Staff')
        }
+       
+       // For 'staff', we don't automatically assign the 'Staff' role anymore.
+       // It will remain as '' (역할 미설정).
        
        if (matchingRole) {
           handleFormChange({ roleId: matchingRole.id })
-       } else if (roles.length > 0) {
-          const defaultRole = [...roles].sort((a, b) => a.priority - b.priority)[0]
-          if (defaultRole) handleFormChange({ roleId: defaultRole.id })
        }
     }
-  }, [staff, roles, formData.roleId])
+  }, [staff, roles]) // Do not include formData.roleId in dependencies to prevent infinite loop or overwriting user changes
 
   // Create FormData object from state for API calls
   const buildFormDataForSubmit = () => {
@@ -260,6 +275,7 @@ export function EditStaffDialog({
       toast.error('승인 실패', { description: result.error })
     } else {
       toast.success('승인 완료')
+      if (onSuccess) onSuccess('approve', staff.id)
       router.refresh()
       onOpenChange(false)
     }
@@ -267,7 +283,6 @@ export function EditStaffDialog({
 
   const handleReject = async () => {
     if (!canManage || !staff) return
-    if (!confirm('정말 거절하시겠습니까?')) return
 
     setLoading(true)
     const result = await rejectRequest(storeId, staff.id) as any
@@ -277,6 +292,7 @@ export function EditStaffDialog({
       toast.error('거절 실패', { description: result.error })
     } else {
       toast.success('거절 완료')
+      if (onSuccess) onSuccess('reject', staff.id)
       router.refresh()
       onOpenChange(false)
     }
@@ -294,6 +310,7 @@ export function EditStaffDialog({
       toast.error('퇴사 처리 실패', { description: result.error })
     } else {
       toast.success('퇴사 처리 완료')
+      if (onSuccess) onSuccess('remove', staff.id)
       router.refresh()
       onOpenChange(false)
     }
@@ -301,7 +318,33 @@ export function EditStaffDialog({
 
   const handleSendContractClick = () => {
     if (!canManage || !staff) return
+    if (!formData.email) {
+      toast.error('이메일 주소가 없습니다.', { description: '근로계약서를 발송하려면 직원의 이메일을 먼저 입력하고 저장해주세요.' })
+      return
+    }
     setShowSendDialog(true)
+  }
+
+  const handleInviteClick = async () => {
+    if (!canManage || !staff) return
+    if (!formData.email) {
+      toast.error('이메일 주소가 없습니다.', { description: '매장에 초대하려면 직원의 이메일을 먼저 입력하고 저장해주세요.' })
+      return
+    }
+    
+    setLoading(true)
+    const result = await inviteRegisteredStaff(storeId, staff.id, formData.email)
+    setLoading(false)
+
+    if (result?.error) {
+      toast.error('초대 실패', { description: result.error })
+    } else if (result?.notRegistered) {
+      toast.info('미가입 이메일입니다.', { description: '해당 이메일로 가입된 Leaven 계정이 없습니다. 앱 설치 및 가입을 안내해주세요.' })
+    } else {
+      toast.success('초대 완료', { description: '직원에게 앱 가입 초대가 발송되었습니다. (로그인 시 알림)' })
+      if (onSuccess) onSuccess('approve', staff.id) // UI 갱신을 위해 임의로 호출 (또는 router.refresh)
+      router.refresh()
+    }
   }
 
   const isPending = staff?.status === 'pending_approval' || staff?.status === 'invited'
@@ -376,6 +419,20 @@ export function EditStaffDialog({
                     {formData.phone && <span className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5" />{formData.phone}</span>}
                  </div>
                </div>
+               
+               {canEdit && isPending && !isCreateMode && (
+                 <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm"
+                    className="shrink-0 bg-white"
+                    onClick={handleInviteClick}
+                    disabled={loading}
+                 >
+                    <Mail className="w-4 h-4 mr-2" />
+                    매장 초대
+                 </Button>
+               )}
             </div>
           </div>
 
@@ -438,6 +495,13 @@ export function EditStaffDialog({
                    닫기
                  </Button>
                </div>
+            ) : isCreateMode ? (
+               <div className="flex w-full justify-end">
+                 <Button type="submit" disabled={loading} className="w-32 shadow-sm">
+                   {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                   등록 (임시 저장)
+                 </Button>
+               </div>
             ) : (
               <>
                 <div className="flex gap-2">
@@ -456,12 +520,12 @@ export function EditStaffDialog({
                     <Button 
                       type="button" 
                       variant="outline" 
-                      onClick={handleReject}
+                      onClick={() => setShowRejectConfirm(true)}
                       disabled={loading}
                       className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
                     >
                       <X className="w-4 h-4 mr-1.5" />
-                      가입 거절
+                      삭제
                     </Button>
                   )}
                 </div>
@@ -471,7 +535,7 @@ export function EditStaffDialog({
                     <Button 
                       type="button" 
                       variant="outline" 
-                      onClick={handleApprove} 
+                      onClick={() => setShowApproveConfirm(true)} 
                       disabled={loading}
                     >
                       {isContractSent ? '서명 없이 즉시 합류' : '발송 없이 즉시 합류'}
@@ -500,10 +564,10 @@ export function EditStaffDialog({
                       정보 저장
                     </Button>
                   )}
-                  {isPending && isContractSent && (
+                  {isPending && (
                     <Button type="submit" disabled={loading} className="w-32 shadow-sm" variant="outline">
                       {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                      정보만 임시저장
+                      정보만 저장
                     </Button>
                   )}
                 </div>
@@ -523,6 +587,72 @@ export function EditStaffDialog({
           onOpenChange(false)
         }}
       />
+
+      <AlertDialog open={showApproveConfirm} onOpenChange={setShowApproveConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="h-5 w-5" />
+              수면(종이) 근로계약 체결 확인
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 pt-2 text-foreground text-sm">
+                <span className="block">전자 근로계약서를 발송/서명받지 않고 직원을 즉시 합류 처리합니다.</span>
+                <span className="block font-semibold text-red-600">직원과 서면으로 근로계약을 이미 체결하셨나요?</span>
+                <span className="block bg-muted p-3 rounded-md text-xs text-muted-foreground mt-2">
+                  * 근로기준법에 따라 근로계약서 미작성 및 미교부 시 법적 불이익이 발생할 수 있습니다.<br />
+                  * 가급적 앱 내의 <strong>[근로계약서 발송]</strong> 기능을 사용하시는 것을 권장합니다.
+                </span>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-4">
+            <AlertDialogCancel>돌아가기</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={(e) => {
+                e.preventDefault() // 다이얼로그 닫힘을 직접 제어하기 위해
+                setShowApproveConfirm(false)
+                handleApprove()
+              }}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              네, 이미 체결했습니다
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showRejectConfirm} onOpenChange={setShowRejectConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="h-5 w-5" />
+              가입 요청 거절
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 pt-2 text-foreground text-sm">
+                <span className="block">해당 직원의 매장 합류 요청을 거절하시겠습니까?</span>
+                <span className="block bg-muted p-3 rounded-md text-sm text-muted-foreground mt-2">
+                  거절 시 직원은 매장 대기 목록에서 즉시 삭제되며, 이 작업은 되돌릴 수 없습니다.
+                </span>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-4">
+            <AlertDialogCancel>돌아가기</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={(e) => {
+                e.preventDefault()
+                setShowRejectConfirm(false)
+                handleReject()
+              }}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              거절하기
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   )
 }

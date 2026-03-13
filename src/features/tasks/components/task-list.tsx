@@ -394,8 +394,10 @@ export function TaskList({ tasks, roles, storeId, canManage = false, isTemplateM
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>업무를 삭제하시겠습니까?</AlertDialogTitle>
-            <AlertDialogDescription>
-              이 작업은 되돌릴 수 없습니다. 업무 리스트에서 영구적으로 삭제됩니다.
+            <AlertDialogDescription asChild>
+              <div className="text-sm text-muted-foreground">
+                이 작업은 되돌릴 수 없습니다. 업무 리스트에서 영구적으로 삭제됩니다.
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -401,10 +401,15 @@ export function TaskCalendar({ tasks, roles, openingHours, storeId, canManage = 
   // Convert tasks to FullCalendar events & Apply Filters
   const events = useMemo(() => {
     const mappedEvents = tasks.map(task => {
-      // Role color mapping
-      const role = roles.find(r => r.id === task.assigned_role_id)
+      // Role color mapping (배열 형태로 변경된 assigned_role_ids 지원)
+      const taskRoles = task.assigned_role_ids 
+        ? roles.filter(r => (task.assigned_role_ids as string[]).includes(r.id))
+        : (task.assigned_role_id ? roles.filter(r => r.id === task.assigned_role_id) : [])
+      
+      const role = taskRoles.length > 0 ? taskRoles[0] : null
       let color = role ? role.color : '#808080'
-      const title = `${task.title} (${role ? role.name : '전체'})`
+      const roleNames = taskRoles.length > 0 ? taskRoles.map(r => r.name).join(', ') : '전체'
+      const title = `${task.title} (${roleNames})`
       
       // 상태에 따른 색상 (상시 업무 제외)
       if (task.task_type !== 'always') {
@@ -435,8 +440,8 @@ export function TaskCalendar({ tasks, roles, openingHours, storeId, canManage = 
         extendedProps: {
           color: color,
           description: task.description,
-          roleName: role ? role.name : '전체',
-          assignedRoleId: task.assigned_role_id, // For Filtering
+          roleName: roleNames,
+          assignedRoleIds: task.assigned_role_ids || (task.assigned_role_id ? [task.assigned_role_id] : []), // For Filtering
           isCritical: task.is_critical,
           taskType: task.task_type,
           status: task.status,
@@ -472,7 +477,10 @@ export function TaskCalendar({ tasks, roles, openingHours, storeId, canManage = 
 
     // Apply Filter
     if (selectedRoleId !== 'all') {
-      return mappedEvents.filter(event => event.extendedProps.assignedRoleId === selectedRoleId)
+      return mappedEvents.filter(event => 
+        event.extendedProps.assignedRoleIds && 
+        event.extendedProps.assignedRoleIds.includes(selectedRoleId)
+      )
     }
 
     return mappedEvents

@@ -184,8 +184,10 @@ export function EditTaskDialog({ task, open, onOpenChange, storeId }: EditTaskDi
             <AlertDialogContent>
                 <AlertDialogHeader>
                     <AlertDialogTitle>정말 삭제하시겠습니까?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        이 작업은 되돌릴 수 없습니다. 해당 업무와 관련된 모든 기록이 삭제될 수 있습니다.
+                    <AlertDialogDescription asChild>
+                        <div className="text-sm text-muted-foreground">
+                            이 작업은 되돌릴 수 없습니다. 해당 업무와 관련된 모든 기록이 삭제될 수 있습니다.
+                        </div>
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
