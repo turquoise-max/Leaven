@@ -617,25 +617,37 @@ export async function getDashboardTasks(storeId: string, date: string) {
     
     if (!user) return []
 
-    // 1. 해당 유저의 오늘 날짜 근무 스케줄이 존재하는지 확인 (관리자/직원 무관)
-    const { data: scheduleData } = await supabase
-        .from('schedules')
+    // 1. 현재 직원의 member_id를 가져옵니다.
+    const { data: memberData } = await supabase
+        .from('store_members')
         .select('id')
         .eq('store_id', storeId)
         .eq('user_id', user.id)
-        .eq('date', date)
+        .single()
+        
+    if (!memberData) return []
+
+    // 2. 해당 직원의 오늘 날짜 근무 스케줄이 존재하는지 확인 (관리자/직원 무관)
+    // schedules 테이블과 schedule_members를 조인하여 확인해야 합니다.
+    // 날짜 비교를 위해 start_time과 end_time의 범위를 사용
+    const startIso = toUTCISOString(date, '00:00')
+    const nextDate = getNextDateString(date)
+    const endIso = toUTCISOString(nextDate, '00:00')
+    
+    const { data: scheduleData } = await supabase
+        .from('schedules')
+        .select('id, schedule_members!inner(member_id)')
+        .eq('store_id', storeId)
+        .eq('schedule_members.member_id', memberData.id)
+        .gte('start_time', startIso)
+        .lt('start_time', endIso)
+        .limit(1)
         .maybeSingle()
 
     // 오늘 스케줄이 없다면 대시보드 업무에 보여주지 않음
     if (!scheduleData) {
         return []
     }
-    
-    // date: YYYY-MM-DD (KST 기준)
-    // 유틸리티를 활용하여 정확한 UTC 경계값(Start, End) 산출
-    const startIso = toUTCISOString(date, '00:00')
-    const nextDate = getNextDateString(date)
-    const endIso = toUTCISOString(nextDate, '00:00')
     
     let query = supabase
         .from('tasks')

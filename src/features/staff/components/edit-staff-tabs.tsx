@@ -63,10 +63,11 @@ export interface TabProps {
   formData: StaffFormData
   onChange: (updates: Partial<StaffFormData>) => void
   canEdit: boolean
+  isLinked?: boolean
 }
 
 // --- 1. Personal Info Tab ---
-export function PersonalInfoTab({ formData, onChange, canEdit }: TabProps) {
+export function PersonalInfoTab({ formData, onChange, canEdit, isLinked }: TabProps) {
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let val = e.target.value.replace(/[^0-9]/g, '')
     if (val.length > 3 && val.length <= 7) {
@@ -145,7 +146,17 @@ export function PersonalInfoTab({ formData, onChange, canEdit }: TabProps) {
         </div>
         <div className="grid gap-2">
           <Label htmlFor="email">이메일</Label>
-          <Input id="email" name="email" value={formData.email} onChange={(e) => onChange({ email: e.target.value })} disabled={!canEdit} />
+          <Input 
+            id="email" 
+            name="email" 
+            value={formData.email} 
+            onChange={(e) => onChange({ email: e.target.value })} 
+            disabled={!canEdit || isLinked} 
+            className={cn(isLinked && "bg-muted text-muted-foreground")}
+          />
+          {isLinked && (
+             <span className="text-[10px] text-emerald-600 font-medium">* 계정 연동이 완료되어 이메일 수정이 제한됩니다.</span>
+          )}
         </div>
         <div className="grid gap-2 flex-1 pt-2">
           <Label htmlFor="memo">직원 메모</Label>

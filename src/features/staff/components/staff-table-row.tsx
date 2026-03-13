@@ -2,7 +2,7 @@
 
 import { TableCell, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
-import { ShieldAlert, ShieldCheck, User, Check, X, Phone, Mail, CalendarDays, ChevronRight, FileText, Download } from 'lucide-react'
+import { ShieldAlert, ShieldCheck, User, Check, X, Phone, Mail, CalendarDays, ChevronRight, FileText, Download, Link2, Link2Off } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
@@ -229,6 +229,15 @@ export function StaffTableRow({
                 {getDisplayName(staff)}
               </span>
               {getRoleBadge(staff)}
+              {staff.user_id ? (
+                <div title="계정 연동됨" className="flex items-center justify-center w-4 h-4 rounded-full bg-emerald-100 text-emerald-600">
+                  <Check className="w-2.5 h-2.5" />
+                </div>
+              ) : (
+                <div title="수기 등록 (미연동)" className="flex items-center justify-center w-4 h-4 rounded-full bg-muted text-muted-foreground">
+                  <Link2Off className="w-2.5 h-2.5" />
+                </div>
+              )}
             </div>
             
             <div className="flex flex-col gap-1 text-[11px] text-muted-foreground">

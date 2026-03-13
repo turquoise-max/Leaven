@@ -25,7 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { updateStaffInfo, approveRequest, rejectRequest, removeStaff, inviteRegisteredStaff } from '../actions'
 import { getStoreRoles, getStoreSettings } from '@/features/store/actions'
 import { toast } from 'sonner'
-import { Loader2, User, FileSignature, Check, X, Mail, Phone, AlertTriangle } from 'lucide-react'
+import { Loader2, User, FileSignature, Check, X, Mail, Phone, AlertTriangle, Link2, Link2Off } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
@@ -351,6 +351,7 @@ export function EditStaffDialog({
   const isContractSent = staff?.contract_status === 'sent'
   const isOwner = staff?.role === 'owner'
   const isResigned = !!staff?.resigned_at
+  const isLinked = !!staff?.user_id
   const canEdit = canManage && !isResigned
   const displayName = formData.name || staff?.profile?.full_name || (isCreateMode ? '신규 등록' : '이름 없음')
   const displayEmail = formData.email || staff?.profile?.email || ''
@@ -413,6 +414,16 @@ export function EditStaffDialog({
                      )}>
                        {isCreateMode ? '가입 대기 예정' : isResigned ? '퇴사자' : (isPending ? (isContractSent ? '서명 대기 중' : '승인 대기') : '재직중')}
                      </div>
+
+                     {!isCreateMode && (
+                       <div className={cn(
+                         "px-2.5 py-0.5 rounded-full text-[11px] font-semibold tracking-wide border flex items-center gap-1 shadow-sm",
+                         isLinked ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-muted text-muted-foreground border-muted-foreground/20"
+                       )} title={isLinked ? "Leaven 계정과 연결됨" : "수기 등록 (계정 미연동)"}>
+                         {isLinked ? <Link2 className="w-3 h-3" /> : <Link2Off className="w-3 h-3" />}
+                         {isLinked ? '계정 연동됨' : '수기 등록'}
+                       </div>
+                     )}
                  </div>
                  <div className="text-sm text-muted-foreground flex gap-3 flex-wrap">
                     {displayEmail && <span className="flex items-center gap-1.5"><Mail className="w-3.5 h-3.5" />{displayEmail}</span>}
@@ -420,7 +431,7 @@ export function EditStaffDialog({
                  </div>
                </div>
                
-               {canEdit && isPending && !isCreateMode && (
+               {canEdit && !isLinked && !isCreateMode && (
                  <Button 
                     type="button" 
                     variant="outline" 
@@ -430,7 +441,7 @@ export function EditStaffDialog({
                     disabled={loading}
                  >
                     <Mail className="w-4 h-4 mr-2" />
-                    매장 초대
+                    앱 가입 초대
                  </Button>
                )}
             </div>
@@ -451,6 +462,7 @@ export function EditStaffDialog({
                         formData={formData} 
                         onChange={handleFormChange} 
                         canEdit={canEdit} 
+                        isLinked={isLinked}
                       />
                     </div>
                   </ScrollArea>
