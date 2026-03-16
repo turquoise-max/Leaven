@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
-import { X, Filter, Sparkles, ChevronDown, Trash2, Plus } from 'lucide-react'
+import { X, Filter, Sparkles, ChevronDown, Trash2, Plus, Clock, Users } from 'lucide-react'
 import { CalendarHeader } from '@/components/common/calendar-header'
 import { AutoScheduleDialog } from './auto-schedule-dialog'
 import {
@@ -65,13 +65,108 @@ const dayHeaderFormat = {
   day: 'numeric' as const
 }
 
+// Helper: 시간을 HH:mm 형식으로 포맷팅 (KST 시간열 기준)
+function formatTimeRange(startIso: string, endIso: string) {
+  const formatTime = (isoString: string) => {
+    const date = new Date(isoString)
+    const h = date.getHours()
+    const m = String(date.getMinutes()).padStart(2, '0')
+    const ampm = h < 12 ? '오전' : '오후'
+    const h12 = h % 12 || 12
+    return `${ampm} ${h12}:${m}`
+  }
+  return `${formatTime(startIso)} - ${formatTime(endIso)}`
+}
+
 // Render Function (Pure)
 const renderEventContent = (eventInfo: any) => {
-  const { event } = eventInfo
+  const { event, view } = eventInfo
+  const isMonthView = view.type === 'dayGridMonth'
+  
+  // 1) 월간 뷰 전용 (통합 이벤트 - 알약(Pill) 스타일 디자인 개선)
+  if (isMonthView && event.extendedProps.isGrouped) {
+    const groupedMembers = event.extendedProps.groupedMembers || []
+    const totalCount = groupedMembers.length
+    const maxAvatars = 3
+
+    return (
+      <TooltipProvider delayDuration={200}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div 
+              className="mx-0.5 w-[calc(100%-4px)] flex items-center justify-between px-1.5 py-1 rounded-full bg-muted/40 border border-border/50 cursor-pointer hover:bg-muted/70 hover:border-border transition-all shadow-sm"
+            >
+              <div className="flex items-center">
+                {groupedMembers.slice(0, maxAvatars).map((m: any, idx: number) => (
+                  <div 
+                    key={`${m.memberId}-${idx}`} 
+                    className="w-[18px] h-[18px] rounded-full flex items-center justify-center text-[9px] font-bold text-white shadow-[0_0_0_1.5px_hsl(var(--background))] shrink-0"
+                    style={{ backgroundColor: m.roleColor, zIndex: maxAvatars - idx, marginLeft: idx > 0 ? '-6px' : '0' }}
+                  >
+                    {m.userName.charAt(0)}
+                  </div>
+                ))}
+                {totalCount > maxAvatars && (
+                  <div 
+                    className="w-[18px] h-[18px] rounded-full flex items-center justify-center text-[9px] font-bold bg-secondary text-secondary-foreground shadow-[0_0_0_1.5px_hsl(var(--background))] shrink-0"
+                    style={{ marginLeft: '-6px', zIndex: 0 }}
+                  >
+                    <Plus className="w-2 h-2 opacity-70" strokeWidth={3} />
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground mr-1">
+                <Users className="w-2.5 h-2.5 opacity-70" />
+                <span>{totalCount}명</span>
+              </div>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="right" align="start" className="flex flex-col gap-3 z-[100] w-72 shadow-xl border bg-background text-foreground p-3">
+            <div className="flex items-center justify-between border-b pb-2">
+              <div className="flex items-center gap-1.5 font-bold text-sm">
+                <Users className="w-4 h-4 text-muted-foreground" />
+                <span>해당일 근무자</span>
+              </div>
+              <Badge variant="secondary" className="px-2 py-0.5 h-5 text-xs font-semibold bg-muted text-foreground/80">{totalCount}명</Badge>
+            </div>
+            <div className="flex flex-col gap-3.5 max-h-[320px] overflow-y-auto pr-1">
+              {groupedMembers.map((m: any, idx: number) => (
+                <div key={`${m.memberId}-${idx}`} className="flex items-start gap-2.5 group">
+                  <div 
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-sm shrink-0 mt-0.5"
+                    style={{ backgroundColor: m.roleColor }}
+                  >
+                    {m.userName.charAt(0)}
+                  </div>
+                  <div className="flex flex-col flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-semibold text-sm truncate">{m.userName}</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-sm whitespace-nowrap" style={{ color: m.roleColor, backgroundColor: hexToRgba(m.roleColor, 0.1) }}>
+                        {m.roleName}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground">
+                      <Clock className="w-3 h-3 opacity-60 shrink-0" />
+                      <span className="truncate max-w-[90px] text-foreground/70" title={m.title}>
+                        {m.title !== '근무' ? m.title : '기본 근무'}
+                      </span>
+                      <span className="opacity-40 text-[10px] px-0.5">•</span>
+                      <span className="font-medium text-foreground/80 whitespace-nowrap">{formatTimeRange(m.start, m.end)}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    )
+  }
+
+  // 2) 주간/일간 뷰 전용 (개별 이벤트)
   const members = event.extendedProps.members || []
   let title = event.title !== 'untitled' ? event.title : '근무'
 
-  // 스케줄 고유 색상이 있으면 사용, 없으면 첫 번째 멤버의 역할 색상 사용
   const baseColor = event.extendedProps.color || members[0]?.roleColor || '#808080'
   const style = {
     backgroundColor: hexToRgba(baseColor, 0.1),
@@ -79,19 +174,15 @@ const renderEventContent = (eventInfo: any) => {
     borderLeftWidth: '4px',
   }
 
-  // 1명일 경우 캘린더에 렌더링될 메인 타이틀을 "[역할] 이름" 으로 세팅
-  // (만약 자동생성 스케줄처럼 title이 넘어왔다면, "[역할] 이름 (타이틀)" 형태도 고려 가능)
   let displayTitle = title
   if (members.length === 1) {
       const m = members[0]
-      // title이 단순 '근무'가 아니라면 괄호 안에 병기
       if (title && title !== '근무') {
           displayTitle = `[${m.roleName}] ${m.userName} (${title})`
       } else {
           displayTitle = `[${m.roleName}] ${m.userName}`
       }
   } else if (members.length > 1) {
-      // 다수인 경우 첫 번째 멤버 외 n명
       const m = members[0]
       if (title && title !== '근무') {
           displayTitle = `[${m.roleName}] ${m.userName} 외 ${members.length - 1}명 (${title})`
@@ -113,11 +204,10 @@ const renderEventContent = (eventInfo: any) => {
                 <span className="font-bold truncate text-[10px] sm:text-[11px] leading-tight text-foreground/90" title={displayTitle}>
                     {displayTitle}
                 </span>
-                {/* 좁은 상태에서는 시간이 생략되거나 작게 보이도록 처리 */}
                 <span className="text-[9px] opacity-70 whitespace-nowrap truncate">{eventInfo.timeText}</span>
             </div>
             
-            {/* 멤버 목록 (아바타 형태) */}
+            {/* 멤버 목록 (아바타 형태, 주간뷰는 6개까지 표시) */}
             <div className="flex flex-wrap gap-1 overflow-hidden mt-0.5">
                 {members.slice(0, 6).map((member: any) => (
                     <div 
@@ -137,6 +227,7 @@ const renderEventContent = (eventInfo: any) => {
             </div>
           </div>
         </TooltipTrigger>
+        {/* 툴팁 (공통) */}
         <TooltipContent side="right" align="start" className="flex flex-col gap-2 z-[100] max-w-xs shadow-xl border bg-background text-foreground">
           <div className="font-bold border-b pb-1.5 flex items-center justify-between gap-4">
             <span>{title}</span>
@@ -298,57 +389,114 @@ export function ScheduleCalendar({
 
   // Event Mapping & Filtering Logic
   const events = useMemo(() => {
-    const mappedEvents = initialEvents.map((event) => {
-      // 멤버 정보 매핑
-      const members = (event.schedule_members || []).map((m: any) => {
-        // member_id로 매핑
-        const staff = staffList.find(s => s.id === m.member_id)
-        return {
-            id: staff?.id || m.member_id, // value 매핑용 id (member_id 기준)
-            userName: staff?.name || staff?.profile?.full_name || m.member?.name || m.member?.profile?.full_name || '미지정',
-            roleName: staff?.role_info?.name || staff?.role || 'Staff',
-            roleColor: staff?.role_info?.color || '#808080',
-            roleId: staff?.role_info?.id // 필터링용 Role ID
-        }
-      })
-
-      return {
-        id: event.id,
-        title: event.title || '근무',
-        start: toKSTISOString(event.start_time), // UTC -> KST 변환 (Z 제거)
-        end: toKSTISOString(event.end_time),
-        backgroundColor: 'transparent',
-        borderColor: 'transparent',
-        textColor: 'inherit',
-        extendedProps: {
-          members: members,
-          memo: event.memo,
-          title: event.title,
-          color: event.color,
-          origin: event // 원본 데이터 보존
-        }
-      }
-    })
-
-    // Apply Filters
-    return mappedEvents.filter(event => {
-      const members = event.extendedProps.members
-
+    const filteredEvents = initialEvents.filter((event) => {
+      const members = event.schedule_members || []
+      
       // 1. Staff Filter
       if (selectedStaffId !== 'all') {
-        const hasStaff = members.some((m: any) => m.id === selectedStaffId)
+        const hasStaff = members.some((m: any) => m.member_id === selectedStaffId)
         if (!hasStaff) return false
       }
 
       // 2. Role Filter
       if (selectedRoleId !== 'all') {
-        const hasRole = members.some((m: any) => m.roleId === selectedRoleId)
+        const hasRole = members.some((m: any) => {
+          const staff = staffList.find(s => s.id === m.member_id)
+          return staff?.role_info?.id === selectedRoleId
+        })
         if (!hasRole) return false
       }
 
       return true
     })
-  }, [initialEvents, staffList, selectedStaffId, selectedRoleId])
+
+    if (currentView === 'dayGridMonth') {
+      // 월간 뷰: 날짜별로 모든 스케줄과 멤버를 하나로 통합 (Grouping)
+      const groupsByDate: Record<string, any[]> = {}
+      
+      filteredEvents.forEach(event => {
+        const kstStart = toKSTISOString(event.start_time)
+        const dateKey = kstStart.split('T')[0] // 'YYYY-MM-DD'
+
+        if (!groupsByDate[dateKey]) {
+          groupsByDate[dateKey] = []
+        }
+
+        const members = (event.schedule_members || []).map((m: any) => {
+          const staff = staffList.find(s => s.id === m.member_id)
+          return {
+              memberId: staff?.id || m.member_id,
+              userName: staff?.name || staff?.profile?.full_name || m.member?.name || m.member?.profile?.full_name || '미지정',
+              roleName: staff?.role_info?.name || staff?.role || 'Staff',
+              roleColor: staff?.role_info?.color || '#808080',
+              roleId: staff?.role_info?.id,
+              // 근무 시간 표시를 위해 원본 이벤트 정보 포함
+              start: kstStart,
+              end: toKSTISOString(event.end_time),
+              title: event.title || '근무'
+          }
+        })
+        
+        groupsByDate[dateKey].push(...members)
+      })
+
+      return Object.entries(groupsByDate).map(([date, groupedMembers]) => {
+        // 동일 인물이 같은 날 여러 스케줄을 가질 수 있으므로 이름 오름차순/시작시간 순 정렬
+        groupedMembers.sort((a, b) => {
+            if (a.start !== b.start) return a.start.localeCompare(b.start)
+            return a.userName.localeCompare(b.userName)
+        })
+
+        return {
+          id: `grouped-${date}`,
+          title: '근무 현황',
+          start: date, // All-day 이벤트 형식으로 날짜만 지정하여 캘린더 한 칸을 통째로 차지하도록 함
+          allDay: true,
+          backgroundColor: 'transparent',
+          borderColor: 'transparent',
+          textColor: 'inherit',
+          // 드래그나 리사이징을 막기 위해 false 처리 가능 (월간 뷰에서 통합된 이벤트이므로)
+          editable: false, 
+          extendedProps: {
+            isGrouped: true,
+            groupedMembers: groupedMembers
+          }
+        }
+      })
+    } else {
+      // 주간/일간 뷰: 개별 이벤트 그대로 노출
+      return filteredEvents.map((event) => {
+        const members = (event.schedule_members || []).map((m: any) => {
+          const staff = staffList.find(s => s.id === m.member_id)
+          return {
+              id: staff?.id || m.member_id,
+              userName: staff?.name || staff?.profile?.full_name || m.member?.name || m.member?.profile?.full_name || '미지정',
+              roleName: staff?.role_info?.name || staff?.role || 'Staff',
+              roleColor: staff?.role_info?.color || '#808080',
+              roleId: staff?.role_info?.id
+          }
+        })
+
+        return {
+          id: event.id,
+          title: event.title || '근무',
+          start: toKSTISOString(event.start_time),
+          end: toKSTISOString(event.end_time),
+          backgroundColor: 'transparent',
+          borderColor: 'transparent',
+          textColor: 'inherit',
+          editable: canManage,
+          extendedProps: {
+            members: members,
+            memo: event.memo,
+            title: event.title,
+            color: event.color,
+            origin: event 
+          }
+        }
+      })
+    }
+  }, [initialEvents, staffList, selectedStaffId, selectedRoleId, currentView, canManage])
 
   const handleDateClick = useCallback((info: any) => {
     if (!canManage) return
@@ -405,14 +553,22 @@ export function ScheduleCalendar({
   const handleEventClick = useCallback((info: any) => {
     if (!canManage) return 
     
+    const event = info.event
+    const props = event.extendedProps
+
+    // 월간 뷰에서 "그룹화된 이벤트"를 클릭한 경우, 편집 모달 대신 일간 뷰로 전환
+    if (props.isGrouped) {
+      const api = calendarRef.current?.getApi()
+      api?.gotoDate(event.startStr)
+      api?.changeView('timeGridDay')
+      setCurrentView('timeGridDay')
+      return
+    }
+
     // 이제 항상 수정 모드로 진입 (단일 스케줄 객체이므로)
     setDialogMode('edit')
     setSelectedDate(null)
     setInitialTime(undefined)
-    
-    // Dialog에 전달할 데이터 구성
-    const event = info.event
-    const props = event.extendedProps
     
     // 원본 데이터가 있으면 그것을, 없으면 구성해서 전달
     const eventData = props.origin || {
@@ -421,7 +577,7 @@ export function ScheduleCalendar({
         end: event.endStr,
         title: props.title,
         memo: props.memo,
-        schedule_members: props.members.map((m: any) => ({ member_id: m.id }))
+        schedule_members: (props.members || []).map((m: any) => ({ member_id: m.id }))
     }
 
     setSelectedEvent(eventData)

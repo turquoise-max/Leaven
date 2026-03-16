@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
-import { CalendarDays, Wallet, ShieldCheck } from 'lucide-react'
+import { CalendarDays, Wallet, ShieldCheck, FileText, CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // --- Types ---
@@ -626,6 +626,52 @@ export function ContractSettingsTab({ formData, onChange, canEdit, weeklyTotalMi
             <span>* 주 15시간 미만 초단시간 근로자는 산재보험만 필수입니다.<br/>* 계약서 생성 시 위 선택된 보험 항목에 체크 표시가 들어갑니다.</span>
           )}
         </p>
+
+        {/* 근로계약서 미리보기 안내 영역 (플레이스홀더) */}
+        <div className="mt-8 pt-6 space-y-4 border-t border-border/30">
+          <div className="flex items-center justify-between pb-2 border-b">
+            <h4 className="font-semibold text-sm flex items-center gap-2 text-foreground/90">
+              <FileText className="w-4 h-4" /> 근로계약서 반영 요약
+            </h4>
+            <Badge variant="outline" className="text-[10px] bg-primary/5 text-primary border-primary/20">
+              {formData.employmentType === 'parttime' ? '단시간 근로자 표준근로계약서' : 
+               formData.employmentType === 'daily' ? '일용 근로자 표준근로계약서' : 
+               '표준근로계약서'}
+            </Badge>
+          </div>
+          
+          <div className="bg-background border border-dashed border-border/60 rounded-lg p-5 flex flex-col items-center justify-center text-center gap-3 relative overflow-hidden group hover:border-primary/30 transition-colors">
+            {/* Background design elements */}
+            <div className="absolute top-0 right-0 w-16 h-16 bg-muted/40 -mr-8 -mt-8 rounded-full pointer-events-none"></div>
+            <div className="absolute bottom-0 left-0 w-24 h-24 bg-primary/5 -ml-12 -mb-12 rounded-full pointer-events-none"></div>
+            
+            <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-1 shadow-sm">
+              <FileText className="w-5 h-5 opacity-90" />
+            </div>
+            
+            <div className="space-y-1.5 z-10">
+              <p className="font-semibold text-[13px] text-foreground">자동 생성 계약서 항목</p>
+              <p className="text-[11px] text-muted-foreground max-w-[240px] leading-relaxed mx-auto">
+                위 설정된 <span className="font-medium text-foreground/80">{formData.wageType === 'hourly' ? '시급' : formData.wageType === 'daily' ? '일급' : formData.wageType === 'monthly' ? '월급' : '연봉'}</span>, 
+                <span className="font-medium text-foreground/80"> 소정근로시간</span>, 
+                <span className="font-medium text-foreground/80"> 4대보험 여부</span>가 모두 전자계약서 서식에 자동 매핑됩니다.
+              </p>
+            </div>
+            
+            <div className="flex flex-wrap gap-2 justify-center mt-3 z-10">
+              <div className="flex items-center gap-1.5 text-[10px] font-medium bg-muted/60 px-2.5 py-1 rounded-full text-foreground/70">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> 임금/지급
+              </div>
+              <div className="flex items-center gap-1.5 text-[10px] font-medium bg-muted/60 px-2.5 py-1 rounded-full text-foreground/70">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> 근로/휴무
+              </div>
+              <div className="flex items-center gap-1.5 text-[10px] font-medium bg-muted/60 px-2.5 py-1 rounded-full text-foreground/70">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> 사회보험
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   )

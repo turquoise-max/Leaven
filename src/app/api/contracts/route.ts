@@ -40,15 +40,39 @@ export async function POST(req: Request) {
     const roleInfo = Array.isArray(staffData.role_info) ? staffData.role_info[0] : staffData.role_info
     const schedules = (staffData.work_schedules as any[]) || []
 
-    // 임금 형태(wage_type)가 아닌 고용 형태(employment_type)를 기준으로 정규직 판별
-    const isFulltime = ['fulltime', 'contract'].includes(staffData.employment_type)
-    const templateId = isFulltime 
-      ? process.env.MODUSIGN_TEMPLATE_ID_FULLTIME 
-      : process.env.MODUSIGN_TEMPLATE_ID_PARTTIME
+    // 고용 형태(employment_type)를 기준으로 템플릿 매핑
+    let templateId = ''
+    let isFulltimeTemplate = false
 
-    if (!templateId) {
-      console.error('Missing Modusign Template ID for', isFulltime ? 'Fulltime' : 'Parttime')
-      return NextResponse.json({ error: '템플릿 ID 설정이 누락되었습니다.' }, { status: 500 })
+    switch (staffData.employment_type) {
+      case 'fulltime':
+      case 'contract':
+        templateId = process.env.MODUSIGN_TEMPLATE_ID_FULLTIME || ''
+        isFulltimeTemplate = true
+        break
+      case 'parttime':
+        templateId = process.env.MODUSIGN_TEMPLATE_ID_PARTTIME || ''
+        break
+      case 'daily':
+        // 일용직 임시 템플릿 (추후 전용 템플릿으로 교체)
+        templateId = process.env.MODUSIGN_TEMPLATE_ID_DAILY || process.env.MODUSIGN_TEMPLATE_ID_PARTTIME || 'TEMP_DAILY_ID'
+        break
+      case 'probation':
+        // 수습 임시 템플릿 (추후 전용 템플릿으로 교체)
+        templateId = process.env.MODUSIGN_TEMPLATE_ID_PROBATION || process.env.MODUSIGN_TEMPLATE_ID_PARTTIME || 'TEMP_PROBATION_ID'
+        break
+      default:
+        templateId = process.env.MODUSIGN_TEMPLATE_ID_PARTTIME || ''
+        break
+    }
+
+    if (!templateId || templateId.startsWith('TEMP_')) {
+      // NOTE: 개발 및 테스트를 위해 임시 템플릿 아이디가 들어간 경우 서버 에러를 낼지 결정해야 함
+      // 여기서는 템플릿 ID가 아예 없으면 에러를 반환
+      if (!templateId) {
+        console.error(`Missing Modusign Template ID for employment_type: ${staffData.employment_type}`)
+        return NextResponse.json({ error: '해당 고용 형태의 템플릿 ID 설정이 누락되었습니다.' }, { status: 500 })
+      }
     }
 
     // 직원 이름 및 연락처
@@ -135,8 +159,8 @@ export async function POST(req: Request) {
     // 3. 필드 매핑 데이터 준비 (정규직 및 아르바이트 템플릿 분기)
     let fields: Record<string, string | number> = {}
 
-    if (isFulltime) {
-      // --- 정규직용 템플릿 필드 ---
+    if (isFulltimeTemplate) {
+      // --- 정규직 및 계약직용 템플릿 필드 ---
       fields = {
         // 도입부
         'company_name': store.name || '',
