@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/features/auth/permissions'
-import { toUTCISOString, getCurrentISOString, getNextDateString } from '@/lib/date-utils'
+import { toUTCISOString, getCurrentISOString, getNextDateString, getDiffInMinutes, addMinutesToTime } from '@/lib/date-utils'
 
 // 스케줄 조회 (기간)
 export async function getSchedules(storeId: string, startDate: string, endDate: string) {
@@ -152,12 +152,13 @@ export async function createSchedule(storeId: string, formData: FormData) {
   return { success: true, count: createdCount }
 }
 
-// 스케줄 시간 수정 (드래그 앤 드롭 등)
+// 스케줄 시간 수정 (드래그 앤 드롭 등) 및 개별 업무(Task) 시간 이동
 export async function updateScheduleTime(
   storeId: string,
   scheduleId: string,
   newStart: string, // ISO String
-  newEnd: string    // ISO String
+  newEnd: string,   // ISO String
+  moveTasks: boolean = false
 ) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -170,7 +171,21 @@ export async function updateScheduleTime(
     return { error: '권한이 없습니다.' }
   }
 
-  // 스케줄 본체만 업데이트하면 연결된 멤버들도 자동으로 변경된 시간을 따름
+  // 기존 스케줄 정보를 가져와 시간 차이(delta)를 분 단위로 계산 (moveTasks가 true일 때만)
+  let deltaMinutes = 0;
+  if (moveTasks) {
+    const { data: oldSchedule } = await supabase
+      .from('schedules')
+      .select('start_time')
+      .eq('id', scheduleId)
+      .single()
+
+    if (oldSchedule?.start_time) {
+      deltaMinutes = getDiffInMinutes(oldSchedule.start_time, newStart)
+    }
+  }
+
+  // 스케줄 업데이트
   const { error } = await supabase
     .from('schedules')
     .update({
@@ -183,6 +198,43 @@ export async function updateScheduleTime(
 
   if (error) {
     return { error: error.message }
+  }
+
+  // 개별 업무 시간 연동 이동 로직 (timezone 이슈 없이 순수 문자열 연산)
+  if (moveTasks && deltaMinutes !== 0) {
+    const { data: assignments } = await supabase
+      .from('task_assignments')
+      .select('id, start_time, end_time, assigned_date')
+      .eq('schedule_id', scheduleId)
+      .eq('store_id', storeId)
+
+    if (assignments && assignments.length > 0) {
+      for (const assignment of assignments) {
+        if (assignment.start_time) {
+          try {
+            const updates: any = {}
+            
+            // start_time 업데이트 (형식: HH:mm:ss)
+            const newStartStr = addMinutesToTime(assignment.start_time, deltaMinutes)
+            updates.start_time = newStartStr.length === 5 ? newStartStr + ':00' : newStartStr
+
+            // end_time 업데이트
+            if (assignment.end_time) {
+              const newEndStr = addMinutesToTime(assignment.end_time, deltaMinutes)
+              updates.end_time = newEndStr.length === 5 ? newEndStr + ':00' : newEndStr
+            }
+
+            await supabase
+              .from('task_assignments')
+              .update(updates)
+              .eq('id', assignment.id)
+
+          } catch (e) {
+            console.error('Task time update error:', e)
+          }
+        }
+      }
+    }
   }
 
   revalidatePath('/dashboard/schedule')

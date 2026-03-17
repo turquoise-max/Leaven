@@ -9,7 +9,7 @@ export async function login(formData: FormData) {
   const supabase = await createClient()
 
   const data = {
-    email: formData.get('email') as string,
+    email: (formData.get('email') as string)?.trim().toLowerCase(),
     password: formData.get('password') as string,
   }
 
@@ -64,7 +64,7 @@ export async function signup(formData: FormData) {
   const supabase = await createClient()
   const origin = (await headers()).get('origin')
 
-  const email = formData.get('email') as string
+  const email = (formData.get('email') as string)?.trim().toLowerCase()
   const password = formData.get('password') as string
   const fullName = formData.get('fullName') as string
   // const phone = formData.get('phone') as string
@@ -124,7 +124,7 @@ export async function logout() {
 export async function resetPassword(formData: FormData) {
   const supabase = await createClient()
   const origin = (await headers()).get('origin')
-  const email = formData.get('email') as string
+  const email = (formData.get('email') as string)?.trim().toLowerCase()
 
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${origin}/auth/callback?next=/update-password`,

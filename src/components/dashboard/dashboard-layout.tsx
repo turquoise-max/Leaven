@@ -33,6 +33,7 @@ interface DashboardLayoutProps {
   staffList: any[]
   defaultLayout?: number[] | undefined
   navCollapsedSize?: number
+  permissions?: Record<string, boolean>
 }
 
 export function DashboardClientLayout({
@@ -44,6 +45,7 @@ export function DashboardClientLayout({
   staffList,
   defaultLayout = [15, 85],
   navCollapsedSize = 4,
+  permissions = {},
 }: DashboardLayoutProps) {
   // 우측 사이드바 상태 (기본값: true)
   const [showRightSidebar, setShowRightSidebar] = React.useState(false)
@@ -145,6 +147,7 @@ export function DashboardClientLayout({
                 user={user} 
                 role={role} 
                 isCollapsed={false}
+                permissions={permissions}
               />
             </ResizablePanel>
 

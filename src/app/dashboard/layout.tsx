@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { DashboardClientLayout } from '@/components/dashboard/dashboard-layout'
 import { cookies } from 'next/headers'
 import { getUserStores } from '@/features/store/actions'
+import { hasPermission } from '@/features/auth/permissions'
 
 export const dynamic = 'force-dynamic'
 
@@ -83,6 +84,13 @@ export default async function DashboardLayout({
   
   const defaultLayout = layout ? JSON.parse(layout.value) : undefined
 
+  // 권한 확인
+  const permissions = {
+    view_staff: await hasPermission(user.id, currentStoreId, 'view_staff'),
+    view_schedule: await hasPermission(user.id, currentStoreId, 'view_schedule'),
+    manage_store: await hasPermission(user.id, currentStoreId, 'manage_store')
+  }
+
   return (
     <DashboardClientLayout
       user={{
@@ -96,6 +104,7 @@ export default async function DashboardLayout({
       staffList={staffList || []}
       defaultLayout={defaultLayout}
       navCollapsedSize={4}
+      permissions={permissions}
     >
       {currentMember.status === 'pending_approval' && (
         <div className="mb-6 rounded-lg bg-orange-50/80 border border-orange-200 p-4 text-orange-800 flex items-start gap-3 shadow-sm dark:bg-orange-950/20 dark:border-orange-900/50 dark:text-orange-300">

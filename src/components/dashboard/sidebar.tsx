@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/tooltip'
 import { 
   CalendarDays, 
+  CalendarRange,
   LayoutDashboard, 
   Settings, 
   Users,
@@ -36,19 +37,28 @@ interface SidebarProps {
   role: string
   isCollapsed?: boolean
   className?: string
+  permissions?: Record<string, boolean>
 }
 
-export function Sidebar({ user, role, isCollapsed = false, className }: SidebarProps) {
+export function Sidebar({ user, role, isCollapsed = false, className, permissions = {} }: SidebarProps) {
   const pathname = usePathname()
+
+  const isManager = role === 'owner' || role === 'manager'
 
   const navGroups = [
     {
       title: '메인',
       items: [
-        {
-          title: '대시보드',
+        ...(isManager ? [{
+          title: '대시보드(관리자용)',
           href: '/dashboard',
           icon: LayoutDashboard,
+          isUpcoming: false
+        }] : []),
+        {
+          title: '대시보드',
+          href: isManager ? '/dashboard/my-tasks' : '/dashboard',
+          icon: CheckSquare,
           isUpcoming: false
         }
       ]
@@ -56,24 +66,18 @@ export function Sidebar({ user, role, isCollapsed = false, className }: SidebarP
     {
       title: '인사·근무 관리',
       items: [
-        {
+        ...(permissions.view_staff ? [{
           title: '직원 관리',
           href: '/dashboard/staff',
           icon: Users,
           isUpcoming: false
-        },
-        {
-          title: '근무 캘린더',
-          href: '/dashboard/schedule',
-          icon: CalendarDays,
+        }] : []),
+        ...(permissions.view_schedule ? [{
+          title: '스케줄 관리',
+          href: '/dashboard/unified-schedule',
+          icon: CalendarRange,
           isUpcoming: false
-        },
-        {
-          title: '업무 캘린더',
-          href: '/dashboard/tasks',
-          icon: CheckSquare,
-          isUpcoming: false
-        },
+        }] : []),
         {
           title: '휴가 및 연차',
           href: '#leave',
@@ -99,7 +103,7 @@ export function Sidebar({ user, role, isCollapsed = false, className }: SidebarP
         }
       ]
     },
-    {
+    ...(permissions.manage_store ? [{
       title: '시스템 설정',
       items: [
         {
@@ -109,7 +113,7 @@ export function Sidebar({ user, role, isCollapsed = false, className }: SidebarP
           isUpcoming: false
         }
       ]
-    }
+    }] : [])
   ]
 
   const handleUpcomingClick = (e: React.MouseEvent, isUpcoming?: boolean) => {

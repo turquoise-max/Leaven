@@ -69,9 +69,19 @@ export default async function DashboardPage() {
   // 관리자 여부 확인
   const isManager = activeMember.role === 'owner' || activeMember.role === 'manager'
 
+  if (!isManager) {
+    redirect('/dashboard/my-tasks')
+  }
+
+  return (
+    <AdminDashboard pendingCount={pendingCount} store={store} />
+  )
+}
+
+function AdminDashboard({ pendingCount, store }: { pendingCount: number, store: any }) {
   return (
     <div className="flex flex-col gap-8 h-full">
-      {pendingCount > 0 && isManager && (
+      {pendingCount > 0 && (
         <div className="bg-yellow-50 dark:bg-yellow-950/30 border-l-4 border-yellow-400 p-4 rounded-r-md flex items-center justify-between shadow-sm">
           <div className="flex items-center">
             <Bell className="h-5 w-5 text-yellow-600 dark:text-yellow-400 mr-3" />
@@ -98,8 +108,6 @@ export default async function DashboardPage() {
       <div className="grid gap-6 md:grid-cols-12 h-full">
         {/* Main Content: Stats (Left) */}
         <div className="md:col-span-8 lg:col-span-8 flex flex-col gap-6">
-          
-          {/* Stats Cards */}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
              <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -114,46 +122,42 @@ export default async function DashboardPage() {
                 </CardContent>
               </Card>
 
-              {isManager && (
-                <>
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">활성 직원</CardTitle>
-                      <Users className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">0명</div>
-                      <p className="text-xs text-muted-foreground">
-                        현재 근무 중: 0명
-                      </p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">오늘 주문</CardTitle>
-                      <Activity className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">0건</div>
-                      <p className="text-xs text-muted-foreground">
-                        지난 시간 대비 +0%
-                      </p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">총 매출</CardTitle>
-                      <CreditCard className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">₩0</div>
-                      <p className="text-xs text-muted-foreground">
-                        지난 달 대비 +0%
-                      </p>
-                    </CardContent>
-                  </Card>
-                </>
-              )}
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">활성 직원</CardTitle>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">0명</div>
+                  <p className="text-xs text-muted-foreground">
+                    현재 근무 중: 0명
+                  </p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">오늘 주문</CardTitle>
+                  <Activity className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">0건</div>
+                  <p className="text-xs text-muted-foreground">
+                    지난 시간 대비 +0%
+                  </p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">총 매출</CardTitle>
+                  <CreditCard className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">₩0</div>
+                  <p className="text-xs text-muted-foreground">
+                    지난 달 대비 +0%
+                  </p>
+                </CardContent>
+              </Card>
           </div>
           
           {/* Future Chart Area Placeholder */}
@@ -162,14 +166,10 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* Sidebar: Tasks (Right) */}
+        {/* Sidebar Placeholder or general task list */}
         <div className="md:col-span-4 lg:col-span-4">
-           <div className="sticky top-6 h-[calc(100vh-120px)] flex flex-col">
-               <Card className="flex-1 flex flex-col overflow-hidden shadow-md border-l-4 border-l-primary/20">
-                   <CardContent className="p-4 flex-1 overflow-hidden flex flex-col">
-                       <DashboardTaskList storeId={store.id} />
-                   </CardContent>
-               </Card>
+           <div className="sticky top-6 h-[calc(100vh-120px)] flex flex-col border rounded-lg bg-muted/5 border-dashed items-center justify-center text-muted-foreground">
+               <span className="text-sm">📋 매장 전체 주요 일정/알림 (준비 중)</span>
            </div>
         </div>
       </div>

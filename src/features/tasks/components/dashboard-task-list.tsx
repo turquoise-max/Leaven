@@ -1,15 +1,36 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import { Task, getDashboardTasks, toggleTaskCheckitem, updateTaskStatus } from '../actions'
 import { getTodayDateString } from '@/lib/date-utils'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { AlertTriangle, Clock, Calendar, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react'
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
+import { Clock, CheckCircle2, User, Users, Calendar } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
+
+// 업무 상태 도출 로직 (스케줄 관리 페이지와 동일)
+function getDerivedTaskStatus(task: Task, now: Date): 'todo' | 'in_progress' | 'pending' | 'done' {
+  if (task.status === 'done') return 'done'
+  if (!task.start_time) return 'todo'
+
+  const taskDateObj = new Date(task.start_time)
+  if (isNaN(taskDateObj.getTime())) return 'todo'
+
+  const startTimeMs = taskDateObj.getTime()
+  const nowMs = now.getTime()
+  const thirtyMinsMs = 30 * 60 * 1000
+
+  if (nowMs < startTimeMs) {
+    return 'todo'
+  } else if (nowMs >= startTimeMs && nowMs < startTimeMs + thirtyMinsMs) {
+    return 'in_progress'
+  } else {
+    return 'pending'
+  }
+}
 
 interface DashboardTaskListProps {
   storeId: string
@@ -19,12 +40,9 @@ export function DashboardTaskList({ storeId }: DashboardTaskListProps) {
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [now, setNow] = useState(new Date())
-  
-  // 섹션별 접기/펴기 상태 관리
-  const [isUpcomingOpen, setIsUpcomingOpen] = useState(false)
-  const [isDoneOpen, setIsDoneOpen] = useState(false)
+  const scrollRef = useRef<HTMLDivElement>(null)
 
-  // 실시간 상태 업데이트를 위해 1분마다 현재 시간 갱신
+  // 1분마다 현재 시간 갱신
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60000)
     return () => clearInterval(timer)
@@ -32,9 +50,7 @@ export function DashboardTaskList({ storeId }: DashboardTaskListProps) {
 
   const fetchTasks = async () => {
     try {
-      // 한국 시간 기준 오늘 날짜 구하기 (유틸리티 활용)
       const today = getTodayDateString()
-      
       const data = await getDashboardTasks(storeId, today)
       setTasks(data || [])
     } catch (error) {
@@ -49,72 +65,72 @@ export function DashboardTaskList({ storeId }: DashboardTaskListProps) {
   }, [storeId])
 
   const handleChecklistToggle = async (taskId: string, itemId: string, checked: boolean) => {
-    // Optimistic Update
     setTasks(prev => prev.map(task => {
         if (task.id !== taskId) return task
-        
         const newChecklist = task.checklist?.map(item => 
             item.id === itemId ? { ...item, is_completed: checked } : item
         ) || []
-        
-        // Check if all completed
         const allCompleted = newChecklist.length > 0 && newChecklist.every(item => item.is_completed)
         const newStatus = allCompleted ? 'done' : (task.status === 'done' ? 'todo' : task.status)
-        
         return { ...task, checklist: newChecklist, status: newStatus }
     }))
-
-    // Server Action
     const result = await toggleTaskCheckitem(taskId, itemId, checked)
-    if (result.error) {
-        // Revert on error (re-fetch)
-        fetchTasks()
-    }
+    if (result.error) fetchTasks()
   }
 
   const handleStatusChange = async (taskId: string, status: 'todo' | 'in_progress' | 'done') => {
-      // Optimistic Update
       setTasks(prev => prev.map(task => {
           if (task.id !== taskId) return task
           return { ...task, status }
       }))
-
       const result = await updateTaskStatus(taskId, status)
-      if (result.error) {
-          fetchTasks()
-      }
+      if (result.error) fetchTasks()
   }
 
-  // 상태별 분류
-  const overdueTasks: Task[] = []
-  const activeTasks: Task[] = []
-  const upcomingTasks: Task[] = []
-  const doneTasks: Task[] = []
+  // 업무 분류 로직 (상시 업무 vs 시간 지정 업무)
+  const { anytimeTasks, groupedTasks } = useMemo(() => {
+    const anytime: Task[] = []
+    const groups: Record<string, Task[]> = {}
 
-  tasks.forEach(task => {
-      if (task.status === 'done') {
-          doneTasks.push(task)
-          return
+    tasks.forEach(task => {
+      if (!task.start_time || task.task_type === 'always') {
+        anytime.push(task)
+      } else {
+        const d = new Date(task.start_time)
+        const hour = d.getHours()
+        const min = d.getMinutes()
+        const key = `${hour.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}`
+        if (!groups[key]) groups[key] = []
+        groups[key].push(task)
       }
+    })
 
-      const start = task.start_time ? new Date(task.start_time) : null
-      const end = task.end_time ? new Date(task.end_time) : null
+    const groupedArray = Object.entries(groups).map(([time, items]) => {
+      const [h, m] = time.split(':').map(Number)
+      return { time, hour: h, minute: m, tasks: items }
+    }).sort((a, b) => (a.hour * 60 + a.minute) - (b.hour * 60 + b.minute))
 
-      if (!start || !end) {
-          activeTasks.push(task)
-          return
-      }
+    return { anytimeTasks: anytime, groupedTasks: groupedArray }
+  }, [tasks])
 
-      if (now > end) {
-          overdueTasks.push(task)
-      } else if (now >= start && now <= end) {
-          activeTasks.push(task)
-      } else if (now < start) {
-          upcomingTasks.push(task)
-      }
-  })
+  // 현재 시간선 위치 계산용
+  const [currentLineGroupIndex, setCurrentLineGroupIndex] = useState(-1)
+  
+  useEffect(() => {
+    if (groupedTasks.length === 0) return
+    const currentMins = now.getHours() * 60 + now.getMinutes()
+    let lastPassedIndex = -1
+    for (let i = 0; i < groupedTasks.length; i++) {
+       const groupMins = groupedTasks[i].hour * 60 + groupedTasks[i].minute
+       if (currentMins >= groupMins) {
+          lastPassedIndex = i
+       } else {
+          break
+       }
+    }
+    setCurrentLineGroupIndex(lastPassedIndex)
+  }, [now, groupedTasks])
 
-  // 날짜 포맷팅 (Intl 사용)
   const formattedDate = new Intl.DateTimeFormat('ko-KR', {
       year: 'numeric',
       month: 'long',
@@ -132,126 +148,137 @@ export function DashboardTaskList({ storeId }: DashboardTaskListProps) {
   }
 
   return (
-    <div className="space-y-6 h-full flex flex-col min-h-0">
+    <div className="space-y-4 h-full flex flex-col min-h-0 bg-background rounded-xl border shadow-sm p-4">
       <div className="flex items-center justify-between flex-shrink-0">
           <h2 className="text-lg font-semibold flex items-center gap-2">
               <Clock className="w-5 h-5 text-primary" />
-              오늘의 업무
+              오늘의 타임라인
           </h2>
           <Badge variant="outline" className="text-xs font-normal">
               {formattedDate}
           </Badge>
       </div>
 
-      <ScrollArea className="flex-1 -mx-4 px-4 h-full">
-          <div className="space-y-6 pb-24">
-              
-              {/* 1. 보류 (Overdue) */}
-              {overdueTasks.length > 0 && (
-                  <div className="space-y-3">
-                      <div className="flex items-center gap-2 text-red-500 font-medium text-sm animate-pulse">
-                          <AlertTriangle className="w-4 h-4" />
-                          <span>놓친 업무가 있어요! ({overdueTasks.length})</span>
-                      </div>
-                      {overdueTasks.map(task => (
-                          <TaskCard 
-                              key={task.id} 
-                              task={task} 
-                              onCheck={handleChecklistToggle} 
-                              onStatusChange={handleStatusChange}
-                              variant="overdue"
-                          />
-                      ))}
-                  </div>
+      <ScrollArea className="flex-1 -mx-4 px-4 h-full relative" ref={scrollRef}>
+          <div className="flex flex-col min-h-full pb-10 pt-2">
+            
+            {/* 상시 업무 영역 */}
+            {anytimeTasks.length > 0 && (
+              <Accordion type="single" collapsible defaultValue="anytime" className="mb-6 mx-1 border rounded-lg bg-muted/20">
+                <AccordionItem value="anytime" className="border-none">
+                  <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/40 transition-colors rounded-t-lg">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">상시 업무 (시간 미지정)</span>
+                      <Badge variant="secondary" className="ml-2 bg-background border">{anytimeTasks.length}</Badge>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-4 pb-4 pt-1 space-y-2">
+                    {anytimeTasks.map(task => (
+                      <TaskCard 
+                        key={task.id} 
+                        task={task} 
+                        now={now}
+                        onCheck={handleChecklistToggle} 
+                        onStatusChange={handleStatusChange}
+                      />
+                    ))}
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            )}
+
+            {/* 타임라인 영역 */}
+            <div className="relative flex-1 pl-12 pr-1">
+              {/* 왼쪽 수직 기준선 */}
+              <div className="absolute left-[54px] top-4 bottom-4 w-0.5 bg-border/60" />
+
+              {groupedTasks.length === 0 && anytimeTasks.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+                  <CheckCircle2 className="w-10 h-10 mb-2 opacity-20" />
+                  <p className="text-sm">오늘 예정된 업무가 없습니다</p>
+                </div>
               )}
 
-              {/* 2. 진행 중 (Active) */}
-              <div className="space-y-3">
-                  <div className="flex items-center gap-2 text-primary font-medium text-sm">
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>지금 해야 할 일 ({activeTasks.length})</span>
-                  </div>
-                  {activeTasks.length === 0 ? (
-                      <div className="text-center py-8 bg-muted/30 rounded-lg border border-dashed text-muted-foreground text-sm">
-                          지금 예정된 업무가 없습니다.
-                      </div>
-                  ) : (
-                      activeTasks.map(task => (
-                          <TaskCard 
-                              key={task.id} 
-                              task={task} 
-                              onCheck={handleChecklistToggle} 
-                              onStatusChange={handleStatusChange}
-                              variant="active"
-                          />
-                      ))
-                  )}
-              </div>
+              {groupedTasks.map((group, i) => {
+                // 이전 업무와의 시간 차이에 비례한 여백 계산
+                let marginTopClass = "mt-4"
+                if (i > 0) {
+                   const prev = groupedTasks[i-1]
+                   const diffMins = (group.hour * 60 + group.minute) - (prev.hour * 60 + prev.minute)
+                   
+                   if (diffMins <= 30) marginTopClass = "mt-2"
+                   else if (diffMins <= 60) marginTopClass = "mt-6"
+                   else if (diffMins <= 120) marginTopClass = "mt-10"
+                   else marginTopClass = "mt-16"
+                }
 
-              {/* 3. 예정됨 (Upcoming) */}
-              {upcomingTasks.length > 0 && (
-                  <div className="space-y-3">
-                      <div 
-                        className="flex items-center justify-between cursor-pointer group"
-                        onClick={() => setIsUpcomingOpen(!isUpcomingOpen)}
-                      >
-                          <div className="flex items-center gap-2 text-muted-foreground font-medium text-sm group-hover:text-foreground transition-colors">
-                              <Calendar className="w-4 h-4" />
-                              <span>다가오는 업무 ({upcomingTasks.length})</span>
-                          </div>
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                              {isUpcomingOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                          </Button>
-                      </div>
+                // 과거인지 판단
+                const isPast = (group.hour * 60 + group.minute) < (now.getHours() * 60 + now.getMinutes())
+
+                return (
+                  <div key={group.time} className={cn("relative z-10", marginTopClass)}>
+                    
+                    {/* 시간 라벨 (왼쪽) */}
+                    <div className="absolute -left-[54px] top-1 w-[46px] text-right">
+                       <span className="text-xs font-semibold text-muted-foreground bg-background py-1">
+                         {group.time}
+                       </span>
+                    </div>
+
+                    {/* 노드 (점) */}
+                    <div className="absolute -left-[5px] top-[9px] flex items-center justify-center">
+                      <div className="w-3 h-3 rounded-full bg-primary border-2 border-background shadow-sm z-10" />
                       
-                      {isUpcomingOpen && (
-                          <div className="space-y-2 animate-in slide-in-from-top-2 fade-in duration-200">
-                          {upcomingTasks.map(task => (
-                              <TaskCard 
-                                  key={task.id} 
-                                  task={task} 
-                                  onCheck={handleChecklistToggle} 
-                                  onStatusChange={handleStatusChange}
-                                  variant="upcoming"
-                              />
-                          ))}
-                          </div>
+                      {group.tasks.some(t => t.assigned_role_ids && t.assigned_role_ids.length > 0) && (
+                        <div className="absolute w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center animate-pulse z-0" />
                       )}
+                    </div>
+
+                    {/* 카드 목록 */}
+                    <div className={cn("flex flex-col gap-2 pl-4 transition-opacity", isPast ? "opacity-60 hover:opacity-100" : "")}>
+                      {group.tasks.map(task => (
+                        <TaskCard 
+                          key={task.id} 
+                          task={task} 
+                          now={now}
+                          onCheck={handleChecklistToggle} 
+                          onStatusChange={handleStatusChange}
+                        />
+                      ))}
+                    </div>
+                    
+                    {/* 현재 시간 표시선 (이 그룹 직후가 현재 시간일 때) */}
+                    {i === currentLineGroupIndex && (
+                       <div className="relative h-12 flex items-center -ml-[54px]">
+                          <div className="w-12 text-right pr-2 shrink-0 z-20">
+                            <span className="text-[10px] font-bold text-red-500 bg-background px-1 rounded">
+                              {now.getHours().toString().padStart(2, '0')}:{now.getMinutes().toString().padStart(2, '0')}
+                            </span>
+                          </div>
+                          <div className="w-2 h-2 rounded-full bg-red-500 shrink-0 z-20 -ml-1 shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                          <div className="flex-1 border-t-2 border-dashed border-red-500/50" />
+                       </div>
+                    )}
+
                   </div>
+                )
+              })}
+              
+              {/* 타임라인 시작 전일 경우 시간 표시선 (제일 위에) */}
+              {groupedTasks.length > 0 && currentLineGroupIndex === -1 && (
+                 <div className="absolute top-0 left-0 right-0 h-0 flex items-center z-20">
+                    <div className="w-12 text-right pr-2 shrink-0">
+                      <span className="text-[10px] font-bold text-red-500 bg-background px-1 rounded">
+                        {now.getHours().toString().padStart(2, '0')}:{now.getMinutes().toString().padStart(2, '0')}
+                      </span>
+                    </div>
+                    <div className="w-2 h-2 rounded-full bg-red-500 shrink-0 z-20 -ml-1 shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                    <div className="flex-1 border-t-2 border-dashed border-red-500/50" />
+                 </div>
               )}
 
-              {/* 4. 완료됨 (Done) */}
-              {doneTasks.length > 0 && (
-                   <div className="space-y-3">
-                      <div 
-                        className="flex items-center justify-between cursor-pointer group"
-                        onClick={() => setIsDoneOpen(!isDoneOpen)}
-                      >
-                          <div className="flex items-center gap-2 text-muted-foreground font-medium text-sm group-hover:text-foreground transition-colors">
-                              <CheckCircle2 className="w-4 h-4" />
-                              <span>완료된 업무 ({doneTasks.length})</span>
-                          </div>
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                              {isDoneOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                          </Button>
-                      </div>
-
-                      {isDoneOpen && (
-                          <div className="space-y-2 animate-in slide-in-from-top-2 fade-in duration-200">
-                          {doneTasks.map(task => (
-                              <TaskCard 
-                                  key={task.id} 
-                                  task={task} 
-                                  onCheck={handleChecklistToggle} 
-                                  onStatusChange={handleStatusChange}
-                                  variant="done"
-                              />
-                          ))}
-                          </div>
-                      )}
-                  </div>
-              )}
-
+            </div>
           </div>
       </ScrollArea>
     </div>
@@ -260,115 +287,89 @@ export function DashboardTaskList({ storeId }: DashboardTaskListProps) {
 
 interface TaskCardProps {
   task: Task
+  now: Date
   onCheck: (taskId: string, itemId: string, checked: boolean) => void
   onStatusChange: (taskId: string, status: 'todo' | 'in_progress' | 'done') => void
-  variant: 'overdue' | 'active' | 'upcoming' | 'done'
 }
 
-function TaskCard({ task, onCheck, onStatusChange, variant }: TaskCardProps) {
-  const isDone = variant === 'done'
-  const isOverdue = variant === 'overdue'
-  const isUpcoming = variant === 'upcoming'
+function TaskCard({ task, now, onCheck, onStatusChange }: TaskCardProps) {
+  const isDone = task.status === 'done'
+  const isRoleTask = task.assigned_role_ids && task.assigned_role_ids.length > 0
+  const derivedStatus = getDerivedTaskStatus(task, now)
 
-  // Time formatting
-  const formatTime = (isoString: string | null) => {
-      if (!isoString) return '';
-      const date = new Date(isoString);
-      return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
-  }
+  // 색상 매핑
+  const statusColorClass = {
+    todo: "border-l-gray-400",
+    in_progress: "border-l-blue-500",
+    pending: "border-l-red-500",
+    done: "border-l-green-500 bg-green-50/30"
+  }[derivedStatus]
 
-  const getDurationString = (startIso: string | null, endIso: string | null) => {
-      if (!startIso || !endIso) return '';
-      const start = new Date(startIso);
-      const end = new Date(endIso);
-      const diffMs = end.getTime() - start.getTime();
-      const diffMins = Math.floor(diffMs / 60000);
-      
-      if (diffMins <= 0) return '';
-      if (diffMins < 60) return `(${diffMins}분)`;
-      const hours = Math.floor(diffMins / 60);
-      const mins = diffMins % 60;
-      return mins > 0 ? `(${hours}시간 ${mins}분)` : `(${hours}시간)`;
-  }
-
-  const startTime = formatTime(task.start_time);
-  const endTime = formatTime(task.end_time);
-  const durationString = getDurationString(task.start_time, task.end_time);
+  const checkboxClass = {
+    todo: "",
+    in_progress: "data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500",
+    pending: "border-red-500/50 data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500",
+    done: "data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
+  }[derivedStatus]
 
   return (
     <Card className={cn(
-        "transition-all",
-        isOverdue && "border-red-200 bg-red-50/50 dark:bg-red-900/10",
-        isDone && "opacity-60 bg-muted/50",
-        isUpcoming && "opacity-80 bg-muted/30"
+        "transition-all border-l-4 shadow-sm hover:shadow-md",
+        statusColorClass
     )}>
-        <CardHeader className="p-3 pb-1">
+        <CardHeader className="p-3 pb-2">
             <div className="flex items-start justify-between gap-2">
-                <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                        {task.is_critical && (
-                            <Badge variant="destructive" className="h-4 text-[10px] px-1">중요</Badge>
+                <div className="flex items-start gap-2 flex-1">
+                    <Checkbox 
+                        checked={isDone}
+                        onCheckedChange={() => onStatusChange(task.id, isDone ? 'todo' : 'done')}
+                        className={cn(
+                            "w-4 h-4 mt-0.5",
+                            checkboxClass
                         )}
-                        <h4 className={cn("font-medium text-sm leading-none", isDone && "line-through text-muted-foreground")}>
-                            {task.title}
-                        </h4>
-                    </div>
-                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                        <Clock className="w-3 h-3" />
-                        <span>{startTime} ~ {endTime}</span>
-                        {durationString && (
-                            <span>{durationString}</span>
+                    />
+                    <div>
+                      <h4 className={cn("font-medium text-sm leading-tight", isDone && "line-through text-muted-foreground")}>
+                          {task.title}
+                      </h4>
+                      <div className="flex items-center gap-1 mt-1">
+                        {isRoleTask ? (
+                          <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 font-normal bg-indigo-100 text-indigo-700">공통/역할</Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 font-normal bg-blue-100 text-blue-700">개인 업무</Badge>
                         )}
+                      </div>
                     </div>
                 </div>
             </div>
         </CardHeader>
-        <CardContent className="p-3 pt-2">
-            {task.description && (
-                <p className="text-xs text-muted-foreground mb-3 line-clamp-2">
-                    {task.description}
-                </p>
-            )}
-            
-            {/* Checklist */}
-            {task.checklist && task.checklist.length > 0 ? (
-                <div className="space-y-2">
+        
+        {((task.description) || (task.checklist && task.checklist.length > 0)) && (
+            <CardContent className="p-3 pt-0 space-y-2">
+                {task.description && (
+                  <p className="text-xs text-muted-foreground pl-6 whitespace-pre-wrap">
+                      {task.description}
+                  </p>
+                )}
+                
+                {task.checklist && task.checklist.length > 0 && (
+                  <div className="pl-6 space-y-1.5 pt-1">
                     {task.checklist.map(item => (
-                        <div key={item.id} className="flex items-start gap-2">
-                            <Checkbox 
-                                id={`check-${item.id}`}
-                                checked={item.is_completed}
-                                onCheckedChange={(checked) => onCheck(task.id, item.id, checked === true)}
-                                disabled={isDone && false} // 완료된 것도 다시 풀 수 있게 할지? 일단 가능하게.
-                                className={cn(
-                                    isOverdue && "border-red-400 data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500"
-                                )}
-                            />
-                            <label 
-                                htmlFor={`check-${item.id}`}
-                                className={cn(
-                                    "text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 pt-0.5 cursor-pointer",
-                                    item.is_completed && "line-through text-muted-foreground"
-                                )}
-                            >
-                                {item.text}
-                            </label>
-                        </div>
+                      <div key={item.id} className="flex items-start gap-2">
+                         <Checkbox 
+                            checked={item.is_completed}
+                            onCheckedChange={(c) => onCheck(task.id, item.id, !!c)}
+                            className="w-3.5 h-3.5 mt-0.5 rounded-sm"
+                         />
+                         <span className={cn("text-xs", item.is_completed && "line-through text-muted-foreground")}>
+                           {item.text}
+                         </span>
+                      </div>
                     ))}
-                </div>
-            ) : (
-                <div className="flex justify-end pt-1">
-                    <Button 
-                        size="sm" 
-                        variant={isDone ? "outline" : "default"}
-                        className={cn("h-7 text-xs", isDone && "text-muted-foreground")}
-                        onClick={() => onStatusChange(task.id, isDone ? 'todo' : 'done')}
-                    >
-                        {isDone ? '미완료로 변경' : '완료하기'}
-                    </Button>
-                </div>
-            )}
-        </CardContent>
+                  </div>
+                )}
+            </CardContent>
+        )}
     </Card>
   )
 }

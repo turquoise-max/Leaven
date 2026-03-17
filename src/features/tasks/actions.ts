@@ -27,7 +27,7 @@ export interface Task {
   assigned_role_ids: string[] | null
   assigned_role_id?: string | null // Deprecated
   checklist: ChecklistItem[] | null
-  status: 'todo' | 'in_progress' | 'done'
+  status: 'todo' | 'in_progress' | 'pending' | 'done'
   is_template?: boolean
   recurrence_rule?: any
   role?: {
@@ -92,7 +92,7 @@ export interface UpdateTaskInput {
   assigned_role_ids?: string[] | null
   assigned_role_id?: string | null // Deprecated
   checklist?: ChecklistItem[]
-  status?: 'todo' | 'in_progress' | 'done'
+  status?: 'todo' | 'in_progress' | 'pending' | 'done'
 }
 
 export interface AssignTaskInput {
@@ -100,7 +100,7 @@ export interface AssignTaskInput {
   task_id: string
   member_id: string
   assigned_date: string
-  start_time: string
+  start_time?: string | null
   estimated_minutes: number
   schedule_id?: string
 }
@@ -457,20 +457,34 @@ export async function assignTask(input: AssignTaskInput) {
   if (!user) throw new Error('User not found')
   await requirePermission(user.id, input.store_id, 'manage_tasks')
 
+  // store_member의 user_id 조회
+  const { data: targetMember } = await supabase
+    .from('store_members')
+    .select('user_id')
+    .eq('id', input.member_id)
+    .single()
+
+  if (!targetMember || !targetMember.user_id) {
+    return { error: '유효하지 않은 직원입니다.' }
+  }
+
   // 종료 시간 계산 (순수 시간 계산, Timezone 무관)
-  const end_time = addMinutesToTime(input.start_time, input.estimated_minutes)
+  let end_time = null
+  if (input.start_time) {
+    end_time = addMinutesToTime(input.start_time, input.estimated_minutes)
+  }
 
   const { data, error } = await supabase
     .from('task_assignments')
     .insert([{
       store_id: input.store_id,
       task_id: input.task_id,
-      member_id: input.member_id,
+      user_id: targetMember.user_id, // member_id 대신 user_id 사용
       assigned_date: input.assigned_date,
-      start_time: input.start_time,
+      start_time: input.start_time || null,
       end_time: end_time,
       status: 'pending',
-      schedule_id: input.schedule_id
+      schedule_id: input.schedule_id || null
     }])
     .select()
     .single()
@@ -481,6 +495,66 @@ export async function assignTask(input: AssignTaskInput) {
   }
 
   revalidatePath(`/dashboard/schedule/${input.assigned_date}`)
+  revalidatePath('/dashboard/schedule')
+  return { data }
+}
+
+export async function updateTaskAssignment(
+  assignmentId: string,
+  taskId: string,
+  storeId: string,
+  title: string,
+  startTime: string | null,
+  estimatedMinutes: number
+) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('User not found')
+  await requirePermission(user.id, storeId, 'manage_tasks')
+
+  const { data: assignment } = await supabase
+    .from('task_assignments')
+    .select('assigned_date')
+    .eq('id', assignmentId)
+    .single()
+
+  // 상시 업무(시간 미지정)일 경우, 해당 날짜의 자정으로 설정
+  const finalStartTime = startTime 
+    ? new Date(startTime).toISOString() 
+    : (assignment ? `${assignment.assigned_date}T00:00:00Z` : null)
+
+  // Update task table
+  const { error: taskError } = await supabase
+    .from('tasks')
+    .update({ 
+      title, 
+      start_time: finalStartTime,
+      estimated_minutes: estimatedMinutes,
+      task_type: startTime ? 'scheduled' : 'always',
+      updated_at: getCurrentISOString()
+    })
+    .eq('id', taskId)
+
+  if (taskError) return { error: 'Failed to update task' }
+
+  // Update assignment table
+  let endTime = null
+  if (startTime) {
+    endTime = addMinutesToTime(startTime.split('T')[1]?.substring(0, 5) || startTime, estimatedMinutes)
+  }
+
+  const { data, error: assignError } = await supabase
+    .from('task_assignments')
+    .update({
+      start_time: startTime ? (startTime.includes('T') ? startTime.split('T')[1].substring(0, 5) : startTime) : null,
+      end_time: endTime
+    })
+    .eq('id', assignmentId)
+    .select()
+    .single()
+
+  if (assignError) return { error: 'Failed to update assignment' }
+
   revalidatePath('/dashboard/schedule')
   return { data }
 }
@@ -560,7 +634,7 @@ export async function getTaskAssignmentsBySchedule(storeId: string, scheduleId: 
 // 업무 상태 업데이트
 export async function updateTaskStatus(
   taskId: string, 
-  status: 'todo' | 'in_progress' | 'done'
+  status: 'todo' | 'in_progress' | 'pending' | 'done'
 ) {
   const supabase = await createClient()
 

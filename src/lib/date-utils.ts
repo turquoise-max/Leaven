@@ -105,8 +105,11 @@ export function addMinutesToTime(timeStr: string, minutesToAdd: number): string 
   const [h, m] = timeStr.split(':').map(Number)
   const totalMinutes = h * 60 + m + minutesToAdd
   
-  const newH = Math.floor(totalMinutes / 60) % 24
-  const newM = totalMinutes % 60
+  let newH = Math.floor(totalMinutes / 60) % 24
+  if (newH < 0) newH += 24
+  
+  let newM = totalMinutes % 60
+  if (newM < 0) newM += 60
   
   return `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`
 }
