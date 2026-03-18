@@ -230,4 +230,19 @@
   .fc .fc-timegrid-slot-label {
     @apply text-xs text-muted-foreground font-medium;
   }
+
+  /* Custom Now Indicator (TimeLine) */
+  .fc .fc-timegrid-now-indicator-arrow {
+    border-color: transparent !important;
+    border-width: 0 !important;
+    background: transparent !important;
+    overflow: visible;
+    margin-top: -3.5px !important; /* Center the custom badge */
+  }
+  .fc .fc-timegrid-now-indicator-line {
+    border-top-width: 0 !important;
+    height: 1.5px !important;
+    background: linear-gradient(to right, rgba(29,158,117,0.8) 0%, rgba(29,158,117,0.3) 50%, rgba(29,158,117,0) 100%) !important;
+    z-index: 40;
+  }
 }

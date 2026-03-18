@@ -17,7 +17,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // 1. 매장 및 직원 정보, 스케줄 등 일괄 조회
+    // 1. 사업주 정보 조회 (현재 로그인한 사용자)
+    const { data: employerProfile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single()
+
+    // 2. 매장 및 직원 정보, 스케줄 등 일괄 조회
     const { data: staffData, error: staffError } = await supabase
       .from('store_members')
       .select(`
@@ -161,75 +168,48 @@ export async function POST(req: Request) {
 
     if (isFulltimeTemplate) {
       // --- 정규직 및 계약직용 템플릿 필드 ---
-      fields = {
-        // 도입부
-        'company_name': store.name || '',
-        'employee_name_1': staffName,
-        
-        // 제 1 조 (근로 형태 및 근로 기간)
-        'start_year': hiredDate.getFullYear(),
-        'start_month': hiredDate.getMonth() + 1,
-        'start_day': hiredDate.getDate(),
-        
-        // 제 2 조 (담당업무 및 업무장소)
-        'job_role': roleInfo?.name || '직원',
-        'work_place': store.address ? `${store.address} ${store.address_detail || ''}`.trim() : '',
-        
-        // 제 3 조 (근로시간 및 휴일)
-        'daily_work_hours': totalWeeklyHours > 0 ? totalWeeklyHours / activeDays.length : 8,
-        'weekly_work_hours': totalWeeklyHours || 40,
-        'work_day_start': workDaysStr.split('~')[0]?.trim() || '월요일',
-        'work_day_end': workDaysStr.split('~')[1]?.trim() || '금요일',
-        'work_time_start_h': workTimeStart.split(':')[0] || '09',
-        'work_time_start_m': workTimeStart.split(':')[1] || '00',
-        'work_time_end_h': workTimeEnd.split(':')[0] || '18',
-        'work_time_end_m': workTimeEnd.split(':')[1] || '00',
-        'break_time_start_h': breakTimeStart.split(':')[0] || '12',
-        'break_time_start_m': breakTimeStart.split(':')[1] || '00',
-        'break_time_end_h': breakTimeEnd.split(':')[0] || '13',
-        'break_time_end_m': breakTimeEnd.split(':')[1] || '00',
-        'work_days_per_week': activeDays.length || 5,
-        'weekly_holiday': holidays.length > 0 ? holidays.join(', ') : '일요일',
-        
-        // 제 5 조 (임금)
-        'wage_start_month': '해당',
-        'wage_start_day': wageStartDayStr,
-        'wage_end_month': '해당',
-        'wage_end_day': wageEndDayStr,
-        'pay_day': store.pay_day || 10,
-        
-        // 임금구성항목
-        'basic_pay': formatter.format(basicPay),
-        'basic_weekly_hours': totalWeeklyHours || 40,
-        'basic_monthly_hours': Math.round((totalWeeklyHours || 40) * 4.345),
-        'meal_allowance': formatter.format(mealAllowance),
-        
-        // 추가 항목 줄 (비어있는 3줄)
-        'extra_item_1_name': '',
-        'extra_item_1_amount': '',
-        'extra_item_1_desc': '',
-        'extra_item_2_name': '',
-        'extra_item_2_amount': '',
-        'extra_item_2_desc': '',
-        'extra_item_3_name': '',
-        'extra_item_3_amount': '',
-        'extra_item_3_desc': '',
-        
-        // 합계 줄
-        'total_salary': formatter.format(totalWage),
-        
-        // 교부 확인란
-        'employee_name_2': staffName,
+      const hiredDateFormatted = `${hiredDate.getFullYear()}년 ${hiredDate.getMonth() + 1}월 ${hiredDate.getDate()}일`
+      
+      const activeDaysNames = activeDays.map(d => dayNames[d.day]).join(', ')
+      const workDaysString = activeDaysNames ? `${activeDaysNames} 주 ${activeDays.length}일` : ''
+      
+      const dailyWorkHours = totalWeeklyHours > 0 && activeDays.length > 0 ? (totalWeeklyHours / activeDays.length) : 0
+      const workHoursString = (workTimeStart && workTimeEnd) ? `${workTimeStart} ~ ${workTimeEnd} - 총 ${dailyWorkHours}시간` : ''
+      const breakTimeString = (breakTimeStart && breakTimeEnd) ? `${breakTimeStart} ~ ${breakTimeEnd}` : ''
 
-        // 계약 작성 일자
-        'contract_year': now.getFullYear(),
-        'contract_month': now.getMonth() + 1,
-        'contract_day': now.getDate(),
-        
-        // 회사(사용자) 입력란
-        'company_reg_number': store.business_number || '',
+      const baseWorkHours = Math.round((totalWeeklyHours || 40) * 4.345)
+      const baseHourlyRate = baseWorkHours > 0 ? Math.round(basicPay / baseWorkHours) : 0
+      
+      const annualSalary = totalWage * 12
+
+      fields = {
+        'company_name': store.name || '',
+        'company_rep_name': store.owner_name || '',
         'company_address': store.address ? `${store.address} ${store.address_detail || ''}`.trim() : '',
-        'company_rep_name': store.owner_name || ''
+        'company_phone': store.store_phone || '',
+        'employee_name': staffName,
+        'employee_id_number': '', // DB에 없음
+        'employee_address': '', // 현재 상세 주소 DB 없음
+        'contract_period_start': hiredDateFormatted,
+        'contract_period_end': '', // 정규직의 경우 기한의 정함이 없는 경우가 많아 기본 빈칸
+        'initial_hiring_date': hiredDateFormatted,
+        'salary_contract_period_start': hiredDateFormatted,
+        'work_location': store.address ? `${store.address} ${store.address_detail || ''}`.trim() : '',
+        'job_description': roleInfo?.name || '직원',
+        'work_days': workDaysString,
+        'work_hours': workHoursString,
+        'break_time': breakTimeString,
+        'annual_salary': formatter.format(annualSalary),
+        'base_pay': formatter.format(basicPay),
+        'base_work_hours': baseWorkHours.toString(),
+        'base_hourly_rate': formatter.format(baseHourlyRate),
+        'overtime_allowance_amount': '', // 포괄임금제 명세가 없다면 기본 빈칸
+        'fixed_overtime_hours': '',
+        'overtime_unit_price': '',
+        'meal_allowance': formatter.format(mealAllowance),
+        'car_allowance': '', // 기본 빈칸
+        'monthly_total_pay': formatter.format(totalWage),
+        'included_overtime_hours_total': ''
       }
     } else {
       // --- 아르바이트용 템플릿 필드 ---
@@ -346,24 +326,51 @@ export async function POST(req: Request) {
     // 4. 모두싸인 API 호출
     const title = `[${store.name || '매장'}] ${staffName} 근로계약서`
     
-    // 채널 설정 적용
+    // 채널 설정 적용 (근로자용)
     const sendEmail = channels?.email ?? !!staffEmail
     const sendKakao = channels?.kakao ?? false
     
-    // signingMethod.value 설정 시 전화번호 형식(010-0000-0000 -> 01000000000 등)이 필요할 수 있으나,
-    // 모두싸인은 기본적으로 형태에 맞춰 주면 알아서 파싱합니다.
+    // 근로자 서명 방식
     const methodType = sendKakao && staffPhone ? 'KAKAOTALK' : 'EMAIL'
     const methodValue = methodType === 'KAKAOTALK' ? staffPhone.replace(/[^0-9]/g, '') : staffEmail
+
+    // 사업주 정보 설정 (현재 사용자)
+    const employerName = employerProfile?.full_name || store.owner_name || '대표자'
+    const employerEmail = user.email || undefined
+    const employerPhone = employerProfile?.phone || store.store_phone || undefined
+
+    // 사업주 서명 방식 (이메일 우선)
+    let employerMethodType: 'EMAIL' | 'KAKAOTALK' = 'EMAIL'
+    let employerMethodValue = employerEmail
+
+    if (!employerEmail && employerPhone) {
+      employerMethodType = 'KAKAOTALK'
+      employerMethodValue = employerPhone.replace(/[^0-9]/g, '')
+    }
+
+    if (!employerMethodValue) {
+      return NextResponse.json({ error: '사업주(발송자)의 이메일 또는 전화번호 정보가 없습니다.' }, { status: 400 })
+    }
 
     const result = await sendContract({
       templateId,
       title,
       participants: [
         {
+          name: employerName,
+          email: employerEmail,
+          phone: employerPhone,
+          role: '사업주', // 템플릿의 사업주 역할 이름과 일치해야 함
+          signingMethod: {
+            type: employerMethodType,
+            value: employerMethodValue
+          }
+        },
+        {
           name: staffName,
           email: sendEmail && staffEmail ? staffEmail : undefined,
           phone: sendKakao && staffPhone ? staffPhone : undefined,
-          role: '근로자',
+          role: '근로자', // 템플릿의 근로자 역할 이름과 일치해야 함
           signingMethod: {
             type: methodType,
             value: methodValue

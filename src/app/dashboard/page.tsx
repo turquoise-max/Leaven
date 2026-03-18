@@ -7,6 +7,8 @@ import Link from 'next/link'
 import { cookies } from 'next/headers'
 import { DashboardTaskList } from '@/features/tasks/components/dashboard-task-list'
 import { getCurrentSchedule } from '@/features/schedule/actions'
+import { AnnouncementList } from '@/features/store/components/announcement-list'
+import { getStoreAnnouncements } from '@/features/store/announcement-actions'
 
 export const dynamic = 'force-dynamic'
 
@@ -61,9 +63,10 @@ export default async function DashboardPage() {
   }
 
   // 병렬로 데이터 조회
-  const [pendingCount, currentSchedule] = await Promise.all([
+  const [pendingCount, currentSchedule, announcements] = await Promise.all([
     getPendingRequestsCount(store.id),
-    getCurrentSchedule(store.id)
+    getCurrentSchedule(store.id),
+    getStoreAnnouncements(store.id)
   ])
 
   // 관리자 여부 확인
@@ -74,11 +77,11 @@ export default async function DashboardPage() {
   }
 
   return (
-    <AdminDashboard pendingCount={pendingCount} store={store} />
+    <AdminDashboard pendingCount={pendingCount} store={store} announcements={announcements} />
   )
 }
 
-function AdminDashboard({ pendingCount, store }: { pendingCount: number, store: any }) {
+function AdminDashboard({ pendingCount, store, announcements }: { pendingCount: number, store: any, announcements: any[] }) {
   return (
     <div className="flex flex-col gap-8 h-full">
       {pendingCount > 0 && (
@@ -166,10 +169,14 @@ function AdminDashboard({ pendingCount, store }: { pendingCount: number, store: 
           </div>
         </div>
 
-        {/* Sidebar Placeholder or general task list */}
+        {/* Sidebar: Announcements */}
         <div className="md:col-span-4 lg:col-span-4">
-           <div className="sticky top-6 h-[calc(100vh-120px)] flex flex-col border rounded-lg bg-muted/5 border-dashed items-center justify-center text-muted-foreground">
-               <span className="text-sm">📋 매장 전체 주요 일정/알림 (준비 중)</span>
+           <div className="sticky top-6 h-[calc(100vh-120px)] flex flex-col">
+              <AnnouncementList 
+                storeId={store.id} 
+                announcements={announcements} 
+                isManager={true} 
+              />
            </div>
         </div>
       </div>

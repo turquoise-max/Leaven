@@ -733,6 +733,19 @@ export function ScheduleCalendar({
             eventClick={handleEventClick}
             eventDrop={handleEventDrop}
             eventResize={handleEventResize}
+            nowIndicatorContent={(arg) => {
+              const now = arg.date
+              const h = String(now.getHours()).padStart(2, '0')
+              const m = String(now.getMinutes()).padStart(2, '0')
+              return (
+                <div className="relative flex items-center justify-end pr-0.5">
+                  <div className="absolute right-3 bg-[#1D9E75] text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md shadow-[0_2px_4px_rgba(29,158,117,0.4)] whitespace-nowrap">
+                    {h}:{m}
+                  </div>
+                  <div className="w-[7px] h-[7px] rounded-full bg-[#1D9E75] border-[1.5px] border-white shadow-[0_0_4px_rgba(29,158,117,0.6)] z-10" />
+                </div>
+              )
+            }}
           />
         </div>
       </div>

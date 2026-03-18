@@ -2,6 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { DashboardTaskList } from '@/features/tasks/components/dashboard-task-list'
+import { getStoreAnnouncements } from '@/features/store/announcement-actions'
+import { StaffAnnouncementList } from '@/features/store/components/staff-announcement-list'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,6 +34,8 @@ export default async function MyTasksPage() {
   
   if (!store) redirect('/onboarding')
 
+  const announcements = await getStoreAnnouncements(store.id)
+
   return (
     <div className="flex flex-col gap-6 h-full max-w-3xl mx-auto w-full pt-4">
       <div className="px-2">
@@ -40,6 +44,12 @@ export default async function MyTasksPage() {
           {store?.name}에서 오늘 나에게 배정된 업무입니다.
         </p>
       </div>
+
+      {announcements && announcements.length > 0 && (
+        <div className="px-2">
+          <StaffAnnouncementList announcements={announcements} />
+        </div>
+      )}
 
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
         <DashboardTaskList storeId={store.id} />

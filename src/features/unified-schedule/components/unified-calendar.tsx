@@ -684,16 +684,23 @@ export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = []
             {/* 실시간 현재 시간 지시선 */}
             {isSameDay(selectedDate, now) && (() => {
               const currentHourNum = now.getHours() + now.getMinutes() / 60
+              const displayTimeStr = format(now, 'HH:mm')
               // hours[0] = 6 (06:00 기준)
               // 스크롤 컨테이너 기준: pt-4(16px) + 헤더높이(36px) = 52px
               const lineTop = 52 + (currentHourNum - hours[0]) * 40
               
               return currentHourNum >= hours[0] && currentHourNum < hours[0] + 24 ? (
                 <div 
-                  className="absolute left-[40px] right-0 h-[1.5px] bg-red-500 z-30 pointer-events-none flex items-center"
-                  style={{ top: `${lineTop}px` }}
+                  className="absolute left-[40px] right-0 h-[1.5px] z-40 pointer-events-none flex items-center"
+                  style={{ 
+                    top: `${lineTop}px`,
+                    background: 'linear-gradient(to right, rgba(29,158,117,0.8) 0%, rgba(29,158,117,0.3) 50%, rgba(29,158,117,0) 100%)'
+                  }}
                 >
-                  <div className="absolute left-0 -translate-x-1.5 w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_3px_rgba(239,68,68,0.6)]" />
+                  <div className="absolute -left-[38px] top-1/2 -translate-y-1/2 bg-[#1D9E75] text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md shadow-[0_2px_4px_rgba(29,158,117,0.4)]">
+                    {displayTimeStr}
+                  </div>
+                  <div className="absolute left-0 -translate-x-1/2 w-[7px] h-[7px] rounded-full bg-[#1D9E75] border-[1.5px] border-white shadow-[0_0_4px_rgba(29,158,117,0.6)]" />
                 </div>
               ) : null
             })()}

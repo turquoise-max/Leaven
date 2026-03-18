@@ -250,14 +250,14 @@ export function DashboardTaskList({ storeId }: DashboardTaskListProps) {
                     
                     {/* 현재 시간 표시선 (이 그룹 직후가 현재 시간일 때) */}
                     {i === currentLineGroupIndex && (
-                       <div className="relative h-12 flex items-center -ml-[54px]">
-                          <div className="w-12 text-right pr-2 shrink-0 z-20">
-                            <span className="text-[10px] font-bold text-red-500 bg-background px-1 rounded">
+                       <div className="relative h-12 flex items-center -ml-[54px] z-20">
+                          <div className="w-[50px] text-right pr-[7px] shrink-0 flex justify-end">
+                            <div className="bg-[#1D9E75] text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md shadow-[0_2px_4px_rgba(29,158,117,0.4)] whitespace-nowrap">
                               {now.getHours().toString().padStart(2, '0')}:{now.getMinutes().toString().padStart(2, '0')}
-                            </span>
+                            </div>
                           </div>
-                          <div className="w-2 h-2 rounded-full bg-red-500 shrink-0 z-20 -ml-1 shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
-                          <div className="flex-1 border-t-2 border-dashed border-red-500/50" />
+                          <div className="w-[7px] h-[7px] rounded-full bg-[#1D9E75] border-[1.5px] border-white shrink-0 z-20 -ml-[3.5px] shadow-[0_0_4px_rgba(29,158,117,0.6)]" />
+                          <div className="flex-1 h-[1.5px] bg-gradient-to-r from-[rgba(29,158,117,0.8)] via-[rgba(29,158,117,0.3)] to-transparent" />
                        </div>
                     )}
 
@@ -268,13 +268,13 @@ export function DashboardTaskList({ storeId }: DashboardTaskListProps) {
               {/* 타임라인 시작 전일 경우 시간 표시선 (제일 위에) */}
               {groupedTasks.length > 0 && currentLineGroupIndex === -1 && (
                  <div className="absolute top-0 left-0 right-0 h-0 flex items-center z-20">
-                    <div className="w-12 text-right pr-2 shrink-0">
-                      <span className="text-[10px] font-bold text-red-500 bg-background px-1 rounded">
+                    <div className="w-[50px] text-right pr-[7px] shrink-0 flex justify-end">
+                      <div className="bg-[#1D9E75] text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md shadow-[0_2px_4px_rgba(29,158,117,0.4)] whitespace-nowrap">
                         {now.getHours().toString().padStart(2, '0')}:{now.getMinutes().toString().padStart(2, '0')}
-                      </span>
+                      </div>
                     </div>
-                    <div className="w-2 h-2 rounded-full bg-red-500 shrink-0 z-20 -ml-1 shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
-                    <div className="flex-1 border-t-2 border-dashed border-red-500/50" />
+                    <div className="w-[7px] h-[7px] rounded-full bg-[#1D9E75] border-[1.5px] border-white shrink-0 z-20 -ml-[3.5px] shadow-[0_0_4px_rgba(29,158,117,0.6)]" />
+                    <div className="flex-1 h-[1.5px] bg-gradient-to-r from-[rgba(29,158,117,0.8)] via-[rgba(29,158,117,0.3)] to-transparent" />
                  </div>
               )}
 
