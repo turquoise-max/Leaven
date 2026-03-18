@@ -71,7 +71,7 @@ export interface TaskFormData {
   nth_day?: number  // 0~6 (일~토)
   
   checklist: ChecklistItem[]
-  status?: 'todo' | 'in_progress' | 'done'
+  status?: 'todo' | 'in_progress' | 'pending' | 'done'
 }
 
 interface SortableChecklistItemProps {
