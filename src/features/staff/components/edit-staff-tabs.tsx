@@ -362,14 +362,18 @@ export function BasicWorkInfoTab({ formData, onChange, canEdit, isLinked, roles,
 
 // --- 3. Contract Settings Tab ---
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Button } from '@/components/ui/button'
+
+import { Download, ExternalLink, Clock, AlertCircle } from 'lucide-react'
 
 interface ContractTabProps extends TabProps {
   weeklyTotalMinutes: number
   isOver15Hours: boolean
   storeSettings: any
+  staff?: any
 }
 
-export function ContractSettingsTab({ formData, onChange, canEdit, weeklyTotalMinutes, isOver15Hours, storeSettings }: ContractTabProps) {
+export function ContractSettingsTab({ formData, onChange, canEdit, weeklyTotalMinutes, isOver15Hours, storeSettings, staff }: ContractTabProps) {
   const handleWageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value.replace(/[^0-9]/g, '')
     onChange({ baseWage: val })
@@ -653,11 +657,11 @@ export function ContractSettingsTab({ formData, onChange, canEdit, weeklyTotalMi
             </span>
         </div>
 
-        {/* 근로계약서 미리보기 안내 영역 */}
+        {/* 전자 근로계약서 상태 및 다운로드 영역 */}
         <div className="mt-6 pt-5 space-y-4 border-t border-border/30">
           <div className="flex items-center justify-between pb-2 border-b">
             <h4 className="font-semibold text-sm flex items-center gap-2 text-foreground/90">
-              <FileText className="w-4 h-4" /> 근로계약서 반영 요약
+              <FileText className="w-4 h-4" /> 전자 근로계약서 상태
             </h4>
             <Badge variant="outline" className="text-[10px] bg-primary/5 text-primary border-primary/20">
               {formData.employmentType === 'parttime' ? '단시간 근로자 표준근로계약서' : 
@@ -666,34 +670,90 @@ export function ContractSettingsTab({ formData, onChange, canEdit, weeklyTotalMi
             </Badge>
           </div>
           
-          <div className="bg-background border border-dashed border-border/60 rounded-lg p-5 flex flex-col items-center justify-center text-center gap-3 relative overflow-hidden group hover:border-primary/30 transition-colors">
-            {/* Background design elements */}
-            <div className="absolute top-0 right-0 w-16 h-16 bg-muted/40 -mr-8 -mt-8 rounded-full pointer-events-none"></div>
-            <div className="absolute bottom-0 left-0 w-24 h-24 bg-primary/5 -ml-12 -mb-12 rounded-full pointer-events-none"></div>
-            
-            <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-1 shadow-sm">
-              <FileText className="w-5 h-5 opacity-90" />
-            </div>
-            
-            <div className="space-y-1.5 z-10">
-              <p className="font-semibold text-[13px] text-foreground">자동 생성 계약서 항목</p>
-              <p className="text-[11px] text-muted-foreground max-w-[240px] leading-relaxed mx-auto">
-                위 설정된 <span className="font-medium text-foreground/80">{formData.wageType === 'hourly' ? '시급' : formData.wageType === 'daily' ? '일급' : formData.wageType === 'monthly' ? '월 기본급' : '연봉'}</span>, 
-                <span className="font-medium text-foreground/80"> 소정근로시간</span>이 전자계약서 서식에 자동 매핑됩니다.<br/>
-                <span className="text-muted-foreground/70">(* 4대보험 설정은 직원 관리 및 노무 참고용으로 저장됩니다.)</span>
-                {formData.employmentType === 'fulltime' && <><br/><span className="mt-1 block">* 정규직(월급)은 비과세 식대(20만원)가 분리 계산되어 매핑됩니다.</span></>}
-              </p>
-            </div>
-            
-            <div className="flex flex-wrap gap-2 justify-center mt-3 z-10">
-              <div className="flex items-center gap-1.5 text-[10px] font-medium bg-muted/60 px-2.5 py-1 rounded-full text-foreground/70">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> 임금/지급
+          <div className="bg-background border rounded-lg p-5 flex flex-col gap-4 relative overflow-hidden group transition-colors">
+            <div className="flex items-start justify-between">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <p className="font-semibold text-[14px] text-foreground">근로계약 체결 현황</p>
+                  {staff?.contract_status === 'signed' ? (
+                    <Badge variant="outline" className="bg-emerald-50 text-emerald-600 border-emerald-200">
+                      <CheckCircle2 className="w-3 h-3 mr-1" /> 체결 완료
+                    </Badge>
+                  ) : staff?.contract_status === 'sent' ? (
+                    <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200">
+                      <Clock className="w-3 h-3 mr-1" /> 점주 서명 대기
+                    </Badge>
+                  ) : staff?.contract_status === 'pending_staff' ? (
+                    <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-200">
+                      <Clock className="w-3 h-3 mr-1" /> 직원 서명 대기
+                    </Badge>
+                  ) : staff?.contract_status === 'rejected' ? (
+                    <Badge variant="outline" className="bg-red-50 text-red-600 border-red-200">
+                      <AlertCircle className="w-3 h-3 mr-1" /> 거절됨
+                    </Badge>
+                  ) : staff?.contract_status === 'canceled' ? (
+                    <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200">
+                      <AlertCircle className="w-3 h-3 mr-1" /> 취소됨
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="bg-muted text-muted-foreground border-muted-foreground/20">
+                      미발송
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-[12px] text-muted-foreground">
+                  {staff?.contract_status === 'signed' ? '근로자와의 전자계약 체결이 모두 완료되었습니다.' : 
+                   staff?.contract_status === 'sent' || staff?.contract_status === 'pending_staff' ? '서명이 완료되면 계약서 PDF가 자동으로 저장됩니다.' : 
+                   '입력된 근로 조건을 바탕으로 전자계약서를 발송할 수 있습니다.'}
+                </p>
               </div>
-              <div className="flex items-center gap-1.5 text-[10px] font-medium bg-muted/60 px-2.5 py-1 rounded-full text-foreground/70">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> 근로/휴무
+            </div>
+
+            {staff?.contract_status === 'signed' && staff?.contract_file_url ? (
+              <div className="flex items-center justify-between mt-2 p-3 bg-muted/40 border rounded-lg hover:bg-muted/60 transition-colors group/card cursor-pointer" onClick={() => window.open(staff.contract_file_url, '_blank')}>
+                <div className="flex items-center gap-3 overflow-hidden">
+                  <div className="w-10 h-10 rounded bg-red-100/80 text-red-600 flex items-center justify-center shrink-0">
+                    <FileText className="w-5 h-5" />
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-[13px] font-medium text-foreground truncate block">
+                      근로계약서_{formData.name}.pdf
+                    </span>
+                    <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                      전자 서명 및 교부 완료
+                    </span>
+                  </div>
+                </div>
+                <Button 
+                  type="button" 
+                  variant="ghost" 
+                  size="icon" 
+                  className="w-8 h-8 rounded-full opacity-70 group-hover/card:opacity-100 hover:bg-background shadow-sm bg-background border border-transparent group-hover/card:border-border/50 transition-all shrink-0 ml-2"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    window.open(staff.contract_file_url, '_blank');
+                  }}
+                  title="문서 열람"
+                >
+                  <ExternalLink className="w-4 h-4 text-foreground/80" />
+                </Button>
               </div>
-              <div className="flex items-center gap-1.5 text-[10px] font-medium bg-muted/60 px-2.5 py-1 rounded-full text-foreground/70">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> 사회보험
+            ) : (
+              <div className="bg-muted/40 rounded flex items-center justify-center py-4 text-[12px] text-muted-foreground/70 mt-2">
+                체결 완료 시 계약서 다운로드가 가능합니다.
+              </div>
+            )}
+            
+            <div className="pt-3 border-t border-border/40 flex flex-wrap gap-2 text-xs">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <CheckCircle2 className="w-3.5 h-3.5 text-primary/60" /> 임금/지급
+              </div>
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <CheckCircle2 className="w-3.5 h-3.5 text-primary/60" /> 근로/휴무
+              </div>
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <CheckCircle2 className="w-3.5 h-3.5 text-primary/60" /> 사회보험
               </div>
             </div>
           </div>

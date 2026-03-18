@@ -627,6 +627,7 @@ export function EditStaffDialog({
                         weeklyTotalMinutes={weeklyTotalMinutes} 
                         isOver15Hours={isOver15Hours} 
                         storeSettings={storeSettings}
+                        staff={staff}
                       />
                     </div>
                   </ScrollArea>
