@@ -328,16 +328,44 @@ export function StaffTableRow({
               variant="outline" 
               size="sm" 
               className="h-7 text-xs bg-purple-50 text-purple-700 hover:bg-purple-100 hover:text-purple-800 border-purple-200"
-              onClick={() => toast.info('문서 열람 기능은 준비 중입니다.')}
+              onClick={() => {
+                if (staff.contract_file_url) {
+                  window.open(staff.contract_file_url, '_blank')
+                } else {
+                  toast.info('문서 열람 기능은 준비 중입니다.')
+                }
+              }}
             >
               <FileText className="w-3.5 h-3.5 mr-1" />
               완료
               <Download className="w-3 h-3 ml-1.5 opacity-50" />
             </Button>
+          ) : staff.contract_status === 'pending_staff' ? (
+            <div className="flex flex-col items-center gap-0.5" title="직원이 서명할 차례입니다.">
+              <div className="flex items-center gap-1 text-[11px] font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                <FileText className="w-3 h-3" />
+                직원 확인중
+              </div>
+            </div>
           ) : staff.contract_status === 'sent' ? (
-            <div className="flex items-center gap-1.5 text-[11px] font-medium text-purple-600 bg-purple-50 px-2 py-1 rounded-md border border-purple-100">
-              <FileText className="w-3.5 h-3.5" />
-              대기중
+            <div className="flex flex-col items-center gap-0.5" title="점주님의 서명이 필요합니다.">
+              <div className="flex items-center gap-1 text-[11px] font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                <FileText className="w-3 h-3" />
+                점주 확인중
+              </div>
+            </div>
+          ) : staff.contract_status === 'rejected' ? (
+            <div className="flex flex-col items-center gap-0.5">
+              <div className="flex items-center gap-1 text-[11px] font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-200">
+                <X className="w-3 h-3" />
+                거절됨
+              </div>
+            </div>
+          ) : staff.contract_status === 'canceled' ? (
+            <div className="flex flex-col items-center gap-0.5">
+              <div className="flex items-center gap-1 text-[11px] font-medium text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-200">
+                취소됨
+              </div>
             </div>
           ) : (
             <span className="text-xs text-muted-foreground/50 px-1">미작성</span>

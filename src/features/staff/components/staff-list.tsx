@@ -50,7 +50,8 @@ export interface StaffMember {
   user_id: string | null
   role: string // Legacy role string
   status: 'active' | 'invited' | 'pending_approval' | 'inactive'
-  contract_status?: 'none' | 'sent' | 'signed'
+  contract_status?: 'none' | 'sent' | 'pending_staff' | 'signed' | 'rejected' | 'canceled'
+  contract_file_url?: string | null
   employment_type?: 'fulltime' | 'parttime' | 'contract' | 'probation' | 'daily'
   wage_type?: 'hourly' | 'daily' | 'monthly' | 'yearly'
   base_wage?: number

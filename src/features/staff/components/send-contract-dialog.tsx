@@ -80,8 +80,8 @@ export function SendContractDialog({
         throw new Error(result.error || '계약서 발송에 실패했습니다.')
       }
 
-      toast.success('근로계약서 발송 완료', { 
-        description: `${staffName}님에게 근로계약서 서명 요청이 발송되었습니다.` 
+      toast.success('계약서 발송 성공!', { 
+        description: '점주님의 카카오톡(또는 이메일)으로 서명 요청이 발송되었습니다. 먼저 서명을 진행해 주세요.' 
       })
       
       if (onSendSuccess) {
@@ -113,6 +113,16 @@ export function SendContractDialog({
         </DialogHeader>
 
         <div className="flex flex-col gap-6 py-4">
+          <div className="bg-purple-50 p-4 rounded-lg border border-purple-100 flex flex-col gap-1.5 text-sm">
+            <span className="font-semibold text-purple-900 flex items-center gap-1.5">
+              💡 발송 후 진행 순서
+            </span>
+            <span className="text-purple-800 text-xs leading-relaxed">
+              발송 시 <strong>점주님(대표자)의 카카오톡/이메일로 먼저 서명 요청</strong>이 전송됩니다.<br/>
+              점주님의 서명이 완료된 후 직원에게 서명 요청이 전송됩니다.
+            </span>
+          </div>
+
           <div className="bg-muted/50 p-4 rounded-lg border flex flex-col gap-1.5 text-sm">
             <span className="text-muted-foreground">적용 템플릿</span>
             <span className="font-semibold text-foreground flex items-center gap-2">
