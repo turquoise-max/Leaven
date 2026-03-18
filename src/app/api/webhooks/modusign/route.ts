@@ -103,21 +103,38 @@ export async function POST(req: Request) {
 
     } else if (docStatus === 'PROGRESS') {
       // 진행 중인 경우, 점주('갑')가 서명했는지 확인
-      const employerParticipant = docData.participants?.find((p: any) => p.role === '갑' || p.name === '갑')
-      // role이 명확히 안넘어올 수 있으므로 name이나 role을 체크, 또는 서명 여부로 판단
-      const isEmployerSigned = docData.participants?.some((p: any) => 
-        (p.role === '갑' || p.name?.includes('대표') || docData.requester?.email === p.email) && p.status === 'SIGNED'
-      )
+      // role이 '갑'이거나, requester의 이메일과 일치하는 참여자
+      const isEmployerSigned = docData.participants?.some((p: any) => {
+        const isEmployer = 
+          p.role === '갑' || 
+          p.name?.includes('대표') || 
+          (docData.requester?.email && p.email === docData.requester.email) ||
+          (process.env.MODUSIGN_EMAIL && p.email === process.env.MODUSIGN_EMAIL)
+          
+        const hasSigned = 
+          p.status === 'SIGNED' || 
+          p.signingStatus === 'COMPLETED' || 
+          p.signingStatus === 'SIGNED' || 
+          p.isSigned || 
+          p.signedAt ||
+          p.hasSigned
+          
+        return isEmployer && hasSigned
+      })
 
       if (isEmployerSigned) {
         // 점주가 서명을 완료한 경우 직원 서명 대기 상태로 변경
-        // 이미 pending_staff거나 signed인 경우는 제외하고 업데이트
         if (member.contract_status === 'sent') {
+          console.log(`Document ${documentId} is PROGRESS, and employer has signed. Updating to pending_staff...`)
           await supabase
             .from('store_members')
             .update({ contract_status: 'pending_staff' })
             .eq('id', member.id)
         }
+      } else {
+        console.log(`Document ${documentId} is PROGRESS, but employer signature not detected.`)
+        // 디버깅을 위해 participant 정보 로깅
+        console.log('Participants:', JSON.stringify(docData.participants, null, 2))
       }
     } else if (docStatus === 'CANCELED') {
       await supabase.from('store_members').update({ contract_status: 'canceled' }).eq('id', member.id)

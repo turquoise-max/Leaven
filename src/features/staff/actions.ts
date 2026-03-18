@@ -680,3 +680,33 @@ export async function getPendingRequestsCount(storeId: string) {
   if (error) return 0
   return count || 0
 }
+
+export async function cancelContractRequest(storeId: string, memberId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) return { error: 'Unauthorized' }
+
+  try {
+    await requirePermission(user.id, storeId, 'manage_staff')
+  } catch (error) {
+    return { error: '권한이 없습니다.' }
+  }
+
+  // modusign_document_id를 유지하면서 상태만 canceled로 변경하거나, 
+  // 아예 null로 초기화해서 재발송 가능하게 할 수 있습니다. 재발송을 위해 null로 초기화합니다.
+  const { error } = await supabase
+    .from('store_members')
+    .update({ 
+      contract_status: null,
+      modusign_document_id: null
+    })
+    .eq('id', memberId)
+    .eq('store_id', storeId)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/dashboard/staff')
+  revalidatePath('/dashboard', 'layout')
+  return { success: true }
+}

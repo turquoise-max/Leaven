@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { updateStaffInfo, approveRequest, rejectRequest, removeStaff, inviteRegisteredStaff } from '../actions'
+import { updateStaffInfo, approveRequest, rejectRequest, removeStaff, inviteRegisteredStaff, cancelContractRequest } from '../actions'
 import { getStoreRoles, getStoreSettings } from '@/features/store/actions'
 import { toast } from 'sonner'
 import { Loader2, User, FileSignature, Check, X, Mail, Phone, AlertTriangle, Link2, Link2Off } from 'lucide-react'
@@ -347,7 +347,7 @@ export function EditStaffDialog({
   }
 
   const isPending = staff?.status === 'pending_approval' || staff?.status === 'invited'
-  const isContractSent = staff?.contract_status === 'sent'
+  const isContractSent = staff?.contract_status === 'sent' || staff?.contract_status === 'pending_staff'
   const isOwner = staff?.role === 'owner'
   const isResigned = !!staff?.resigned_at
   const isLinked = !!staff?.user_id
@@ -499,24 +499,53 @@ export function EditStaffDialog({
                    <div className="flex flex-col gap-2 w-full mt-1">
                      {/* 계약서 발송 버튼 */}
                      {canEdit && (isPending || !isOwner) && (
-                       <div className="relative group w-full">
-                         <Button 
-                           type="button" 
-                           onClick={handleSendContractClick} 
-                           disabled={loading || !isContractReady}
-                           size="sm"
-                           className={cn(
-                             "w-full shadow-sm text-xs h-8",
-                             isPending && !isContractSent ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-primary text-primary-foreground hover:bg-primary/90"
+                       <div className="flex flex-col gap-1.5 w-full">
+                         <div className="relative group w-full">
+                           <Button 
+                             type="button" 
+                             onClick={handleSendContractClick} 
+                             disabled={loading || !isContractReady}
+                             size="sm"
+                             className={cn(
+                               "w-full shadow-sm text-xs h-8",
+                               isPending && !isContractSent ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-primary text-primary-foreground hover:bg-primary/90"
+                             )}
+                           >
+                             <FileSignature className="mr-1.5 h-3.5 w-3.5" />
+                             {isPending && !isContractSent ? '근로계약서 발송' : (isContractSent ? '계약서 재발송' : '근로계약서 발송')}
+                           </Button>
+                           {!isContractReady && (
+                             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 w-max max-w-xs px-2 py-1.5 bg-slate-800 text-white text-[10px] rounded shadow opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all pointer-events-none z-50">
+                               저장 후 발송할 수 있습니다. 누락: {contractRequirements.filter(r => !r.fulfilled).map(r => r.label).join(', ')}
+                             </div>
                            )}
-                         >
-                           <FileSignature className="mr-1.5 h-3.5 w-3.5" />
-                           {isPending && !isContractSent ? '근로계약서 발송' : (isContractSent ? '계약서 재발송' : '근로계약서 발송')}
-                         </Button>
-                         {!isContractReady && (
-                           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 w-max max-w-xs px-2 py-1.5 bg-slate-800 text-white text-[10px] rounded shadow opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all pointer-events-none z-50">
-                             저장 후 발송할 수 있습니다. 누락: {contractRequirements.filter(r => !r.fulfilled).map(r => r.label).join(', ')}
-                           </div>
+                         </div>
+                         
+                         {/* 계약 취소 버튼 */}
+                         {isContractSent && (
+                           <Button 
+                             type="button" 
+                             variant="outline"
+                             onClick={async () => {
+                               if (!confirm('발송된 근로계약서를 취소하시겠습니까? (취소 후 언제든 다시 발송할 수 있습니다)')) return
+                               setLoading(true)
+                               const res = await cancelContractRequest(storeId, staff.id)
+                               setLoading(false)
+                               if (res.error) {
+                                 toast.error('취소 실패', { description: res.error })
+                               } else {
+                                 toast.success('계약이 취소되었습니다.')
+                                 router.refresh()
+                                 onOpenChange(false)
+                               }
+                             }} 
+                             disabled={loading}
+                             size="sm"
+                             className="w-full text-xs h-8 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                           >
+                             <X className="mr-1.5 h-3.5 w-3.5" />
+                             진행중인 계약 취소
+                           </Button>
                          )}
                        </div>
                      )}
