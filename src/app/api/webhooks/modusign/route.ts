@@ -34,112 +34,113 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, message: 'Ignored: Document not found in our system' })
     }
 
-    // 웹훅 페이로드 형식에 의존하지 않고 항상 모두싸인 API를 호출하여 최신 상태를 가져옵니다.
-    const credentials = Buffer.from(`${process.env.MODUSIGN_EMAIL}:${process.env.MODUSIGN_API_KEY}`).toString('base64')
-    const docRes = await fetch(`https://api.modusign.co.kr/documents/${documentId}`, {
-      headers: { 'Authorization': `Basic ${credentials}` }
-    })
-    
-    if (!docRes.ok) {
-      console.error(`Failed to fetch document status from Modusign. Status: ${docRes.status}`)
-      return NextResponse.json({ error: 'Failed to fetch document' }, { status: 500 })
-    }
+    // 이벤트 타입에 따른 분기 처리
+    switch (eventType) {
+      case 'document_started':
+        console.log(`Document ${documentId} started. Updating to sent...`)
+        await supabase
+          .from('store_members')
+          .update({ contract_status: 'sent' })
+          .eq('id', member.id)
+        break
 
-    const docData = await docRes.json()
-    const docStatus = docData.status
-
-    if (docStatus === 'COMPLETED') {
-      console.log(`Document ${documentId} is COMPLETED. Updating staff status...`)
-      
-      let fileUrl = null
-      
-      // 다운로드 로직: 문서 파일 다운로드 및 Supabase 스토리지 업로드
-      try {
-        const downloadUrl = docData.file?.downloadUrl
-        if (downloadUrl) {
-          const fileRes = await fetch(downloadUrl)
-          if (fileRes.ok) {
-            const arrayBuffer = await fileRes.arrayBuffer()
-            const buffer = Buffer.from(arrayBuffer)
-            const fileName = `contracts/${member.store_id}/${member.id}_${Date.now()}.pdf`
-            
-            const { error: uploadError } = await supabase.storage
-              .from('store_documents')
-              .upload(fileName, buffer, {
-                contentType: 'application/pdf',
-                upsert: true
-              })
-              
-            if (!uploadError) {
-              const { data: urlData } = supabase.storage.from('store_documents').getPublicUrl(fileName)
-              fileUrl = urlData.publicUrl
-            } else {
-              console.error('Failed to upload contract to storage:', uploadError)
-            }
-          }
-        }
-      } catch (e) {
-        console.error('Error downloading/uploading contract file:', e)
-      }
-
-      const updateData: any = {
-        contract_status: 'signed',
-        status: 'active' // 합류 대기 -> 재직중
-      }
-      
-      if (fileUrl) {
-        updateData.contract_file_url = fileUrl
-      }
-
-      const { error: updateError } = await supabase
-        .from('store_members')
-        .update(updateData)
-        .eq('id', member.id)
-
-      if (updateError) {
-        console.error('Webhook: Failed to update staff status', updateError)
-        return NextResponse.json({ error: 'Failed to update status' }, { status: 500 })
-      }
-
-    } else if (docStatus === 'PROGRESS') {
-      // 진행 중인 경우, 점주('갑')가 서명했는지 확인
-      // role이 '갑'이거나, requester의 이메일과 일치하는 참여자
-      const isEmployerSigned = docData.participants?.some((p: any) => {
-        const isEmployer = 
-          p.role === '갑' || 
-          p.name?.includes('대표') || 
-          (docData.requester?.email && p.email === docData.requester.email) ||
-          (process.env.MODUSIGN_EMAIL && p.email === process.env.MODUSIGN_EMAIL)
-          
-        const hasSigned = 
-          p.status === 'SIGNED' || 
-          p.signingStatus === 'COMPLETED' || 
-          p.signingStatus === 'SIGNED' || 
-          p.isSigned || 
-          p.signedAt ||
-          p.hasSigned
-          
-        return isEmployer && hasSigned
-      })
-
-      if (isEmployerSigned) {
-        // 점주가 서명을 완료한 경우 직원 서명 대기 상태로 변경
+      case 'document_signed':
+        // 첫 번째 서명(일반적으로 점주)이 이루어지면 상태를 직원 서명 대기로 변경
         if (member.contract_status === 'sent') {
-          console.log(`Document ${documentId} is PROGRESS, and employer has signed. Updating to pending_staff...`)
+          console.log(`Document ${documentId} signed by first participant. Updating to pending_staff...`)
           await supabase
             .from('store_members')
             .update({ contract_status: 'pending_staff' })
             .eq('id', member.id)
         }
-      } else {
-        console.log(`Document ${documentId} is PROGRESS, but employer signature not detected.`)
-        // 디버깅을 위해 participant 정보 로깅
-        console.log('Participants:', JSON.stringify(docData.participants, null, 2))
-      }
-    } else if (docStatus === 'CANCELED') {
-      await supabase.from('store_members').update({ contract_status: 'canceled' }).eq('id', member.id)
-    } else if (docStatus === 'REJECTED') {
-      await supabase.from('store_members').update({ contract_status: 'rejected' }).eq('id', member.id)
+        break
+
+      case 'document_all_signed':
+        console.log(`Document ${documentId} is completely signed. Fetching final document...`)
+        
+        let fileUrl = null
+        
+        // 최종 서명본 다운로드를 위해 API 호출
+        try {
+          const credentials = Buffer.from(`${process.env.MODUSIGN_EMAIL}:${process.env.MODUSIGN_API_KEY}`).toString('base64')
+          const docRes = await fetch(`https://api.modusign.co.kr/documents/${documentId}`, {
+            headers: { 'Authorization': `Basic ${credentials}` }
+          })
+          
+          if (docRes.ok) {
+            const docData = await docRes.json()
+            const downloadUrl = docData.file?.downloadUrl
+            
+            if (downloadUrl) {
+              const fileRes = await fetch(downloadUrl)
+              if (fileRes.ok) {
+                const arrayBuffer = await fileRes.arrayBuffer()
+                const buffer = Buffer.from(arrayBuffer)
+                const fileName = `contracts/${member.store_id}/${member.id}_${Date.now()}.pdf`
+                
+                const { error: uploadError } = await supabase.storage
+                  .from('store_documents')
+                  .upload(fileName, buffer, {
+                    contentType: 'application/pdf',
+                    upsert: true
+                  })
+                  
+                if (!uploadError) {
+                  const { data: urlData } = supabase.storage.from('store_documents').getPublicUrl(fileName)
+                  fileUrl = urlData.publicUrl
+                } else {
+                  console.error('Failed to upload contract to storage:', uploadError)
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.error('Error downloading/uploading contract file:', e)
+        }
+
+        const updateData: any = {
+          contract_status: 'signed',
+          status: 'active' // 합류 대기 -> 재직중
+        }
+        
+        if (fileUrl) {
+          updateData.contract_file_url = fileUrl
+        }
+
+        const { error: updateError } = await supabase
+          .from('store_members')
+          .update(updateData)
+          .eq('id', member.id)
+
+        if (updateError) {
+          console.error('Webhook: Failed to update staff status', updateError)
+          return NextResponse.json({ error: 'Failed to update status' }, { status: 500 })
+        }
+        break
+
+      case 'document_rejected':
+        console.log(`Document ${documentId} rejected.`)
+        await supabase
+          .from('store_members')
+          .update({ contract_status: 'rejected' })
+          .eq('id', member.id)
+        break
+
+      case 'document_request_canceled':
+      case 'document_signing_canceled':
+        console.log(`Document ${documentId} canceled. Resetting contract_status.`)
+        await supabase
+          .from('store_members')
+          .update({ 
+            contract_status: null,
+            modusign_document_id: null
+          })
+          .eq('id', member.id)
+        break
+
+      default:
+        console.log(`Unhandled Modusign event: ${eventType}`)
+        break
     }
 
     return NextResponse.json({ success: true })
