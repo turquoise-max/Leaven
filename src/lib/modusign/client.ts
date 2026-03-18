@@ -39,10 +39,34 @@ export async function sendContract(params: CreateDocumentFromTemplateParams) {
     signingMethod: p.signingMethod,
   }))
 
-  const requesterInputMappings = params.fields ? Object.entries(params.fields).map(([dataLabel, value]) => ({
-    dataLabel,
-    value: String(value)
-  })) : []
+  // 템플릿 정보를 가져와서 유효한 발송자 입력 라벨(requesterInputs)만 필터링합니다.
+  const templateRes = await fetch(`${MODUSIGN_API_URL}/templates/${params.templateId}`, {
+    method: 'GET',
+    headers: {
+      'Accept': 'application/json',
+      'Authorization': `Basic ${credentials}`,
+    }
+  })
+
+  let validRequesterLabels = new Set<string>()
+  if (templateRes.ok) {
+    const templateData = await templateRes.json()
+    if (templateData.requesterInputs && Array.isArray(templateData.requesterInputs)) {
+      templateData.requesterInputs.forEach((input: any) => {
+        if (input.dataLabel) validRequesterLabels.add(input.dataLabel)
+      })
+    }
+  } else {
+    console.warn(`Failed to fetch template ${params.templateId}. Will proceed without filtering labels.`)
+  }
+
+  // 템플릿 조회가 성공했다면 템플릿에 존재하는 라벨만 필터링하고, 실패했다면 전체를 보냅니다.
+  const requesterInputMappings = params.fields ? Object.entries(params.fields)
+    .filter(([dataLabel]) => validRequesterLabels.size === 0 || validRequesterLabels.has(dataLabel))
+    .map(([dataLabel, value]) => ({
+      dataLabel,
+      value: String(value)
+    })) : []
 
   // 매핑 데이터 로깅 (템플릿 불일치 에러 디버깅 용도)
   console.log('--- Modusign Payload ---')

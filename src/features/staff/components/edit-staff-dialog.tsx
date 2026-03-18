@@ -32,8 +32,7 @@ import { cn } from '@/lib/utils'
 
 // 분리된 UI 컴포넌트 임포트
 import { 
-  PersonalInfoTab, 
-  WorkSettingsTab, 
+  BasicWorkInfoTab, 
   ContractSettingsTab,
   StaffFormData
 } from './edit-staff-tabs'
@@ -357,6 +356,54 @@ export function EditStaffDialog({
   const displayEmail = formData.email || staff?.profile?.email || ''
   const avatarUrl = staff?.profile?.avatar_url
 
+  // Contract Readiness Calculation
+  const contractRequirements = useMemo(() => {
+    return [
+      { id: 'name', label: '이름', fulfilled: !!formData.name, tab: 'basic' },
+      { id: 'contact', label: '연락처(이메일/전화번호)', fulfilled: !!(formData.email || formData.phone), tab: 'basic' },
+      { id: 'employmentType', label: '고용 형태', fulfilled: !!formData.employmentType, tab: 'basic' },
+      { id: 'hiredAt', label: '입사일', fulfilled: !!formData.hiredAt, tab: 'basic' },
+      { id: 'schedule', label: '기본 스케줄', fulfilled: weeklyTotalMinutes > 0, tab: 'basic' },
+      { id: 'baseWage', label: '급여 금액', fulfilled: !!formData.baseWage && formData.baseWage !== '0', tab: 'contract' }
+    ]
+  }, [formData, weeklyTotalMinutes])
+
+  const fulfilledCount = contractRequirements.filter(r => r.fulfilled).length
+  const totalCount = contractRequirements.length
+  const readinessPercent = Math.round((fulfilledCount / totalCount) * 100)
+  const isContractReady = fulfilledCount === totalCount
+
+  const handleSaveAndSend = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!canManage || isResigned || !isContractReady) return
+
+    setLoading(true)
+    const submitData = buildFormDataForSubmit()
+
+    if (isCreateMode) {
+      const { createManualStaff } = await import('../actions')
+      const result = await createManualStaff(storeId, submitData) as any
+      setLoading(false)
+      if (result?.error) {
+        toast.error('등록 실패', { description: result.error })
+      } else {
+        toast.success('저장 완료')
+        setShowSendDialog(true)
+      }
+    } else {
+      const result = await updateStaffInfo(storeId, staff.id, submitData) as any
+      setLoading(false)
+      if (result?.error) {
+        toast.error('정보 수정 실패', { description: result.error })
+      } else {
+        toast.success('저장 완료')
+        setShowSendDialog(true)
+      }
+    }
+  }
+
+  const [activeTab, setActiveTab] = useState('basic')
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-5xl h-[90vh] p-0 gap-0 overflow-hidden flex flex-col">
@@ -377,7 +424,7 @@ export function EditStaffDialog({
         </DialogHeader>
 
         <form onSubmit={handleSave} className={cn("flex-1 overflow-hidden flex flex-col min-h-0", isResigned && "opacity-95")}>
-          <div className="p-6 pb-4 flex flex-col gap-6 shrink-0">
+          <div className="p-6 pb-4 flex flex-col gap-5 shrink-0">
             {/* Profile Header */}
             {isPending && isContractSent && (
               <div className="bg-blue-50/50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg flex items-center justify-between shadow-sm">
@@ -430,57 +477,115 @@ export function EditStaffDialog({
                     {formData.phone && <span className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5" />{formData.phone}</span>}
                  </div>
                </div>
-               
-               {canEdit && !isLinked && !isCreateMode && (
-                 <Button 
-                    type="button" 
-                    variant="outline" 
-                    size="sm"
-                    className="shrink-0 bg-white"
-                    onClick={handleInviteClick}
-                    disabled={loading}
-                 >
-                    <Mail className="w-4 h-4 mr-2" />
-                    앱 가입 초대
-                 </Button>
+
+               {/* Contract Readiness Indicator & Actions */}
+               {!isResigned && !isCreateMode && (
+                 <div className="hidden md:flex flex-col items-end shrink-0 w-[280px] bg-background p-3.5 rounded-lg border shadow-sm">
+                   <div className="flex items-center justify-between w-full mb-1.5">
+                     <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                       <FileSignature className="w-3.5 h-3.5" /> 계약서 준비도
+                     </span>
+                     <span className={cn("text-xs font-bold", isContractReady ? "text-emerald-600" : "text-amber-600")}>
+                       {readinessPercent}%
+                     </span>
+                   </div>
+                   <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden mb-3">
+                     <div 
+                       className={cn("h-full transition-all duration-500", isContractReady ? "bg-emerald-500" : "bg-amber-500")}
+                       style={{ width: `${readinessPercent}%` }}
+                     />
+                   </div>
+                   
+                   <div className="flex flex-col gap-2 w-full mt-1">
+                     {/* 계약서 발송 버튼 */}
+                     {canEdit && (isPending || !isOwner) && (
+                       <div className="relative group w-full">
+                         <Button 
+                           type="button" 
+                           onClick={handleSendContractClick} 
+                           disabled={loading || !isContractReady}
+                           size="sm"
+                           className={cn(
+                             "w-full shadow-sm text-xs h-8",
+                             isPending && !isContractSent ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-primary text-primary-foreground hover:bg-primary/90"
+                           )}
+                         >
+                           <FileSignature className="mr-1.5 h-3.5 w-3.5" />
+                           {isPending && !isContractSent ? '근로계약서 발송' : (isContractSent ? '계약서 재발송' : '근로계약서 발송')}
+                         </Button>
+                         {!isContractReady && (
+                           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 w-max max-w-xs px-2 py-1.5 bg-slate-800 text-white text-[10px] rounded shadow opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all pointer-events-none z-50">
+                             저장 후 발송할 수 있습니다. 누락: {contractRequirements.filter(r => !r.fulfilled).map(r => r.label).join(', ')}
+                           </div>
+                         )}
+                       </div>
+                     )}
+
+                     {/* 발송 없이 합류 (승인 대기중일 때만) */}
+                     {canEdit && isPending && (
+                       <Button 
+                         type="button" 
+                         variant="outline" 
+                         onClick={() => setShowApproveConfirm(true)} 
+                         disabled={loading}
+                         size="sm"
+                         className="w-full text-xs h-8 text-muted-foreground"
+                       >
+                         {isContractSent ? '서명 없이 즉시 합류' : '계약서 없이 즉시 합류'}
+                       </Button>
+                     )}
+                     
+                     {/* 계정 연동 (수기 등록자) */}
+                     {canEdit && !isLinked && (
+                       <Button 
+                          type="button" 
+                          variant="ghost" 
+                          size="sm"
+                          className="w-full text-xs h-8 text-muted-foreground hover:text-foreground mt-1 bg-muted/30"
+                          onClick={handleInviteClick}
+                          disabled={loading}
+                       >
+                          <Mail className="w-3.5 h-3.5 mr-1.5" />
+                          이메일로 앱 가입 초대
+                       </Button>
+                     )}
+                   </div>
+                 </div>
                )}
             </div>
           </div>
 
-          <Tabs defaultValue="personal" className="flex-1 flex flex-col min-h-0 w-full px-6">
-             <TabsList className="grid w-full grid-cols-3 mb-2 h-11 p-1 bg-muted/50 rounded-lg shrink-0">
-                <TabsTrigger value="personal" className="text-sm font-medium h-9 data-[state=active]:shadow-sm">개인 정보</TabsTrigger>
-                <TabsTrigger value="work" className="text-sm font-medium h-9 data-[state=active]:shadow-sm">근무 설정</TabsTrigger>
-                <TabsTrigger value="contract" className="text-sm font-medium h-9 data-[state=active]:shadow-sm">급여 및 계약서 정보</TabsTrigger>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0 w-full px-6">
+             <TabsList className="grid w-full grid-cols-2 mb-2 h-11 p-1 bg-muted/50 rounded-lg shrink-0">
+                <TabsTrigger value="basic" className="text-sm font-medium h-9 data-[state=active]:shadow-sm relative">
+                  기본 및 근무 설정
+                  {!contractRequirements.filter(r => r.tab === 'basic').every(r => r.fulfilled) && (
+                    <span className="absolute top-2 right-3 w-1.5 h-1.5 rounded-full bg-amber-500" />
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="contract" className="text-sm font-medium h-9 data-[state=active]:shadow-sm relative">
+                  계약 및 급여
+                  {!contractRequirements.filter(r => r.tab === 'contract').every(r => r.fulfilled) && (
+                    <span className="absolute top-2 right-3 w-1.5 h-1.5 rounded-full bg-amber-500" />
+                  )}
+                </TabsTrigger>
              </TabsList>
 
              <div className="flex-1 min-h-0 relative">
-               <TabsContent value="personal" className="h-full min-h-0 mt-0 focus-visible:outline-none data-[state=active]:flex data-[state=active]:flex-col">
-                  <ScrollArea className="flex-1 h-full -mx-6 px-6">
-                    <div className="pb-6 pt-2">
-                      <PersonalInfoTab 
+               <TabsContent value="basic" className="h-full min-h-0 mt-0 focus-visible:outline-none data-[state=active]:flex data-[state=active]:flex-col">
+                  <div className="flex-1 h-full overflow-hidden flex flex-col">
+                    <div className="pb-4 pt-2 flex-1 h-full">
+                      <BasicWorkInfoTab 
                         formData={formData} 
                         onChange={handleFormChange} 
                         canEdit={canEdit} 
                         isLinked={isLinked}
-                      />
-                    </div>
-                  </ScrollArea>
-               </TabsContent>
-
-               <TabsContent value="work" className="h-full min-h-0 mt-0 focus-visible:outline-none data-[state=active]:flex data-[state=active]:flex-col">
-                  <ScrollArea className="flex-1 h-full -mx-6 px-6">
-                    <div className="pb-6 pt-2">
-                      <WorkSettingsTab 
-                        formData={formData} 
-                        onChange={handleFormChange} 
-                        canEdit={canEdit} 
                         roles={roles} 
                         isOwner={isOwner} 
                         weeklyTotalMinutes={weeklyTotalMinutes} 
                       />
                     </div>
-                  </ScrollArea>
+                  </div>
                </TabsContent>
 
                <TabsContent value="contract" className="h-full min-h-0 mt-0 focus-visible:outline-none data-[state=active]:flex data-[state=active]:flex-col">
@@ -508,12 +613,15 @@ export function EditStaffDialog({
                  </Button>
                </div>
             ) : isCreateMode ? (
-               <div className="flex w-full justify-end">
+               <>
+                 <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="w-24 bg-white">
+                   취소
+                 </Button>
                  <Button type="submit" disabled={loading} className="w-32 shadow-sm">
                    {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                   등록 (임시 저장)
+                   직원 등록
                  </Button>
-               </div>
+               </>
             ) : (
               <>
                 <div className="flex gap-2">
@@ -537,49 +645,16 @@ export function EditStaffDialog({
                       className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
                     >
                       <X className="w-4 h-4 mr-1.5" />
-                      삭제
+                      삭제 (가입 거절)
                     </Button>
                   )}
                 </div>
 
                 <div className="flex gap-2">
-                  {canEdit && isPending && (
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      onClick={() => setShowApproveConfirm(true)} 
-                      disabled={loading}
-                    >
-                      {isContractSent ? '서명 없이 즉시 합류' : '발송 없이 즉시 합류'}
-                    </Button>
-                  )}
-
-                  {canEdit && (isPending || !isOwner) && (
-                    <Button 
-                      type="button" 
-                      variant={isPending && !isContractSent ? 'default' : 'secondary'}
-                      onClick={handleSendContractClick} 
-                      disabled={loading}
-                      className={cn(
-                        "shadow-sm",
-                        isPending && !isContractSent ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-purple-100 text-purple-700 hover:bg-purple-200 hover:text-purple-800"
-                      )}
-                    >
-                      <FileSignature className="mr-2 h-4 w-4" />
-                      {isPending && !isContractSent ? '근로계약서 발송' : (isContractSent ? '계약서 재발송' : '계약서 재발송')}
-                    </Button>
-                  )}
-                  
-                  {(!isPending && canEdit) && (
+                  {canEdit && (
                     <Button type="submit" disabled={loading} className="w-32 shadow-sm">
                       {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                      정보 저장
-                    </Button>
-                  )}
-                  {isPending && (
-                    <Button type="submit" disabled={loading} className="w-32 shadow-sm" variant="outline">
-                      {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                      정보만 저장
+                      저장
                     </Button>
                   )}
                 </div>

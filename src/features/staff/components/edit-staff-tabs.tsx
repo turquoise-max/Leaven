@@ -66,8 +66,24 @@ export interface TabProps {
   isLinked?: boolean
 }
 
-// --- 1. Personal Info Tab ---
-export function PersonalInfoTab({ formData, onChange, canEdit, isLinked }: TabProps) {
+// --- 1. Basic & Work Info Tab ---
+import { TimePicker } from '@/components/ui/time-picker'
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion'
+
+const DAYS = ['일', '월', '화', '수', '목', '금', '토']
+
+interface BasicWorkTabProps extends TabProps {
+  roles: any[]
+  isOwner: boolean
+  weeklyTotalMinutes: number
+}
+
+export function BasicWorkInfoTab({ formData, onChange, canEdit, isLinked, roles, isOwner, weeklyTotalMinutes }: BasicWorkTabProps) {
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let val = e.target.value.replace(/[^0-9]/g, '')
     if (val.length > 3 && val.length <= 7) {
@@ -82,27 +98,15 @@ export function PersonalInfoTab({ formData, onChange, canEdit, isLinked }: TabPr
     onChange({ phone: val })
   }
 
-  // 비상연락망을 (텍스트 관계) + (전화번호) 두 칸으로 나누기 위한 로직
   const parseEmergencyContact = (contact: string) => {
     if (!contact) return { relation: '', phone: '' }
-    
     const parts = contact.trim().split(' ')
     if (parts.length > 1) {
       const lastPart = parts[parts.length - 1]
-      // 마지막 덩어리가 숫자와 하이픈으로만 이루어져 있다면 전화번호로 취급
-      if (/^[\d-]+$/.test(lastPart)) {
-        return {
-          phone: lastPart,
-          relation: parts.slice(0, parts.length - 1).join(' ')
-        }
-      }
-    } else {
-      // 덩어리가 하나뿐인데, 숫자나 하이픈으로만 구성되어 있다면 전화번호로 취급
-      if (/^[\d-]+$/.test(contact.trim())) {
-        return { relation: '', phone: contact.trim() }
-      }
+      if (/^[\d-]+$/.test(lastPart)) return { phone: lastPart, relation: parts.slice(0, parts.length - 1).join(' ') }
+    } else if (/^[\d-]+$/.test(contact.trim())) {
+      return { relation: '', phone: contact.trim() }
     }
-    
     return { relation: contact, phone: '' }
   }
 
@@ -110,90 +114,19 @@ export function PersonalInfoTab({ formData, onChange, canEdit, isLinked }: TabPr
 
   const handleEmergencyRelationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const relation = e.target.value
-    const newContact = `${relation} ${emPhone}`.trim()
-    onChange({ emergencyContact: newContact })
+    onChange({ emergencyContact: `${relation} ${emPhone}`.trim() })
   }
 
   const handleEmergencyPhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let val = e.target.value.replace(/[^0-9]/g, '')
-    if (val.length > 3 && val.length <= 7) {
-      val = val.replace(/(\d{3})(\d+)/, '$1-$2')
-    } else if (val.length > 7) {
-      if (val.length === 11) {
-        val = val.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3')
-      } else {
-        val = val.replace(/(\d{3})(\d{3,4})(\d+)/, '$1-$2-$3')
-      }
+    if (val.length > 3 && val.length <= 7) val = val.replace(/(\d{3})(\d+)/, '$1-$2')
+    else if (val.length > 7) {
+      if (val.length === 11) val = val.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3')
+      else val = val.replace(/(\d{3})(\d{3,4})(\d+)/, '$1-$2-$3')
     }
-    const newContact = `${emRelation} ${val}`.trim()
-    onChange({ emergencyContact: newContact })
+    onChange({ emergencyContact: `${emRelation} ${val}`.trim() })
   }
 
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-6">
-      <div className="space-y-5 flex flex-col h-full">
-        <div className="grid gap-2">
-          <Label htmlFor="name">이름 (필수)</Label>
-          <Input id="name" name="name" value={formData.name} onChange={(e) => onChange({ name: e.target.value })} disabled={!canEdit} />
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor="birthDate">생년월일 (6자리)</Label>
-          <Input id="birthDate" name="birthDate" value={formData.birthDate} onChange={(e) => onChange({ birthDate: e.target.value })} placeholder="예: 950101" disabled={!canEdit} maxLength={6} />
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor="phone">전화번호</Label>
-          <Input id="phone" name="phone" type="tel" value={formData.phone} onChange={handlePhoneChange} placeholder="010-0000-0000" disabled={!canEdit} maxLength={13} />
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor="email">이메일</Label>
-          <Input 
-            id="email" 
-            name="email" 
-            value={formData.email} 
-            onChange={(e) => onChange({ email: e.target.value })} 
-            disabled={!canEdit || isLinked} 
-            className={cn(isLinked && "bg-muted text-muted-foreground")}
-          />
-          {isLinked && (
-             <span className="text-[10px] text-emerald-600 font-medium">* 계정 연동이 완료되어 이메일 수정이 제한됩니다.</span>
-          )}
-        </div>
-        <div className="grid gap-2 flex-1 pt-2">
-          <Label htmlFor="memo">직원 메모</Label>
-          <Textarea id="memo" name="memo" value={formData.memo} onChange={(e) => onChange({ memo: e.target.value })} disabled={!canEdit} placeholder="직원에 대한 특이사항이나 메모를 남겨주세요." className="h-full min-h-30 max-h-50 resize-none" />
-        </div>
-      </div>
-      
-      <div className="space-y-5 flex flex-col">
-        <div className="grid gap-2">
-          <Label htmlFor="address">주소지</Label>
-          <Input id="address" name="address" value={formData.address} onChange={(e) => onChange({ address: e.target.value })} placeholder="시/도 구/군 동 상세주소" disabled={!canEdit} />
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor="emPhone">비상연락망 (전화번호)</Label>
-          <Input id="emPhone" type="tel" value={emPhone} onChange={handleEmergencyPhoneChange} placeholder="010-0000-0000" disabled={!canEdit} maxLength={13} />
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor="emRelation">비상연락망 메모 (관계)</Label>
-          <Input id="emRelation" value={emRelation} onChange={handleEmergencyRelationChange} placeholder="예: 어머니" disabled={!canEdit} />
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// --- 2. Work Settings Tab ---
-import { TimePicker } from '@/components/ui/time-picker'
-
-const DAYS = ['일', '월', '화', '수', '목', '금', '토']
-
-interface WorkTabProps extends TabProps {
-  roles: any[]
-  isOwner: boolean
-  weeklyTotalMinutes: number
-}
-
-export function WorkSettingsTab({ formData, onChange, canEdit, roles, isOwner, weeklyTotalMinutes }: WorkTabProps) {
   const calculateBreakTime = (start: string, end: string): number => {
     if (!start || !end) return 0
     const [startH, startM] = start.split(':').map(Number)
@@ -216,81 +149,165 @@ export function WorkSettingsTab({ formData, onChange, canEdit, roles, isOwner, w
   }
 
   return (
-    <div className="flex flex-col md:flex-row gap-8 h-full">
-      <div className="w-full md:w-70 shrink-0 space-y-6">
+    <div className="flex flex-col md:flex-row gap-8 h-full min-h-0">
+      <div className="w-full md:w-80 shrink-0 space-y-6 flex flex-col h-full overflow-y-auto pr-2 pb-4">
+        {/* Personal Details */}
         <div className="grid gap-2">
-          <Label>역할 (직무)</Label>
-          {isOwner ? (
-            <div className="h-10 px-3 py-2 rounded-md border bg-muted text-muted-foreground text-sm flex items-center">점주 (변경 불가)</div>
-          ) : (
-            <Select name="roleId" value={formData.roleId || "none"} onValueChange={(v) => onChange({ roleId: v === 'none' ? '' : v })} disabled={!canEdit}>
-              <SelectTrigger><SelectValue placeholder="역할 미설정" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">
-                  <span className="text-muted-foreground">역할 미설정</span>
-                </SelectItem>
-                {roles.map((role) => (
-                  <SelectItem key={role.id} value={role.id}>
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: role.color }} />
-                      {role.name}
-                    </div>
+          <Label htmlFor="name" className="flex items-center">
+            이름 
+            <Badge variant="outline" className="ml-2 px-1.5 py-0 text-[9px] bg-amber-50 text-amber-600 border-amber-200 font-medium">📝 필수</Badge>
+          </Label>
+          <Input id="name" name="name" value={formData.name} onChange={(e) => onChange({ name: e.target.value })} disabled={!canEdit} />
+        </div>
+        
+        <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-2">
+            <Label htmlFor="phone" className="flex items-center">
+              전화번호
+              {(!formData.email) && <Badge variant="outline" className="ml-2 px-1.5 py-0 text-[9px] bg-amber-50 text-amber-600 border-amber-200 font-medium">📝 필수</Badge>}
+            </Label>
+            <Input id="phone" name="phone" type="tel" value={formData.phone} onChange={handlePhoneChange} placeholder="010-0000-0000" disabled={!canEdit} maxLength={13} />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="email" className="flex items-center">
+              이메일
+              {(!formData.phone) && <Badge variant="outline" className="ml-2 px-1.5 py-0 text-[9px] bg-amber-50 text-amber-600 border-amber-200 font-medium">📝 필수</Badge>}
+            </Label>
+            <Input 
+              id="email" 
+              name="email" 
+              value={formData.email} 
+              onChange={(e) => onChange({ email: e.target.value })} 
+              disabled={!canEdit || isLinked} 
+              className={cn(isLinked && "bg-muted text-muted-foreground")}
+              placeholder="example@email.com"
+            />
+          </div>
+        </div>
+
+        {/* Work Roles */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-2">
+            <Label>역할 (직무)</Label>
+            {isOwner ? (
+              <div className="h-10 px-3 py-2 rounded-md border bg-muted text-muted-foreground text-sm flex items-center">점주 (고정)</div>
+            ) : (
+              <Select name="roleId" value={formData.roleId || "none"} onValueChange={(v) => onChange({ roleId: v === 'none' ? '' : v })} disabled={!canEdit}>
+                <SelectTrigger><SelectValue placeholder="미설정" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">
+                    <span className="text-muted-foreground">미설정</span>
                   </SelectItem>
-                ))}
+                  {roles.map((role) => (
+                    <SelectItem key={role.id} value={role.id}>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: role.color }} />
+                        {role.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+          
+          <div className="grid gap-2">
+            <Label className="flex items-center">
+              고용 형태
+              <Badge variant="outline" className="ml-2 px-1.5 py-0 text-[9px] bg-amber-50 text-amber-600 border-amber-200 font-medium">📝 필수</Badge>
+            </Label>
+            <Select 
+              name="employmentType" 
+              value={formData.employmentType} 
+              onValueChange={(v) => {
+                let wageType = formData.wageType
+                if (v === 'fulltime' || v === 'contract') wageType = 'monthly'
+                else if (v === 'parttime') wageType = 'hourly'
+                else if (v === 'daily') wageType = 'daily'
+                onChange({ employmentType: v, wageType })
+              }} 
+              disabled={!canEdit}
+            >
+              <SelectTrigger><SelectValue placeholder="선택" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="fulltime">정규직</SelectItem>
+                <SelectItem value="contract">계약직</SelectItem>
+                <SelectItem value="parttime">파트타임/알바</SelectItem>
+                <SelectItem value="daily">일용직/단기</SelectItem>
               </SelectContent>
             </Select>
-          )}
-          <input type="hidden" name="roleId" value={formData.roleId} />
-        </div>
-        
-        <div className="grid gap-2">
-          <Label>고용 형태</Label>
-          <Select name="employmentType" value={formData.employmentType} onValueChange={(v) => onChange({ employmentType: v })} disabled={!canEdit}>
-            <SelectTrigger><SelectValue placeholder="선택" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="fulltime">정규직</SelectItem>
-              <SelectItem value="contract">계약직</SelectItem>
-              <SelectItem value="parttime">파트타임/알바</SelectItem>
-              <SelectItem value="probation">수습/교육생</SelectItem>
-              <SelectItem value="daily">일용직/단기</SelectItem>
-            </SelectContent>
-          </Select>
-          <input type="hidden" name="employmentType" value={formData.employmentType} />
+          </div>
         </div>
 
         <div className="grid gap-2">
-          <Label htmlFor="hiredAt">입사일 (근로개시일)</Label>
+          <Label htmlFor="hiredAt" className="flex items-center">
+            입사일 (근로개시일)
+            <Badge variant="outline" className="ml-2 px-1.5 py-0 text-[9px] bg-amber-50 text-amber-600 border-amber-200 font-medium">📝 필수</Badge>
+          </Label>
           <Input id="hiredAt" name="hiredAt" type="date" value={formData.hiredAt} onChange={(e) => onChange({ hiredAt: e.target.value })} disabled={!canEdit} />
         </div>
-        
-        <div className="grid gap-2">
-          <Label htmlFor="contractEndDate">계약 종료일 (선택)</Label>
-          <Input id="contractEndDate" name="contractEndDate" type="date" value={formData.contractEndDate} onChange={(e) => onChange({ contractEndDate: e.target.value })} disabled={!canEdit} />
-        </div>
-        
-        <div className="grid gap-2">
-          <Label>주휴일</Label>
-          <Select name="weeklyHoliday" value={formData.weeklyHoliday} onValueChange={(v) => onChange({ weeklyHoliday: v })} disabled={!canEdit}>
-            <SelectTrigger><SelectValue placeholder="미지정 (선택안함)" /></SelectTrigger>
-            <SelectContent>
-                <SelectItem value="null">미지정</SelectItem>
-                <SelectItem value="0">일요일</SelectItem>
-                <SelectItem value="1">월요일</SelectItem>
-                <SelectItem value="2">화요일</SelectItem>
-                <SelectItem value="3">수요일</SelectItem>
-                <SelectItem value="4">목요일</SelectItem>
-                <SelectItem value="5">금요일</SelectItem>
-                <SelectItem value="6">토요일</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+
+        <Accordion type="single" collapsible className="w-full">
+          <AccordionItem value="additional" className="border-b-0 border border-muted rounded-md bg-muted/10 overflow-hidden">
+            <AccordionTrigger className="px-4 py-3 hover:no-underline text-sm font-medium hover:bg-muted/30">
+              추가 정보 (선택)
+            </AccordionTrigger>
+            <AccordionContent className="px-4 pb-4 pt-2 space-y-4">
+              <div className="grid gap-2">
+                <Label htmlFor="birthDate">생년월일 (6자리)</Label>
+                <Input id="birthDate" name="birthDate" value={formData.birthDate} onChange={(e) => onChange({ birthDate: e.target.value })} placeholder="예: 950101" disabled={!canEdit} maxLength={6} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="address">주소지</Label>
+                <Input id="address" name="address" value={formData.address} onChange={(e) => onChange({ address: e.target.value })} placeholder="시/도 구/군 동 상세주소" disabled={!canEdit} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="emRelation">비상연락망 (관계)</Label>
+                  <Input id="emRelation" value={emRelation} onChange={handleEmergencyRelationChange} placeholder="예: 어머니" disabled={!canEdit} />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="emPhone">전화번호</Label>
+                  <Input id="emPhone" type="tel" value={emPhone} onChange={handleEmergencyPhoneChange} placeholder="010-0000-0000" disabled={!canEdit} maxLength={13} />
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="contractEndDate">계약 종료일</Label>
+                <Input id="contractEndDate" name="contractEndDate" type="date" value={formData.contractEndDate} onChange={(e) => onChange({ contractEndDate: e.target.value })} disabled={!canEdit} />
+              </div>
+              <div className="grid gap-2">
+                <Label>주휴일</Label>
+                <Select name="weeklyHoliday" value={formData.weeklyHoliday} onValueChange={(v) => onChange({ weeklyHoliday: v })} disabled={!canEdit}>
+                  <SelectTrigger><SelectValue placeholder="미지정 (선택안함)" /></SelectTrigger>
+                  <SelectContent>
+                      <SelectItem value="null">미지정</SelectItem>
+                      <SelectItem value="0">일요일</SelectItem>
+                      <SelectItem value="1">월요일</SelectItem>
+                      <SelectItem value="2">화요일</SelectItem>
+                      <SelectItem value="3">수요일</SelectItem>
+                      <SelectItem value="4">목요일</SelectItem>
+                      <SelectItem value="5">금요일</SelectItem>
+                      <SelectItem value="6">토요일</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="memo">직원 메모</Label>
+                <Textarea id="memo" name="memo" value={formData.memo} onChange={(e) => onChange({ memo: e.target.value })} disabled={!canEdit} placeholder="직원에 대한 특이사항을 남겨주세요." className="h-20 resize-none text-sm" />
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       </div>
 
-      <div className="flex-1 flex flex-col min-h-0 border rounded-md overflow-hidden bg-card">
+      <div className="flex-1 flex flex-col min-h-[400px] border rounded-md overflow-hidden bg-card">
         <div className="bg-muted/30 px-4 py-3 border-b flex items-center justify-between shrink-0">
-          <span className="text-sm font-semibold flex items-center gap-2"><CalendarDays className="w-4 h-4"/> 기본 스케줄 설정</span>
           <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground hidden sm:inline-block">주 소정근로:</span>
+            <span className="text-sm font-semibold flex items-center gap-2"><CalendarDays className="w-4 h-4"/> 기본 스케줄</span>
+            <Badge variant="outline" className="px-1.5 py-0 text-[9px] bg-amber-50 text-amber-600 border-amber-200 font-medium hidden sm:inline-flex">📝 필수</Badge>
+          </div>
+          <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground hidden lg:inline-block">주 소정근로:</span>
               <Badge variant="outline" className="font-mono bg-background">
                 {Math.floor(weeklyTotalMinutes / 60)}h {weeklyTotalMinutes % 60}m
               </Badge>
@@ -299,39 +316,39 @@ export function WorkSettingsTab({ formData, onChange, canEdit, roles, isOwner, w
         <div className="flex-1 overflow-y-auto min-h-0">
           <div className="divide-y divide-border/50">
             {formData.workSchedules.map((schedule, index) => (
-              <div key={index} className={cn("flex items-center gap-2 px-3 h-13 transition-colors", schedule.is_holiday ? "bg-muted/10" : "bg-background hover:bg-muted/5")}>
-                <div className="flex items-center gap-2 w-18 shrink-0">
+              <div key={index} className={cn("flex flex-col sm:flex-row items-start sm:items-center gap-y-2 gap-x-4 px-3 py-3 lg:py-0 lg:h-14 transition-colors", schedule.is_holiday ? "bg-muted/10 opacity-70" : "bg-background hover:bg-muted/5")}>
+                <div className="flex items-center gap-2 w-20 shrink-0 mt-1 sm:mt-0">
                   <Checkbox 
                     id={`day-${index}`} checked={!schedule.is_holiday}
                     onCheckedChange={(checked) => handleScheduleChange(index, 'is_holiday', !checked)}
                     disabled={!canEdit} className="h-4 w-4"
                   />
-                  <Label htmlFor={`day-${index}`} className={cn("cursor-pointer font-medium text-sm", schedule.day === 0 ? "text-red-500" : schedule.day === 6 ? "text-blue-500" : "")}>
+                  <Label htmlFor={`day-${index}`} className={cn("cursor-pointer font-medium text-[13px]", schedule.day === 0 ? "text-red-500" : schedule.day === 6 ? "text-blue-500" : "")}>
                     {DAYS[schedule.day]}요일
                   </Label>
                 </div>
 
                 {!schedule.is_holiday ? (
-                  <div className="flex items-center flex-1 justify-between ml-1">
-                    <div className="flex items-center gap-1.5 sm:gap-3">
-                      <TimePicker value={schedule.start_time} onChange={(val) => handleScheduleChange(index, 'start_time', val)} disabled={!canEdit} />
-                      <span className="text-muted-foreground/50">~</span>
-                      <TimePicker value={schedule.end_time} onChange={(val) => handleScheduleChange(index, 'end_time', val)} disabled={!canEdit} />
+                  <div className="flex flex-wrap sm:flex-nowrap items-center flex-1 w-full justify-between gap-y-2 gap-x-2">
+                    <div className="flex items-center gap-2">
+                      <TimePicker value={schedule.start_time} onChange={(val) => handleScheduleChange(index, 'start_time', val)} disabled={!canEdit} className="w-[110px]" />
+                      <span className="text-muted-foreground/50 text-xs font-medium shrink-0">~</span>
+                      <TimePicker value={schedule.end_time} onChange={(val) => handleScheduleChange(index, 'end_time', val)} disabled={!canEdit} className="w-[110px]" />
                     </div>
-                    <div className="flex items-center gap-1.5 bg-muted/40 px-2 py-1 rounded-md border border-border/50 shrink-0">
+                    <div className="flex items-center gap-2 bg-muted/40 px-2 py-1 rounded-md border border-border/50 shrink-0 ml-auto sm:ml-0">
                       <span className="text-xs font-medium text-muted-foreground">휴게</span>
                       <Input
                         type="number" value={schedule.break_minutes}
                         onChange={(e) => handleScheduleChange(index, 'break_minutes', parseInt(e.target.value) || 0)}
-                        className="w-11.5 h-6 text-xs text-center px-1 bg-background"
+                        className="w-14 h-7 text-xs text-center px-1 bg-background"
                         min={0} step={10} disabled={!canEdit}
                       />
                       <span className="text-[11px] text-muted-foreground">분</span>
                     </div>
                   </div>
                 ) : (
-                  <div className="flex-1 ml-1 flex items-center">
-                    <span className="text-xs text-muted-foreground/50 italic bg-muted/50 px-2.5 py-1 rounded-md">휴무일</span>
+                  <div className="flex-1 w-full flex items-center">
+                    <span className="text-xs text-muted-foreground/50 italic px-1">휴무일</span>
                   </div>
                 )}
               </div>
@@ -397,7 +414,10 @@ export function ContractSettingsTab({ formData, onChange, canEdit, weeklyTotalMi
         <div className="grid gap-5">
             <div className="grid grid-cols-2 gap-5">
               <div className="grid gap-2">
-                <Label htmlFor="wageType">지급 기준</Label>
+                <Label htmlFor="wageType" className="flex items-center">
+                  지급 기준
+                  <Badge variant="outline" className="ml-2 px-1.5 py-0 text-[9px] bg-amber-50 text-amber-600 border-amber-200 font-medium">📝 필수</Badge>
+                </Label>
                 <Select name="wageType" value={formData.wageType} onValueChange={(v) => onChange({ wageType: v })} disabled={!canEdit}>
                   <SelectTrigger><SelectValue placeholder="선택" /></SelectTrigger>
                   <SelectContent>
@@ -410,34 +430,39 @@ export function ContractSettingsTab({ formData, onChange, canEdit, weeklyTotalMi
                 <input type="hidden" name="wageType" value={formData.wageType} />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="baseWage">금액 (원)</Label>
+                <Label htmlFor="baseWage" className="flex items-center">
+                  {formData.wageType === 'hourly' ? '시급' : formData.wageType === 'daily' ? '일급' : formData.wageType === 'monthly' ? '월 기본급' : '연봉'} (원)
+                  <Badge variant="outline" className="ml-2 px-1.5 py-0 text-[9px] bg-amber-50 text-amber-600 border-amber-200 font-medium">📝 필수</Badge>
+                </Label>
                 <Input id="baseWage" name="baseWage" type="text" inputMode="numeric" value={formattedBaseWage} onChange={handleWageChange} className="font-mono" disabled={!canEdit} placeholder="0" />
               </div>
             </div>
             
-            {(formData.wageType === 'hourly' || formData.wageType === 'daily') && (
-              <div className="bg-primary/5 p-3 rounded-md border border-primary/10 text-sm">
-                <div className="flex justify-between items-center text-primary/80 mb-1">
-                  <span>기본 스케줄 기준 월 예상 급여</span>
-                  <span className="font-bold text-primary">
-                    {(() => {
+            <div className="bg-primary/5 p-3 rounded-md border border-primary/10 text-sm">
+              <div className="flex justify-between items-center text-primary/80 mb-1">
+                <span>{formData.wageType === 'monthly' ? '예상 연봉 (월급 * 12)' : formData.wageType === 'yearly' ? '예상 월급 (연봉 / 12)' : '기본 스케줄 기준 월 예상 급여'}</span>
+                <span className="font-bold text-primary">
+                  {(() => {
+                      const base = parseInt(formData.baseWage) || 0
+                      if (formData.wageType === 'monthly') {
+                        return (base * 12).toLocaleString()
+                      } else if (formData.wageType === 'yearly') {
+                        return Math.round(base / 12).toLocaleString()
+                      } else if (formData.wageType === 'daily') {
                         let workDays = 0
                         formData.workSchedules.forEach(sch => {
                           if (!sch.is_holiday && sch.start_time && sch.end_time) workDays++
                         })
-                        const base = parseInt(formData.baseWage) || 0
-                        if (formData.wageType === 'daily') {
-                          return Math.round(base * workDays * 4.345).toLocaleString()
-                        } else {
-                          const weeklyPay = (weeklyTotalMinutes / 60) * base
-                          return Math.round(weeklyPay * 4.345).toLocaleString()
-                        }
-                    })()} 원
-                  </span>
-                </div>
-                <p className="text-[11px] text-muted-foreground/80 text-right">* 주휴수당, 초과수당 미포함 산정액</p>
+                        return Math.round(base * workDays * 4.345).toLocaleString()
+                      } else {
+                        const weeklyPay = (weeklyTotalMinutes / 60) * base
+                        return Math.round(weeklyPay * 4.345).toLocaleString()
+                      }
+                  })()} 원
+                </span>
               </div>
-            )}
+              <p className="text-[11px] text-muted-foreground/80 text-right">* 비과세 식대, 주휴수당, 초과수당 등 미포함 산정액</p>
+            </div>
 
             <div className="grid gap-4 mt-4 pt-4 border-t border-border/50">
               <Label className="text-sm font-semibold">정산 및 지급 정책 적용</Label>
@@ -601,34 +626,35 @@ export function ContractSettingsTab({ formData, onChange, canEdit, weeklyTotalMi
             </div>
         </div>
         
-        <div className="grid grid-cols-2 gap-y-4 gap-x-6 p-4 bg-muted/20 border rounded-lg">
-            <div className="flex items-center space-x-3">
-              <Checkbox id="ins_emp" checked={isOver15Hours ? true : formData.insuranceStatus.employment} onCheckedChange={(c) => onChange({ insuranceStatus: { ...formData.insuranceStatus, employment: !!c } })} disabled={!canEdit || isOver15Hours} />
-              <Label htmlFor="ins_emp" className="cursor-pointer font-medium text-sm">고용보험</Label>
+        <div className="flex flex-wrap gap-4 p-3 bg-muted/20 border rounded-lg items-center">
+            <div className="flex items-center space-x-2">
+              <Checkbox id="ins_emp" className="w-3.5 h-3.5" checked={isOver15Hours ? true : formData.insuranceStatus.employment} onCheckedChange={(c) => onChange({ insuranceStatus: { ...formData.insuranceStatus, employment: !!c } })} disabled={!canEdit || isOver15Hours} />
+              <Label htmlFor="ins_emp" className="cursor-pointer font-medium text-[13px]">고용보험</Label>
             </div>
-            <div className="flex items-center space-x-3">
-              <Checkbox id="ins_ind" checked={true} disabled={true} />
-              <Label htmlFor="ins_ind" className="cursor-pointer font-medium text-sm">산재보험</Label>
+            <div className="flex items-center space-x-2">
+              <Checkbox id="ins_ind" className="w-3.5 h-3.5" checked={true} disabled={true} />
+              <Label htmlFor="ins_ind" className="cursor-pointer font-medium text-[13px] text-muted-foreground">산재보험</Label>
             </div>
-            <div className="flex items-center space-x-3">
-              <Checkbox id="ins_nat" checked={isOver15Hours ? true : formData.insuranceStatus.national} onCheckedChange={(c) => onChange({ insuranceStatus: { ...formData.insuranceStatus, national: !!c } })} disabled={!canEdit || isOver15Hours} />
-              <Label htmlFor="ins_nat" className="cursor-pointer font-medium text-sm">국민연금</Label>
+            <div className="flex items-center space-x-2">
+              <Checkbox id="ins_nat" className="w-3.5 h-3.5" checked={isOver15Hours ? true : formData.insuranceStatus.national} onCheckedChange={(c) => onChange({ insuranceStatus: { ...formData.insuranceStatus, national: !!c } })} disabled={!canEdit || isOver15Hours} />
+              <Label htmlFor="ins_nat" className="cursor-pointer font-medium text-[13px]">국민연금</Label>
             </div>
-            <div className="flex items-center space-x-3">
-              <Checkbox id="ins_health" checked={isOver15Hours ? true : formData.insuranceStatus.health} onCheckedChange={(c) => onChange({ insuranceStatus: { ...formData.insuranceStatus, health: !!c } })} disabled={!canEdit || isOver15Hours} />
-              <Label htmlFor="ins_health" className="cursor-pointer font-medium text-sm">건강보험</Label>
+            <div className="flex items-center space-x-2">
+              <Checkbox id="ins_health" className="w-3.5 h-3.5" checked={isOver15Hours ? true : formData.insuranceStatus.health} onCheckedChange={(c) => onChange({ insuranceStatus: { ...formData.insuranceStatus, health: !!c } })} disabled={!canEdit || isOver15Hours} />
+              <Label htmlFor="ins_health" className="cursor-pointer font-medium text-[13px]">건강보험</Label>
             </div>
+            
+            <span className="text-xs text-muted-foreground ml-auto pr-1">
+              {isOver15Hours ? (
+                <span className="text-blue-600 dark:text-blue-400 font-medium">15h+ 자동적용</span>
+              ) : (
+                <span>15h 미만</span>
+              )}
+            </span>
         </div>
-        <p className="text-xs text-muted-foreground px-1 leading-relaxed">
-          {isOver15Hours ? (
-            <span className="text-blue-600 dark:text-blue-400 font-medium">* 주 15시간 이상 근무자는 4대보험 필수 가입 대상입니다.</span>
-          ) : (
-            <span>* 주 15시간 미만 초단시간 근로자는 산재보험만 필수입니다.<br/>* 계약서 생성 시 위 선택된 보험 항목에 체크 표시가 들어갑니다.</span>
-          )}
-        </p>
 
-        {/* 근로계약서 미리보기 안내 영역 (플레이스홀더) */}
-        <div className="mt-8 pt-6 space-y-4 border-t border-border/30">
+        {/* 근로계약서 미리보기 안내 영역 */}
+        <div className="mt-6 pt-5 space-y-4 border-t border-border/30">
           <div className="flex items-center justify-between pb-2 border-b">
             <h4 className="font-semibold text-sm flex items-center gap-2 text-foreground/90">
               <FileText className="w-4 h-4" /> 근로계약서 반영 요약
@@ -652,9 +678,10 @@ export function ContractSettingsTab({ formData, onChange, canEdit, weeklyTotalMi
             <div className="space-y-1.5 z-10">
               <p className="font-semibold text-[13px] text-foreground">자동 생성 계약서 항목</p>
               <p className="text-[11px] text-muted-foreground max-w-[240px] leading-relaxed mx-auto">
-                위 설정된 <span className="font-medium text-foreground/80">{formData.wageType === 'hourly' ? '시급' : formData.wageType === 'daily' ? '일급' : formData.wageType === 'monthly' ? '월급' : '연봉'}</span>, 
-                <span className="font-medium text-foreground/80"> 소정근로시간</span>, 
-                <span className="font-medium text-foreground/80"> 4대보험 여부</span>가 모두 전자계약서 서식에 자동 매핑됩니다.
+                위 설정된 <span className="font-medium text-foreground/80">{formData.wageType === 'hourly' ? '시급' : formData.wageType === 'daily' ? '일급' : formData.wageType === 'monthly' ? '월 기본급' : '연봉'}</span>, 
+                <span className="font-medium text-foreground/80"> 소정근로시간</span>이 전자계약서 서식에 자동 매핑됩니다.<br/>
+                <span className="text-muted-foreground/70">(* 4대보험 설정은 직원 관리 및 노무 참고용으로 저장됩니다.)</span>
+                {formData.employmentType === 'fulltime' && <><br/><span className="mt-1 block">* 정규직(월급)은 비과세 식대(20만원)가 분리 계산되어 매핑됩니다.</span></>}
               </p>
             </div>
             
