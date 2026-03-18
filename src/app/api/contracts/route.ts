@@ -333,17 +333,22 @@ export async function POST(req: Request) {
       fields
     })
 
+    console.log('Modusign sendContract result:', JSON.stringify(result, null, 2))
+
     // 5. 발송 성공 시 contract_status 업데이트
-    if (result && result.documentId) {
+    const documentId = result?.id || result?.document?.id || result?.documentId;
+
+    if (documentId) {
       await supabase
         .from('store_members')
         .update({ 
           contract_status: 'sent',
-          modusign_document_id: result.documentId
+          modusign_document_id: documentId
         })
         .eq('id', staffData.id)
     } else {
       // documentId가 없는 경우 (모두싸인 API 응답 포맷에 따라 다를 수 있음)
+      console.warn('Document ID not found in Modusign response:', result)
       await supabase
         .from('store_members')
         .update({ contract_status: 'sent' })
