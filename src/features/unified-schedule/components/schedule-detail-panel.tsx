@@ -214,14 +214,23 @@ export function ScheduleDetailPanel({
 
   return (
     <div className="w-[320px] xl:w-[340px] shrink-0 bg-white border border-black/10 rounded-xl p-4 shadow-sm flex flex-col">
-      <div className="flex items-center justify-between mb-4 pb-2 border-b shrink-0">
+      <div className="flex items-center justify-between mb-4 pb-3 border-b shrink-0">
         <div className="flex items-center gap-2">
-          <div className="font-semibold text-[14px]">일정 및 업무 상세</div>
-          {saveStatus === 'saving' && <span className="text-[10px] text-muted-foreground animate-pulse">저장 중...</span>}
-          {saveStatus === 'saved' && <span className="text-[10px] text-[#1D9E75]">저장됨</span>}
+          <div 
+            className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0"
+            style={{ backgroundColor: hexToRgba(selectedSchedule.roleColor, 0.15), color: selectedSchedule.roleColor }}
+          >
+            {(selectedSchedule.displayName || '직').substring(0, 1)}
+          </div>
+          <div className="flex items-baseline gap-1.5">
+            <span className="font-semibold text-[15px] text-[#1a1a1a]">{selectedSchedule.displayName || '알 수 없음'}</span>
+            <span className="text-[11px] font-medium text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded-md border border-black/5">{selectedSchedule.displayRole}</span>
+          </div>
+          {saveStatus === 'saving' && <span className="text-[10px] text-muted-foreground animate-pulse ml-2">저장 중...</span>}
+          {saveStatus === 'saved' && <span className="text-[10px] text-[#1D9E75] ml-2 font-medium">저장됨</span>}
         </div>
         <button 
-          className="text-muted-foreground hover:text-black w-6 h-6 flex items-center justify-center rounded-md hover:bg-muted"
+          className="text-muted-foreground hover:text-black w-6 h-6 flex items-center justify-center rounded-md hover:bg-muted transition-colors"
           onClick={() => setSelectedSchedule(null)}
         >
           ✕
@@ -232,17 +241,6 @@ export function ScheduleDetailPanel({
         
         {/* 1. 스케줄 기본 정보 수정 폼 */}
         <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-3 mb-1">
-            <div 
-              className="w-8 h-8 rounded-full flex items-center justify-center text-[14px] font-medium shrink-0"
-              style={{ backgroundColor: hexToRgba(selectedSchedule.roleColor, 0.2), color: selectedSchedule.roleColor }}
-            >
-              {(selectedSchedule.displayName || '직').substring(0, 1)}
-            </div>
-            <span className="text-[14px] font-medium">{selectedSchedule.displayName || '알 수 없음'}</span>
-            <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded ml-auto">{selectedSchedule.displayRole}</span>
-          </div>
-
           <div className="flex gap-2">
             <div className="flex flex-col gap-1.5 flex-1">
               <label className="text-[10px] font-medium text-muted-foreground">날짜</label>
@@ -254,11 +252,16 @@ export function ScheduleDetailPanel({
               />
             </div>
             <div className="flex flex-col gap-1.5 flex-1">
-              <label className="text-[10px] font-medium text-muted-foreground">할당 직원</label>
-              <Select value={selectedSchedule.editStaffId} onValueChange={(val) => handleFieldChange('editStaffId', val)}>
+              <label className="text-[10px] font-medium text-muted-foreground">스케줄 유형</label>
+              <Select value={selectedSchedule.title || '정규 근무'} onValueChange={(val) => handleFieldChange('title', val)}>
                 <SelectTrigger className="h-8 text-[11px] px-2"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                   {staffList.map(s => <SelectItem key={s.id} value={s.id} className="text-[11px]">{s.name}</SelectItem>)}
+                  <SelectItem value="정규 근무" className="text-[11px]">정규 근무</SelectItem>
+                  <SelectItem value="대체 근무" className="text-[11px]">대체 근무</SelectItem>
+                  <SelectItem value="연장 근무" className="text-[11px]">연장 근무</SelectItem>
+                  <SelectItem value="교육" className="text-[11px]">교육</SelectItem>
+                  <SelectItem value="휴가" className="text-[11px]">휴가</SelectItem>
+                  <SelectItem value="병가" className="text-[11px]">병가</SelectItem>
                 </SelectContent>
               </Select>
             </div>

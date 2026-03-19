@@ -1,4 +1,3 @@
--- Create store announcements table
 CREATE TABLE IF NOT EXISTS store_announcements (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     store_id UUID NOT NULL REFERENCES stores(id) ON DELETE CASCADE,

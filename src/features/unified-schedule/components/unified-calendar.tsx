@@ -3,16 +3,27 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react'
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameDay, isSameMonth } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { Search } from 'lucide-react'
+import { Search, Sparkles, Plus, CalendarPlus, ChevronDown } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { updateTaskStatus } from '@/features/tasks/actions'
 import { updateScheduleTime } from '@/features/schedule/actions'
 import { toast } from 'sonner'
 import { toUTCISOString, getDiffInMinutes, addMinutesToTime } from '@/lib/date-utils'
 import { ScheduleDetailPanel, STATUS_INFO } from './schedule-detail-panel'
 import { ScheduleCreateDialog } from './schedule-create-dialog'
+import { UnifiedAutoScheduleDialog } from './unified-auto-schedule-dialog'
+import { UnifiedBulkDeleteDialog } from './unified-bulk-delete-dialog'
+import { Trash2 } from 'lucide-react'
+import { deleteStaffSchedules } from '@/features/schedule/actions'
+import { MiniCalendar } from './mini-calendar'
+import { CalendarHeader } from './calendar-header'
+import { TimelineTooltip } from './timeline-tooltip'
+import { SingleDayDeleteModal, ConfirmMoveModal } from './schedule-action-modals'
+import { TimelineStaffColumn } from './timeline-staff-column'
+import { WeeklyShiftBoard } from './weekly-shift-board'
 
 // 자동 파생 상태 계산 헬퍼 (시간 기반)
 export function getDerivedTaskStatus(ta: any, scheduleDateStr: string, now: Date): 'todo' | 'in_progress' | 'pending' | 'done' {
@@ -62,6 +73,7 @@ interface UnifiedCalendarProps {
 }
 
 export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = [] }: UnifiedCalendarProps) {
+  const [viewMode, setViewMode] = useState<'day' | 'week'>('day')
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null)
   
   const [currentDate, setCurrentDate] = useState<Date>(new Date()) // 미니 달력 뷰 기준
@@ -76,12 +88,21 @@ export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = []
   const [selectedSchedule, setSelectedSchedule] = useState<any>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [isAutoScheduleModalOpen, setIsAutoScheduleModalOpen] = useState(false)
+  const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false)
   const [confirmMoveModal, setConfirmMoveModal] = useState<{
     isOpen: boolean;
     scheduleId: string;
     newStartUTC: string;
     newEndUTC: string;
     deltaMinutes: number;
+  } | null>(null)
+
+  const [singleDayDeleteModal, setSingleDayDeleteModal] = useState<{
+    isOpen: boolean;
+    staffId: string;
+    staffName: string;
+    date: Date;
   } | null>(null)
 
   const [createForm, setCreateForm] = useState({
@@ -120,6 +141,27 @@ export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = []
     const timer = setInterval(() => setNow(new Date()), 60000) // 1분마다 업데이트
     return () => clearInterval(timer)
   }, [])
+
+  // 역할(Role) 필터링 상태 (기본값: 모든 역할 선택됨)
+  const [activeRoleIds, setActiveRoleIds] = useState<string[]>([])
+  useEffect(() => {
+    if (roles && roles.length > 0 && activeRoleIds.length === 0) {
+      setActiveRoleIds(roles.map(r => r.id))
+    }
+  }, [roles])
+
+  const toggleRole = (roleId: string) => {
+    setActiveRoleIds(prev => {
+      // 이미 모든 역할이 선택된 상태에서 하나를 클릭하면, 그 하나만 선택되도록 (독점 선택 편의성)
+      if (prev.length === roles.length) {
+        return [roleId]
+      }
+      
+      const next = prev.includes(roleId) ? prev.filter(id => id !== roleId) : [...prev, roleId]
+      // 모두 해제되면 다시 전체 선택으로 복구
+      return next.length === 0 ? roles.map(r => r.id) : next
+    })
+  }
 
   useEffect(() => {
     setLocalSchedules(schedules || [])
@@ -376,6 +418,50 @@ export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = []
       }
       return s
     }))
+    
+    // 선택된 스케줄이 이동된 경우, 우측 패널 시간도 동기화
+    setSelectedSchedule((prev: any) => {
+      if (prev && prev.id === scheduleId) {
+        const start = new Date(newStartUTC)
+        const end = new Date(newEndUTC)
+        
+        let startHour = start.getHours() + start.getMinutes() / 60
+        let endHour = end.getHours() + end.getMinutes() / 60
+        if (endHour <= startHour || end.getDate() !== start.getDate()) {
+          endHour += 24
+        }
+        
+        let updatedAssignments = prev.task_assignments;
+        if (moveTasks && updatedAssignments && deltaMinutes !== 0) {
+          updatedAssignments = updatedAssignments.map((ta: any) => {
+            if (!ta.start_time) return ta;
+            const newStartStr = addMinutesToTime(ta.start_time, deltaMinutes)
+            let newEndStr = ta.end_time;
+            if (ta.end_time) {
+              newEndStr = addMinutesToTime(ta.end_time, deltaMinutes)
+              newEndStr = newEndStr.length === 5 ? newEndStr + ':00' : newEndStr
+            }
+            return {
+              ...ta,
+              start_time: newStartStr.length === 5 ? newStartStr + ':00' : newStartStr,
+              end_time: newEndStr
+            }
+          })
+        }
+
+        return {
+          ...prev,
+          start_time: newStartUTC,
+          end_time: newEndUTC,
+          displayTime: `${format(start, 'HH:mm')} - ${format(end, 'HH:mm')} (${(endHour - startHour).toFixed(1)}시간)`,
+          editDate: format(start, 'yyyy-MM-dd'),
+          editStartTime: format(start, 'HH:mm'),
+          editEndTime: format(end, 'HH:mm'),
+          task_assignments: updatedAssignments
+        }
+      }
+      return prev
+    })
   }
 
   const handleTaskToggle = async (taskId: string, currentStatus: string) => {
@@ -448,7 +534,7 @@ export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = []
       ...sch,
       displayDate: format(start, 'yyyy년 M월 d일 (E)', { locale: ko }),
       displayTime: `${format(start, 'HH:mm')} - ${format(end, 'HH:mm')} (${(endHour - startHour).toFixed(1)}시간)`,
-      displayName: sch.title || staffData?.name || member?.name || '직원',
+      displayName: staffData?.name || member?.name || sch.title || '직원',
       displayRole: roleInfo?.name || '역할 없음',
       roleColor: roleColor,
       
@@ -484,23 +570,61 @@ export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = []
     })
   }
 
+  const hasScheduleInWeek = (startOfWeekDate: Date, staffId?: string) => {
+    const startDateStr = format(startOfWeekDate, 'yyyy-MM-dd')
+    const endOfWeekDate = addDays(startOfWeekDate, 6)
+    const endDateStr = format(endOfWeekDate, 'yyyy-MM-dd')
+    
+    return localSchedules.some(sch => {
+      if (!sch.start_time) return false;
+      
+      const parsedDate = new Date(sch.start_time);
+      if (isNaN(parsedDate.getTime())) return false;
+      
+      const schDateStr = format(parsedDate, 'yyyy-MM-dd')
+      
+      // 해당 주의 범위 내에 있는지 확인
+      if (schDateStr < startDateStr || schDateStr > endDateStr) return false;
+      
+      if (staffId) {
+        return sch.schedule_members?.some((sm: any) => sm.member_id === staffId)
+      }
+      return true
+    })
+  }
+
   const [searchQuery, setSearchQuery] = useState('')
 
-  // 데이터 필터링 (선택된 날짜에 스케줄이 있는 직원만 필터링 + 이름 검색)
+  // 데이터 필터링 (선택된 날짜에 스케줄이 있는 직원만 필터링 + 이름 검색 + 역할 필터링)
   const filteredStaff = useMemo(() => {
     let filtered = staffList
 
-    // 1. 선택된 날짜에 스케줄이 있는 직원만 필터링 (최소한 1개의 스케줄이 해당 직원과 날짜에 매칭되어야 함)
-    // schedules 대신 상태로 관리되는 localSchedules를 사용하여 새로 생성된 스케줄도 실시간 반영
-    filtered = filtered.filter(staff => hasScheduleOnDate(selectedDate, staff.id))
+    // 1. 뷰 모드에 따라 스케줄 유무 필터링 적용
+    // 일간 뷰: 선택된 날짜에 스케줄이 있는 직원만
+    // 주간 뷰: 선택된 주에 스케줄이 하루라도 있는 직원만
+    if (viewMode === 'day') {
+      filtered = filtered.filter(staff => hasScheduleOnDate(selectedDate, staff.id))
+    } else if (viewMode === 'week') {
+      filtered = filtered.filter(staff => hasScheduleInWeek(weekStart, staff.id))
+    }
 
     // 2. 이름 검색 필터링
     if (searchQuery.trim()) {
       filtered = filtered.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()))
     }
     
+    // 3. 역할 필터링
+    if (activeRoleIds.length > 0) {
+      filtered = filtered.filter(staff => {
+        const roleInfo = getStaffRoleInfo(staff)
+        // roleInfo가 없거나 매칭되는 role.id가 activeRoleIds에 포함되어 있으면 표시
+        if (!roleInfo) return true
+        return activeRoleIds.includes(roleInfo.id)
+      })
+    }
+    
     return filtered
-  }, [staffList, searchQuery, selectedDate, localSchedules])
+  }, [staffList, searchQuery, selectedDate, localSchedules, activeRoleIds])
 
   // 달력 렌더링 로직
   const calendarDays = useMemo(() => {
@@ -545,141 +669,76 @@ export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = []
   return (
     <div className="flex flex-col h-full text-[#1a1a1a]" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
       
-      {/* 1. 상단 컨트롤 영역 (검색) */}
-      <div className="px-6 py-4 flex items-center justify-end gap-4 shrink-0 h-[64px]">
-        {/* 직원 검색 */}
-        <div className="relative w-full sm:w-[240px]">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#6b6b6b]" />
-          <Input 
-            placeholder="직원 이름으로 검색..." 
-            className="h-8 pl-8 text-[11px] bg-white border-black/10 focus-visible:ring-1 focus-visible:ring-[#1a1a1a] focus-visible:ring-offset-0"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onFocus={() => setIsSearchFocused(true)}
-            onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
-          />
-          
-          {/* 자동완성 드롭다운 */}
-          {isSearchFocused && searchQuery.trim() !== '' && filteredStaff.length > 0 && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-black/10 rounded-md shadow-lg z-50 overflow-hidden max-h-[200px] overflow-y-auto">
-              {filteredStaff.map(staff => {
-                const roleInfo = getStaffRoleInfo(staff)
-                const rColor = roleInfo?.color || '#534AB7'
-                return (
-                  <div 
-                    key={staff.id} 
-                    className="px-3 py-2 text-[11px] text-[#1a1a1a] hover:bg-[#f3f2ef] cursor-pointer flex items-center gap-2"
-                    onClick={() => {
-                      setSearchQuery(staff.name || '알 수 없음')
-                      setIsSearchFocused(false)
-                    }}
-                  >
-                    <div className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] shrink-0"
-                         style={{ backgroundColor: hexToRgba(rColor, 0.2), color: rColor }}>
-                      {(staff.name || '직').substring(0, 1)}
-                    </div>
-                    <span>{staff.name || '알 수 없음'}</span>
-                    <span className="text-[10px] text-muted-foreground ml-auto">{roleInfo?.name || '역할 없음'}</span>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      </div>
+      {/* 1. 상단 컨트롤 영역 (검색, 필터, 뷰 토글 등 전역 컨트롤) */}
+      <CalendarHeader
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        isSearchFocused={isSearchFocused}
+        setIsSearchFocused={setIsSearchFocused}
+        filteredStaff={filteredStaff}
+        getStaffRoleInfo={getStaffRoleInfo}
+        hexToRgba={hexToRgba}
+        viewMode={viewMode}
+        setViewMode={setViewMode}
+        selectedDate={selectedDate}
+        setSelectedDate={setSelectedDate}
+        weekStart={weekStart}
+        setWeekStart={setWeekStart}
+        roles={roles}
+        activeRoleIds={activeRoleIds}
+        toggleRole={toggleRole}
+        onAddSchedule={() => {
+          setCreateForm({
+            title: '정규 근무',
+            date: format(selectedDate, 'yyyy-MM-dd'),
+            startTime: '09:00',
+            endTime: '18:00',
+            staffId: ''
+          })
+          setIsCreateModalOpen(true)
+        }}
+        onAutoSchedule={() => setIsAutoScheduleModalOpen(true)}
+        onBulkDelete={() => setIsBulkDeleteModalOpen(true)}
+      />
 
       {/* Main Layout (Calendar + Timeline) */}
-      <div className="flex-1 flex gap-4 px-6 pb-6 overflow-hidden min-h-0">
+      <div className="flex-1 flex gap-4 px-6 pt-4 pb-6 overflow-hidden min-h-0">
         
         {/* Left: Mini Calendar */}
-        <div className="w-[210px] shrink-0 flex flex-col">
-          <div className="bg-white border border-black/10 rounded-xl p-3.5 shadow-sm">
-            <div className="flex items-center justify-between mb-2">
-              <button className="border-none bg-transparent text-[#6b6b6b] text-[13px] px-1.5 cursor-pointer hover:text-black" onClick={() => setCurrentDate(subMonths(currentDate, 1))}>&#8249;</button>
-              <div className="text-[12px] font-medium text-[#1a1a1a]">{format(currentDate, 'yyyy년 M월')}</div>
-              <button className="border-none bg-transparent text-[#6b6b6b] text-[13px] px-1.5 cursor-pointer hover:text-black" onClick={() => setCurrentDate(addMonths(currentDate, 1))}>&#8250;</button>
-            </div>
-            <div className="grid grid-cols-7 gap-[1px]">
-              {['일','월','화','수','목','금','토'].map(d => (
-                <div key={d} className="text-[8px] text-[#6b6b6b] text-center py-0.5">{d}</div>
-              ))}
-              {calendarDays.map((d, i) => {
-                const isCurMonth = isSameMonth(d, currentDate)
-                const isSelected = isSameDay(d, selectedDate)
-                const isTodayDate = isSameDay(d, new Date())
-                const hasSch = hasScheduleOnDate(d)
-
-                if (!isCurMonth) {
-                  return <div key={i} className="text-[10px] text-center py-1 rounded-[5px] text-transparent cursor-default">.</div>
-                }
-
-                return (
-                  <div 
-                    key={i} 
-                    onClick={() => setSelectedDate(d)}
-                    className={`relative text-[10px] text-center py-1 rounded-[5px] cursor-pointer transition-colors
-                      ${isSelected ? 'bg-[#1a1a1a] text-white' : 'text-[#6b6b6b] hover:bg-[#f3f2ef]'}
-                      ${isTodayDate && !isSelected ? 'font-medium text-[#1a1a1a]' : ''}
-                    `}
-                  >
-                    {d.getDate()}
-                    {hasSch && (
-                      <div className={`absolute bottom-0.5 left-1/2 -translate-x-1/2 w-[3px] h-[3px] rounded-full ${isSelected ? 'bg-[#9FE1CB]' : 'bg-[#1D9E75]'}`} />
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-            
-            <div className="text-[11px] text-[#6b6b6b] mt-2 pt-2 border-t border-black/10">
-              <strong className="text-[#1a1a1a] font-medium">{format(selectedDate, 'M월 d일 (E)', { locale: ko })}</strong>
-            </div>
-          </div>
-        </div>
+        <MiniCalendar 
+          currentDate={currentDate}
+          setCurrentDate={setCurrentDate}
+          selectedDate={selectedDate}
+          setSelectedDate={setSelectedDate}
+          calendarDays={calendarDays}
+          hasScheduleOnDate={hasScheduleOnDate}
+        />
 
         {/* Right: Timeline Panel */}
         <div className="flex-1 bg-white border border-black/10 rounded-xl p-4 shadow-sm flex flex-col min-w-0 overflow-hidden">
           
-          <div className="flex items-center justify-between mb-2 shrink-0">
-            <div className="flex items-center gap-3">
-              <div className="text-[13px] font-medium text-[#1a1a1a]">
-                {format(selectedDate, 'M월 d일 (E)', { locale: ko })}
-              </div>
-              <div className="flex gap-1">
-                <button className="text-[10px] px-2 py-0.5 border border-black/20 rounded text-[#6b6b6b] hover:text-[#1a1a1a]" onClick={() => setSelectedDate(addDays(selectedDate, -1))}>‹ 이전</button>
-                <button className="text-[10px] px-2 py-0.5 border border-black/20 rounded text-[#6b6b6b] hover:text-[#1a1a1a]" onClick={() => setSelectedDate(addDays(selectedDate, 1))}>다음 ›</button>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="flex gap-2 flex-wrap">
-                {/* 레전드 영역 - 역할별 컬러 범례 */}
-                {roles.slice(0, 4).map(r => (
-                  <div key={r.id} className="flex items-center gap-1 text-[9px] text-[#6b6b6b]">
-                    <div className="w-2 h-2 rounded-[2px]" style={{ backgroundColor: hexToRgba(r.color, 0.2), border: `1px solid ${r.color}` }} />
-                    {r.name}
-                  </div>
-                ))}
-              </div>
-              <button 
-                className="bg-[#1a1a1a] text-white text-[11px] font-medium px-3 py-1.5 rounded-md hover:bg-black/80 flex items-center gap-1.5 shadow-sm transition-colors"
-                onClick={() => {
-                  setCreateForm({
-                    title: '',
-                    date: format(selectedDate, 'yyyy-MM-dd'),
-                    startTime: '09:00',
-                    endTime: '18:00',
-                    staffId: ''
-                  })
-                  setIsCreateModalOpen(true)
+          {/* Main Body (일간 뷰 or 주간 뷰) */}
+          {viewMode === 'week' ? (
+            <div className="flex-1 min-h-0 mt-0">
+              <WeeklyShiftBoard 
+                weekStart={weekStart}
+                staffList={filteredStaff} // 검색어 필터링 적용된 목록
+                localSchedules={localSchedules}
+                roles={roles}
+                activeRoleIds={activeRoleIds}
+                getStaffRoleInfo={getStaffRoleInfo}
+                onDayClick={(date) => {
+                  setSelectedDate(date)
+                  setCurrentDate(date)
+                  setViewMode('day')
                 }}
-              >
-                <span className="text-[13px] leading-none mb-[1px]">+</span> 스케줄 추가
-              </button>
+                onScheduleClick={(sch, staff) => {
+                  handleScheduleClick(sch, staff)
+                }}
+              />
             </div>
-          </div>
-
-          {/* 직원별 데일리 수직 타임라인 스크롤 영역 */}
-          <div className="flex-1 flex overflow-auto relative select-none pt-4">
+          ) : (
+          <div className="flex-1 flex overflow-auto relative select-none pt-4 mt-2 border-t border-black/5">
             
             {/* 실시간 현재 시간 지시선 */}
             {isSameDay(selectedDate, now) && (() => {
@@ -728,245 +787,30 @@ export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = []
             {filteredStaff.length > 0 ? (
               <div className="flex flex-1 pl-4 gap-6 w-full max-w-[80%]">
                 {filteredStaff.map(staff => {
-                  const isDragCreate = dragState?.type === 'create_v' && dragState.staffId === staff.id
-                  const safeName = staff.name || '알 수 없음'
                   const roleInfo = getStaffRoleInfo(staff)
-                  const roleColor = roleInfo?.color || '#534AB7'
-                  
                   return (
-                    <div key={staff.id} className="flex-1 flex flex-col relative min-w-[50px] max-w-[120px]">
-                      {/* 상단 직원 이름 헤더 (역할 색상 적용) */}
-                      <div className="h-[36px] shrink-0 flex flex-col items-center justify-center gap-0.5 sticky top-0 z-20 bg-white/95 backdrop-blur-sm pb-1 px-1">
-                        {/* 프로필 서클에 옅은 역할 배경색을 깔아 직무 식별을 명확히 함 */}
-                        <div 
-                          className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-semibold shrink-0 shadow-sm border border-black/5"
-                          style={{ backgroundColor: hexToRgba(roleColor, 0.15), color: roleColor }}
-                        >
-                          {safeName.substring(0, 1)}
-                        </div>
-                        <span className="text-[10px] font-medium text-[#1a1a1a] truncate w-full text-center tracking-tight">{safeName}</span>
-                      </div>
-
-                    {/* 직원별 타임라인 바디 (테두리 없음, 깔끔한 빈 공간) */}
-                    <div 
-                      id={`staff-col-${staff.id}`}
-                      className="relative flex-1 group w-full"
-                      onMouseDown={(e) => {
-                        if ((e.target as HTMLElement).closest('.schedule-block')) return;
-                        const rect = e.currentTarget.getBoundingClientRect()
-                        const offsetY = e.clientY - rect.top
-                        
-                        setDragState({
-                          type: 'create_v',
-                          staffId: staff.id,
-                          startY: offsetY,
-                          startX: e.clientX,
-                          startClientY: e.clientY,
-                          currentY: offsetY,
-                          currentX: e.clientX
-                        })
-                      }}
-                    >
-                      {/* Drag creation preview */}
-                      {isDragCreate && dragState && (
-                        <div 
-                          className="absolute left-1/2 -translate-x-1/2 w-4 bg-primary/20 border-x-2 border-primary/50 rounded-sm z-20 pointer-events-none"
-                          style={{
-                            top: `${Math.max(0, Math.min(dragState.startY, dragState.currentY))}px`,
-                            height: `${Math.abs(dragState.currentY - dragState.startY)}px`
-                          }}
-                        />
-                      )}
-
-                      {/* 호버 시 세로 가이드라인 표시 (다시 넉넉하게 변경) */}
-                      <div className="absolute inset-0 w-8 left-1/2 -translate-x-1/2 bg-black/0 group-hover:bg-black/[0.03] rounded-full transition-colors pointer-events-none -z-10" />
-
-                      {/* 직원별 스케줄 블록들 */}
-                      {localSchedules
-                        .filter(sch => {
-                          if (!sch.start_time) return false;
-                          const parsedDate = new Date(sch.start_time);
-                          if (isNaN(parsedDate.getTime())) return false;
-                          
-                          const dateStr = format(selectedDate, 'yyyy-MM-dd')
-                          // Timezone 오차 방지: Date 객체 파싱 후 로컬 시간 기준으로 렌더링 필터링
-                          const schDateStr = format(parsedDate, 'yyyy-MM-dd')
-                          return schDateStr === dateStr && sch.schedule_members?.some((sm: any) => sm.member_id === staff.id)
-                        })
-                        .map(sch => {
-                          const start = new Date(sch.start_time)
-                          const end = new Date(sch.end_time)
-                          
-                          let startHour = start.getHours() + start.getMinutes() / 60
-                          let endHour = end.getHours() + end.getMinutes() / 60
-                          
-                          // 자정 넘김 로직: 종료일이 다음 날이거나 시간이 작아지는 경우 +24
-                          if (endHour <= startHour || end.getDate() !== start.getDate()) {
-                            endHour += 24
-                          }
-                          
-                          let topPos = Math.max(0, (startHour - hours[0]) * 40)
-                          let heightPos = Math.max(20, (endHour - startHour) * 40)
-                          
-                          if (dragState && dragState.scheduleId === sch.id) {
-                            const MAX_HEIGHT = 24 * 40
-                            if (dragState.type === 'move_v' && dragState.initialTop !== undefined) {
-                              const dy = Math.round((dragState.currentY - dragState.startY) / 20) * 20
-                              topPos = Math.max(0, Math.min(dragState.initialTop + dy, MAX_HEIGHT - heightPos))
-                            } else if (dragState.type === 'resize_v' && dragState.initialHeight !== undefined) {
-                              const dy = Math.round((dragState.currentY - dragState.startY) / 20) * 20
-                              heightPos = Math.max(20, Math.min(dragState.initialHeight + dy, MAX_HEIGHT - topPos))
-                            }
-                          }
-                          
-                          // 이 블록에서 사용할 역할 정보: 1순위 직원 역할 정보 2순위 스케줄 자체 컬러 3순위 기본 컬러
-                          const schRoleInfo = getStaffRoleInfo(staff)
-                          const schRoleColor = schRoleInfo?.color || sch.color || '#534AB7'
-
-                          const tasks = sch.task_assignments || []
-                          const timeSpecificTasks = tasks.filter((ta: any) => ta.start_time)
-                          const anytimeTasks = tasks.filter((ta: any) => !ta.start_time)
-
-                          return (
-                            <div 
-                              key={sch.id}
-                              className={`schedule-block absolute rounded-full cursor-pointer transition-all hover:brightness-95 z-10 flex flex-col left-1/2 -translate-x-1/2 w-1 shadow-sm ${selectedSchedule?.id === sch.id ? 'ring-[1.5px] ring-black ring-offset-[1.5px] z-20' : 'hover:scale-x-[2]'}`}
-                              style={{ 
-                                backgroundColor: schRoleColor,
-                                top: `${topPos}px`,
-                                height: `${heightPos - 2}px`,
-                                cursor: dragState?.type === 'move_v' ? 'grabbing' : 'grab'
-                              }}
-                              onMouseDown={(e) => {
-                                e.stopPropagation();
-                                setDragState({
-                                  type: 'move_v',
-                                  scheduleId: sch.id,
-                                  staffId: staff.id,
-                                  startY: e.clientY,
-                                  startX: e.clientX,
-                                  startClientY: e.clientY,
-                                  currentY: e.clientY,
-                                  currentX: e.clientX,
-                                  initialTop: topPos,
-                                  initialHeight: heightPos
-                                })
-                              }}
-                              onClick={(e) => {
-                                if (isDraggingRef.current) return;
-                                handleScheduleClick(sch, staff)
-                              }}
-                              onMouseEnter={(e) => {
-                                if (dragState || isModalOpen) return
-                                const tRoleInfo = getStaffRoleInfo(staff)
-                                setTooltipData({
-                                  isSchedule: true,
-                                  name: sch.title || safeName,
-                                  role: tRoleInfo?.name || '역할 없음',
-                                  shift: `${format(start, 'HH:mm')} - ${format(end, 'HH:mm')} (${(endHour - startHour).toFixed(1)}h)`,
-                                  anytimeTasks: anytimeTasks.map((ta: any) => ({
-                                    title: ta.task?.title,
-                                    checklist: ta.task?.checklist
-                                  })),
-                                  timeSpecificTasks: timeSpecificTasks.map((ta: any) => {
-                                    const ts = new Date(ta.start_time)
-                                    // timezone 무시하고 시간만 렌더링하기 위해 안전장치
-                                    const timeStr = ta.start_time.includes('T') ? format(ts, 'HH:mm') : ta.start_time.substring(0, 5)
-                                    return {
-                                      title: ta.task?.title,
-                                      time: timeStr,
-                                      checklist: ta.task?.checklist
-                                    }
-                                  })
-                                })
-                              }}
-                              onMouseLeave={() => setTooltipData(null)}
-                            >
-                              {/* 상시 업무 여부를 표시하는 작은 점 (높이가 허용될 때만 상단에 고정 표시) */}
-                              {heightPos > 20 && anytimeTasks.length > 0 && (
-                                <div className="absolute top-1.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-white shadow-sm opacity-80" />
-                              )}
-                              
-                              {/* 특정 시간 지정 업무 마커 (스케줄 시간대 내 비율 위치) */}
-                              {timeSpecificTasks.map((ta: any, idx: number) => {
-                                const taskStartStr = ta.start_time
-                                // 단순 시간 추출 (HH:mm)
-                                const taskTimeMatch = taskStartStr.match(/T?(\d{2}):(\d{2})/)
-                                if (!taskTimeMatch) return null
-                                
-                                let taskHourNum = parseInt(taskTimeMatch[1]) + parseInt(taskTimeMatch[2]) / 60
-                                
-                                // 자정 넘김 처리: 스케줄 시작 시간보다 업무 시간이 작으면 다음날로 간주 (+24)
-                                // (단, 스케줄 범위가 하루를 넘어가는 경우에 한함)
-                                if (taskHourNum < Math.floor(startHour)) {
-                                  taskHourNum += 24
-                                }
-                                
-                                // 스케줄 시작 시간 기준 상대적 시간차
-                                const relativeHour = taskHourNum - startHour
-                                // 1시간 = 40px
-                                let dotTop = relativeHour * 40
-                                
-                                const isOutOfBounds = dotTop < -4 || dotTop > heightPos - 4
-                                
-                                // 자동 파생 상태 계산
-                                const derivedStatus = getDerivedTaskStatus(ta, format(start, 'yyyy-MM-dd'), now)
-                                const dotBorderColor = derivedStatus === 'done' ? '#16a34a' : derivedStatus === 'in_progress' ? '#2563eb' : derivedStatus === 'pending' ? '#ea580c' : '#6b6b6b'
-                                const dotBgColor = derivedStatus === 'done' ? '#bbf7d0' : derivedStatus === 'in_progress' ? '#bfdbfe' : derivedStatus === 'pending' ? '#fed7aa' : 'white'
-
-                                return (
-                                  <div
-                                    key={ta.id || idx}
-                                    className={`absolute left-1/2 -translate-x-1/2 w-3 h-3 rounded-full z-30 transition-transform hover:scale-150 ${isOutOfBounds ? 'shadow-[0_0_0_2px_rgba(239,68,68,0.3)] animate-pulse' : 'shadow-[0_1px_3px_rgba(0,0,0,0.3)]'}`}
-                                    style={{ 
-                                      top: `${dotTop}px`,
-                                      border: `2px solid ${isOutOfBounds ? '#ef4444' : dotBorderColor}`,
-                                      backgroundColor: dotBgColor,
-                                      opacity: isOutOfBounds ? 0.8 : 1
-                                    }}
-                                    onMouseEnter={(e) => {
-                                      e.stopPropagation()
-                                      setTooltipData({
-                                        isTaskSpecific: true,
-                                        name: ta.task?.title,
-                                        time: taskStartStr.includes('T') ? format(new Date(taskStartStr), 'HH:mm') : taskStartStr.substring(0, 5),
-                                        status: derivedStatus,
-                                        checklist: ta.task?.checklist
-                                      })
-                                    }}
-                                    onMouseLeave={(e) => {
-                                      e.stopPropagation()
-                                      setTooltipData(null)
-                                    }}
-                                  />
-                                )
-                              })}
-
-                              <div 
-                                className="absolute bottom-0 left-0 right-0 h-3 cursor-ns-resize hover:bg-black/20 transition-colors rounded-b-full z-20"
-                                onMouseDown={(e) => {
-                                  e.stopPropagation();
-                                  setDragState({
-                                    type: 'resize_v',
-                                    scheduleId: sch.id,
-                                    staffId: staff.id,
-                                    startY: e.clientY,
-                                    startX: e.clientX,
-                                    startClientY: e.clientY,
-                                    currentY: e.clientY,
-                                    currentX: e.clientX,
-                                    initialTop: topPos,
-                                    initialHeight: heightPos
-                                  })
-                                }}
-                              />
-                            </div>
-                          )
-                        })}
-                    </div>
-                  </div>
-                )
-              })}
+                    <TimelineStaffColumn
+                      key={staff.id}
+                      staff={staff}
+                      safeName={staff.name || '알 수 없음'}
+                      roleColor={roleInfo?.color || '#534AB7'}
+                      selectedDate={selectedDate}
+                      isDragCreate={dragState?.type === 'create_v' && dragState.staffId === staff.id}
+                      dragState={dragState}
+                      setDragState={setDragState}
+                      localSchedules={localSchedules}
+                      hours={hours}
+                      now={now}
+                      isDraggingRef={isDraggingRef}
+                      isModalOpen={isModalOpen}
+                      selectedScheduleId={selectedSchedule?.id}
+                      handleScheduleClick={handleScheduleClick}
+                      setTooltipData={setTooltipData}
+                      setSingleDayDeleteModal={setSingleDayDeleteModal}
+                      getStaffRoleInfo={getStaffRoleInfo}
+                    />
+                  )
+                })}
               </div>
             ) : (
               <div className="flex flex-1 items-center justify-center text-[12px] text-muted-foreground pt-10 h-full w-full shrink-0">
@@ -974,18 +818,21 @@ export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = []
               </div>
             )}
           </div>
+          )}
         </div>
 
-        {/* 3단 레이아웃 우측: Schedule Detail Panel */}
-        <ScheduleDetailPanel
-          storeId={storeId}
-          selectedSchedule={selectedSchedule}
-          setSelectedSchedule={setSelectedSchedule}
-          staffList={staffList}
-          setLocalSchedules={setLocalSchedules}
-          handleTaskToggle={handleTaskToggle}
-          now={now}
-        />
+        {/* 3단 레이아웃 우측: Schedule Detail Panel (주간 뷰에서는 숨김) */}
+        {viewMode === 'day' && (
+          <ScheduleDetailPanel
+            storeId={storeId}
+            selectedSchedule={selectedSchedule}
+            setSelectedSchedule={setSelectedSchedule}
+            staffList={staffList}
+            setLocalSchedules={setLocalSchedules}
+            handleTaskToggle={handleTaskToggle}
+            now={now}
+          />
+        )}
       </div>
 
       {/* Create Schedule Modal */}
@@ -1000,135 +847,61 @@ export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = []
         setLocalSchedules={setLocalSchedules}
       />
 
+      {/* Auto Schedule Modal */}
+      <UnifiedAutoScheduleDialog
+        open={isAutoScheduleModalOpen}
+        onOpenChange={setIsAutoScheduleModalOpen}
+        storeId={storeId}
+        staffList={staffList}
+      />
+
+      {/* Bulk Delete Modal */}
+      <UnifiedBulkDeleteDialog
+        open={isBulkDeleteModalOpen}
+        onOpenChange={setIsBulkDeleteModalOpen}
+        storeId={storeId}
+        staffList={staffList}
+      />
+
+      {/* Single Day Staff Schedule Delete Dialog */}
+      {singleDayDeleteModal && (
+        <SingleDayDeleteModal
+          isOpen={singleDayDeleteModal.isOpen}
+          staffId={singleDayDeleteModal.staffId}
+          staffName={singleDayDeleteModal.staffName}
+          date={singleDayDeleteModal.date}
+          storeId={storeId}
+          onClose={() => setSingleDayDeleteModal(null)}
+        />
+      )}
+
       {/* Confirm Task Move Dialog */}
       {confirmMoveModal && (
-        <Dialog open={confirmMoveModal.isOpen} onOpenChange={(open) => {
-          if (!open) setConfirmMoveModal(null)
-        }}>
-          <DialogContent className="w-[360px] p-5 gap-0">
-            <DialogHeader className="mb-4 text-left">
-              <DialogTitle className="text-[15px] font-semibold flex items-center gap-2">
-                <span className="text-[18px]">🔄</span> 스케줄과 함께 업무도 이동할까요?
-              </DialogTitle>
-            </DialogHeader>
-            <div className="text-[13px] text-muted-foreground mb-6 leading-relaxed bg-muted/30 p-3 rounded-md">
-              이 스케줄에는 개별 시간이 지정된 업무가 포함되어 있습니다.<br/>
-              스케줄 변경 시간에 맞춰 <strong>개별 업무 시간도 함께 이동</strong>하시겠습니까?
-            </div>
-            <div className="flex gap-2 w-full justify-end">
-              <button 
-                className="text-[12px] h-9 px-4 rounded-md border text-[#1a1a1a] font-medium hover:bg-muted/50 transition-colors"
-                onClick={() => {
-                  processScheduleUpdate(confirmMoveModal.scheduleId, confirmMoveModal.newStartUTC, confirmMoveModal.newEndUTC, false, confirmMoveModal.deltaMinutes)
-                  setConfirmMoveModal(null)
-                }}
-              >
-                아니오 (스케줄만 변경)
-              </button>
-              <button 
-                className="text-[12px] h-9 px-4 rounded-md bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors shadow-sm"
-                onClick={() => {
-                  processScheduleUpdate(confirmMoveModal.scheduleId, confirmMoveModal.newStartUTC, confirmMoveModal.newEndUTC, true, confirmMoveModal.deltaMinutes)
-                  setConfirmMoveModal(null)
-                }}
-              >
-                예 (함께 이동)
-              </button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <ConfirmMoveModal
+          isOpen={confirmMoveModal.isOpen}
+          scheduleId={confirmMoveModal.scheduleId}
+          newStartUTC={confirmMoveModal.newStartUTC}
+          newEndUTC={confirmMoveModal.newEndUTC}
+          deltaMinutes={confirmMoveModal.deltaMinutes}
+          onClose={() => setConfirmMoveModal(null)}
+          onConfirm={(moveTasks) => {
+            processScheduleUpdate(
+              confirmMoveModal.scheduleId,
+              confirmMoveModal.newStartUTC,
+              confirmMoveModal.newEndUTC,
+              moveTasks,
+              confirmMoveModal.deltaMinutes
+            )
+          }}
+        />
       )}
 
       {/* Tooltip Overlay */}
-      {tooltipData && (
-        <div 
-          ref={tooltipRef}
-          className="fixed z-[9999] bg-white border border-black/30 rounded-xl p-2.5 pointer-events-none min-w-[160px] max-w-[240px] shadow-[0_2px_12px_rgba(0,0,0,0.1)] transition-opacity"
-          style={{ left: tooltipPos.x, top: tooltipPos.y }}
-        >
-          {tooltipData.isTaskSpecific ? (
-            <>
-              <div className="text-[12px] font-medium text-[#1a1a1a] mb-1">{tooltipData.name}</div>
-              <div className="text-[10px] text-primary flex items-center gap-1 font-medium mb-1">
-                🕒 {tooltipData.time}
-              </div>
-              <div className="text-[9px] font-medium mb-2" style={{ color: STATUS_INFO[tooltipData.status || 'todo']?.color || '#6b6b6b' }}>
-                상태: {STATUS_INFO[tooltipData.status || 'todo']?.label || '대기'}
-              </div>
-              {tooltipData.checklist && tooltipData.checklist.length > 0 && (
-                <div className="flex flex-col gap-1 border-t border-black/10 pt-1.5">
-                  <div className="text-[9px] text-[#6b6b6b] tracking-wide mb-0.5">체크리스트</div>
-                  {tooltipData.checklist.map((c: any, ci: number) => (
-                    <div key={ci} className="text-[9px] text-[#6b6b6b] flex items-start gap-1">
-                      <span className="shrink-0 text-muted-foreground mt-[1px]">-</span>
-                      <span className={`${c.is_completed ? 'line-through opacity-60' : 'text-[#1a1a1a]'}`}>{c.text}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </>
-          ) : (
-            <>
-              <div className="text-[12px] font-medium text-[#1a1a1a] mb-0.5">{tooltipData.name}</div>
-              <div className="text-[10px] text-[#6b6b6b] mb-1.5">{tooltipData.role}</div>
-              <div className="text-[10px] text-[#1a1a1a] flex items-center gap-1 mb-1.5 pb-1.5 border-b border-black/10">
-                🕐 {tooltipData.shift}
-              </div>
-              
-              <div className="text-[9px] text-[#6b6b6b] mb-1 tracking-wide">상시 업무</div>
-              <div className="flex flex-col gap-[3px] mb-2">
-                {tooltipData.anytimeTasks?.length > 0 ? (
-                  tooltipData.anytimeTasks.map((t: any, i: number) => (
-                    <div key={i} className="flex flex-col gap-0.5 mb-1.5 last:mb-0">
-                      <div className="text-[10px] text-[#1a1a1a] flex items-start gap-1">
-                        <span className="shrink-0">·</span><span className="font-medium">{t.title}</span>
-                      </div>
-                      {t.checklist && t.checklist.length > 0 && (
-                        <div className="pl-2.5 flex flex-col gap-0.5">
-                          {t.checklist.map((c: any, ci: number) => (
-                            <div key={ci} className="text-[9px] text-[#6b6b6b] flex items-start gap-1">
-                              <span className="shrink-0 text-muted-foreground mt-[1px]">-</span>
-                              <span className={`${c.is_completed ? 'line-through opacity-60' : ''}`}>{c.text}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-[10px] text-[#6b6b6b] italic">등록된 상시 업무 없음</div>
-                )}
-              </div>
-              
-              {tooltipData.timeSpecificTasks?.length > 0 && (
-                <>
-                  <div className="text-[9px] text-[#6b6b6b] mb-1 tracking-wide border-t border-black/10 pt-1.5">시간 지정 업무</div>
-                  <div className="flex flex-col gap-[3px]">
-                    {tooltipData.timeSpecificTasks.map((t: any, i: number) => (
-                      <div key={i} className="flex flex-col gap-0.5 mb-1.5 last:mb-0">
-                        <div className="text-[10px] text-[#1a1a1a] flex items-start gap-1 justify-between">
-                          <span className="flex items-start gap-1"><span className="shrink-0">·</span><span className="font-medium">{t.title}</span></span>
-                          <span className="text-[9px] text-primary/80 shrink-0 font-medium">{t.time}</span>
-                        </div>
-                        {t.checklist && t.checklist.length > 0 && (
-                          <div className="pl-2.5 flex flex-col gap-0.5">
-                            {t.checklist.map((c: any, ci: number) => (
-                              <div key={ci} className="text-[9px] text-[#6b6b6b] flex items-start gap-1">
-                                <span className="shrink-0 text-muted-foreground mt-[1px]">-</span>
-                                <span className={`${c.is_completed ? 'line-through opacity-60' : ''}`}>{c.text}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-            </>
-          )}
-        </div>
-      )}
+      <TimelineTooltip 
+        tooltipData={tooltipData}
+        tooltipPos={tooltipPos}
+        tooltipRef={tooltipRef}
+      />
     </div>
   )
 }
