@@ -8,7 +8,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { TaskForm, TaskFormData } from './task-form'
-import { updateTask, Task } from '../actions'
+import { updateTask, Task } from '../task-actions'
 import { toast } from 'sonner'
 import { toKSTISOString, getTodayDateString, toUTCISOString } from '@/lib/date-utils'
 

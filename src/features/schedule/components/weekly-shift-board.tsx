@@ -18,6 +18,7 @@ interface WeeklyShiftBoardProps {
   localSchedules: any[]
   roles: any[]
   activeRoleIds: string[]
+  hours: number[]
   getStaffRoleInfo: (staff: any) => any
   onDayClick: (date: Date) => void
   onScheduleClick: (sch: any, staff: any) => void
@@ -29,12 +30,12 @@ export function WeeklyShiftBoard({
   localSchedules,
   roles,
   activeRoleIds,
+  hours,
   getStaffRoleInfo,
   onDayClick,
   onScheduleClick
 }: WeeklyShiftBoardProps) {
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
-  const hours = Array.from({ length: 24 }, (_, i) => i + 6) // 06:00 ~ 익일 05:00
   const HOUR_HEIGHT = 48 // 1시간당 높이 48px
 
   // 특정 날짜의 스케줄 찾기 (역할 필터링 적용)
@@ -99,7 +100,7 @@ export function WeeklyShiftBoard({
           endHour += 24
         }
 
-        const top = (startHour - 6) * HOUR_HEIGHT
+        const top = (startHour - hours[0]) * HOUR_HEIGHT
         const height = (endHour - startHour) * HOUR_HEIGHT
 
         // 스태프 정보 매칭
@@ -153,7 +154,7 @@ export function WeeklyShiftBoard({
 
       {/* Body (타임라인 그리드) */}
       <div className="flex-1 overflow-y-auto relative bg-[#fafafa]">
-        <div className="flex relative min-h-[1152px]"> {/* 24h * 48px */}
+        <div className="flex relative" style={{ minHeight: `${hours.length * HOUR_HEIGHT}px` }}>
           
           {/* Y축 (시간 라벨) */}
           <div className="w-[48px] shrink-0 bg-white sticky left-0 z-20 border-r border-black/5">

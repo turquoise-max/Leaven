@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
-import { DashboardTaskList } from '@/features/tasks/components/dashboard-task-list'
+import { DashboardTaskList } from '@/features/schedule/components/dashboard-task-list'
 import { getStoreAnnouncements } from '@/features/store/announcement-actions'
 import { StaffAnnouncementList } from '@/features/store/components/staff-announcement-list'
 

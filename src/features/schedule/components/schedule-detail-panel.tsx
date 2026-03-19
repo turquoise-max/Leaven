@@ -8,7 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Switch } from '@/components/ui/switch'
 import { toast } from 'sonner'
 import { updateSchedule, deleteSchedule } from '@/features/schedule/actions'
-import { createTask, assignTask, deleteTask, updateTaskAssignment, toggleTaskCheckitem } from '@/features/tasks/actions'
+import { createTask, assignTask, deleteTask, updateTaskAssignment, toggleTaskCheckitem } from '@/features/schedule/task-actions'
 import { useRouter } from 'next/navigation'
 import { Pencil, Trash2 } from 'lucide-react'
 

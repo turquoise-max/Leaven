@@ -74,7 +74,7 @@ export function Sidebar({ user, role, isCollapsed = false, className, permission
         }] : []),
         ...(permissions.view_schedule ? [{
           title: '스케줄 관리',
-          href: '/dashboard/unified-schedule',
+          href: '/dashboard/schedule',
           icon: CalendarRange,
           isUpcoming: false
         }] : []),

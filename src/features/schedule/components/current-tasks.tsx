@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Clock, Briefcase, Calendar, CheckCircle2 } from 'lucide-react'
-import { Task } from '../actions'
+import { Task } from '../task-actions'
 
 interface CurrentTasksProps {
   tasks: Task[]

@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { updateTaskStatus } from '@/features/tasks/actions'
+import { updateTaskStatus } from '@/features/schedule/task-actions'
 import { updateScheduleTime } from '@/features/schedule/actions'
 import { toast } from 'sonner'
 import { toUTCISOString, getDiffInMinutes, addMinutesToTime } from '@/lib/date-utils'
@@ -70,9 +70,10 @@ interface UnifiedCalendarProps {
   roles: any[]
   staffList?: any[]
   schedules?: any[]
+  storeOpeningHours?: any
 }
 
-export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = [] }: UnifiedCalendarProps) {
+export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = [], storeOpeningHours }: UnifiedCalendarProps) {
   const [viewMode, setViewMode] = useState<'day' | 'week'>('day')
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null)
   
@@ -233,12 +234,12 @@ export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = []
 
       if (type === 'create_v') {
         if (Math.abs(snappedDy) >= 20) {
-          const MAX_HEIGHT = 24 * 40
+          const MAX_HEIGHT = hours.length * 40
           const topY = Math.max(0, Math.min(MAX_HEIGHT - 20, Math.round(Math.min(startY, currentY) / 20) * 20))
           const bottomY = Math.max(20, Math.min(MAX_HEIGHT, Math.round(Math.max(startY, currentY) / 20) * 20))
           
-          const startHour = 6 + (topY / 40)
-          const endHour = 6 + (bottomY / 40)
+          const startHour = hours[0] + (topY / 40)
+          const endHour = hours[0] + (bottomY / 40)
           
           const formatTimeStr = (hourVal: number) => {
             const h = Math.floor(hourVal)
@@ -296,7 +297,7 @@ export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = []
           let newTop = initialTop!
           let newHeight = initialHeight!
           
-          const MAX_HEIGHT = 24 * 40 // 최대 높이(24시간)
+          const MAX_HEIGHT = hours.length * 40
           
           if (type === 'move_v') {
             newTop = Math.max(0, Math.min(initialTop! + snappedDy, MAX_HEIGHT - newHeight))
@@ -304,7 +305,7 @@ export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = []
             newHeight = Math.max(20, Math.min(newHeight + snappedDy, MAX_HEIGHT - newTop))
           }
           
-          const startHour = 6 + (newTop / 40)
+          const startHour = hours[0] + (newTop / 40)
           const endHour = startHour + (newHeight / 40)
           
           const formatTimeStr = (hourVal: number) => {
@@ -642,7 +643,47 @@ export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = []
     return days
   }, [currentDate])
 
-  const hours = Array.from({ length: 24 }, (_, i) => i + 6) // 06:00 ~ 익일 05:00 (24시간)
+  // Get dynamic hours from storeOpeningHours
+  const hours = useMemo(() => {
+    let minHour = 6;
+    let maxHour = 30; // 06:00 next day
+    
+    if (storeOpeningHours) {
+      let earliest = 24;
+      let latest = 0;
+      
+      const days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+      let foundAny = false;
+      
+      days.forEach(day => {
+        const data = storeOpeningHours[day];
+        if (data && !data.closed) {
+          foundAny = true;
+          // open / start_time
+          const openTime = data.start_time || data.open || '09:00';
+          const [oH] = openTime.split(':').map(Number);
+          if (oH < earliest) earliest = oH;
+          
+          // close / end_time
+          const closeTime = data.end_time || data.close || '22:00';
+          let [cH] = closeTime.split(':').map(Number);
+          // if close time is smaller than open time, it means next day
+          if (cH <= oH) cH += 24;
+          if (cH > latest) latest = cH;
+        }
+      });
+      
+      if (foundAny) {
+        // Add 1 hour padding before and after, ensuring we don't go negative or wrap weirdly
+        minHour = Math.max(0, earliest - 1);
+        maxHour = latest + 1;
+        // If the gap is less than 6 hours (weird setup), at least show 12 hours
+        if (maxHour - minHour < 12) maxHour = minHour + 12;
+      }
+    }
+    
+    return Array.from({ length: maxHour - minHour + 1 }, (_, i) => i + minHour);
+  }, [storeOpeningHours]);
 
   // 툴팁 위치 제어 로직
   const handleMouseMove = (e: MouseEvent) => {
@@ -726,6 +767,7 @@ export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = []
                 localSchedules={localSchedules}
                 roles={roles}
                 activeRoleIds={activeRoleIds}
+                hours={hours}
                 getStaffRoleInfo={getStaffRoleInfo}
                 onDayClick={(date) => {
                   setSelectedDate(date)

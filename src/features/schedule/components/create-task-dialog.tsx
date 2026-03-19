@@ -11,10 +11,10 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
-import { createTask } from '../actions'
+import { createTask } from '../task-actions'
 import { toast } from 'sonner'
 import { TaskForm, TaskFormData } from './task-form'
-import { RepeatConfig } from '../actions'
+import { RepeatConfig } from '../task-actions'
 import { toUTCISOString } from '@/lib/date-utils'
 
 interface CreateTaskDialogProps {

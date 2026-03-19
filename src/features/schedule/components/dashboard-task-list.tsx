@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef, useMemo } from 'react'
-import { Task, getDashboardTasks, toggleTaskCheckitem, updateTaskStatus } from '../actions'
+import { Task, getDashboardTasks, toggleTaskCheckitem, updateTaskStatus } from '../task-actions'
 import { getTodayDateString } from '@/lib/date-utils'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'

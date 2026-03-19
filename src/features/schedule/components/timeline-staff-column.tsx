@@ -128,8 +128,10 @@ export function TimelineStaffColumn({
               endHour += 24
             }
             
-            let topPos = Math.max(0, (startHour - hours[0]) * 40)
-            let heightPos = Math.max(20, (endHour - startHour) * 40)
+            // 시각적 기준이 되는 시작 시간 (화면 범위를 벗어날 경우 화면 최상단 시간에 맞춤)
+            const visualStartHour = Math.max(startHour, hours[0])
+            let topPos = (visualStartHour - hours[0]) * 40
+            let heightPos = Math.max(20, (endHour - visualStartHour) * 40)
             
             if (dragState && dragState.scheduleId === sch.id) {
               const MAX_HEIGHT = 24 * 40
@@ -209,16 +211,25 @@ export function TimelineStaffColumn({
                 
                 {timeSpecificTasks.map((ta: any, idx: number) => {
                   const taskStartStr = ta.start_time
-                  const taskTimeMatch = taskStartStr.match(/T?(\d{2}):(\d{2})/)
-                  if (!taskTimeMatch) return null
+                  let taskHourNum = 0
                   
-                  let taskHourNum = parseInt(taskTimeMatch[1]) + parseInt(taskTimeMatch[2]) / 60
+                  // ISO string or Postgres timestamptz (e.g. "2026-03-19 02:14:00+00")
+                  // First try parsing as Date
+                  const taskDate = new Date(taskStartStr)
+                  if (!isNaN(taskDate.getTime()) && taskStartStr.length > 5) { // length > 5 prevents "11:14" from becoming 2001-01-01T11:14
+                    taskHourNum = taskDate.getHours() + taskDate.getMinutes() / 60
+                  } else {
+                    // HH:mm string fallback
+                    const taskTimeMatch = taskStartStr.match(/(\d{2}):(\d{2})/)
+                    if (!taskTimeMatch) return null
+                    taskHourNum = parseInt(taskTimeMatch[1]) + parseInt(taskTimeMatch[2]) / 60
+                  }
                   
                   if (taskHourNum < Math.floor(startHour)) {
                     taskHourNum += 24
                   }
                   
-                  const relativeHour = taskHourNum - startHour
+                  const relativeHour = taskHourNum - visualStartHour
                   let dotTop = relativeHour * 40
                   const isOutOfBounds = dotTop < -4 || dotTop > heightPos - 4
                   const derivedStatus = getDerivedTaskStatus(ta, format(start, 'yyyy-MM-dd'), now)

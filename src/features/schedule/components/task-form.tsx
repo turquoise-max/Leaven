@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Plus, Loader2, AlertTriangle, Clock, Calendar, Briefcase, Trash2, ArrowUp, ArrowDown, CheckSquare, Users, Repeat } from 'lucide-react'
-import { ChecklistItem } from '../actions'
+import { ChecklistItem } from '../task-actions'
 import {
   Select,
   SelectContent,

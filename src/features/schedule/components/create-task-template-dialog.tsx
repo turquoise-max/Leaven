@@ -11,7 +11,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
 import { TaskForm, TaskFormData } from './task-form'
-import { createTask } from '../actions'
+import { createTask } from '../task-actions'
 import { toast } from 'sonner'
 import { getTodayDateString, toUTCISOString } from '@/lib/date-utils'
 

@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/popover'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
-import { generateTasksFromTemplates, deleteTasksByPeriod } from '../actions'
+import { generateTasksFromTemplates, deleteTasksByPeriod } from '../task-actions'
 import { toast } from 'sonner'
 import { DateRange } from 'react-day-picker'
 
