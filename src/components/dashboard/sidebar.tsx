@@ -76,13 +76,13 @@ export function Sidebar({ user, role, isCollapsed = false, className, permission
           title: '출퇴근 관리',
           href: '/dashboard/attendance',
           icon: CalendarDays,
-          isUpcoming: true
+          isUpcoming: false
         },
         {
           title: '휴가 및 연차',
           href: '/dashboard/leave',
           icon: Umbrella,
-          isUpcoming: true
+          isUpcoming: false
         }
       ]
     },
