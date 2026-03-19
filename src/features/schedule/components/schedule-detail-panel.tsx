@@ -8,9 +8,10 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Switch } from '@/components/ui/switch'
 import { toast } from 'sonner'
 import { updateSchedule, deleteSchedule } from '@/features/schedule/actions'
-import { createTask, assignTask, deleteTask, updateTaskAssignment, toggleTaskCheckitem } from '@/features/schedule/task-actions'
+import { createTask, assignTask, deleteTask, updateTaskAssignment, toggleTaskCheckitem, getTaskTemplates } from '@/features/schedule/task-actions'
 import { useRouter } from 'next/navigation'
 import { Pencil, Trash2 } from 'lucide-react'
+import { toKSTISOString } from '@/lib/date-utils'
 
 function hexToRgba(hex: string, alpha: number) {
   if (!hex) return `rgba(0,0,0,${alpha})`
@@ -91,6 +92,34 @@ export function ScheduleDetailPanel({
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null)
   const [editTaskDraft, setEditTaskDraft] = useState({ title: '', hasTime: false, startTime: '' })
   const [editChecklists, setEditChecklists] = useState<{ id: string, text: string, is_completed: boolean }[]>([])
+
+  // Role templates state
+  const [roleTemplates, setRoleTemplates] = useState<any[]>([])
+  const [loadingRoleTemplates, setLoadingRoleTemplates] = useState(false)
+
+  useEffect(() => {
+    if (selectedSchedule?.roleId && storeId) {
+      setLoadingRoleTemplates(true)
+      getTaskTemplates(storeId).then(templates => {
+        const filteredAndSorted = templates
+          .filter(t => 
+            (t.assigned_role_ids?.includes(selectedSchedule.roleId) || t.assigned_role_ids?.includes('all')) &&
+            t.task_type !== 'always' && t.start_time
+          )
+          .sort((a, b) => {
+            // 시간 추출 시 toKSTISOString을 사용하여 올바른 로컬 시간(KST)으로 변환 후 비교
+            const timeA = toKSTISOString(a.start_time!).substring(11, 16)
+            const timeB = toKSTISOString(b.start_time!).substring(11, 16)
+            return timeA.localeCompare(timeB)
+          })
+        setRoleTemplates(filteredAndSorted)
+      }).finally(() => {
+        setLoadingRoleTemplates(false)
+      })
+    } else {
+      setRoleTemplates([])
+    }
+  }, [selectedSchedule?.roleId, storeId])
 
   // Checklist handler helpers
   const handleChecklistChange = (index: number, value: string, isEdit: boolean) => {
@@ -291,344 +320,366 @@ export function ScheduleDetailPanel({
 
         <div className="w-full h-px bg-black/10 my-3" />
 
-        {/* 2. 역할별 업무 (기본 토글: 닫힘) */}
-        <details className="group">
-          <summary className="text-[13px] font-semibold text-[#1a1a1a] cursor-pointer flex justify-between items-center select-none outline-none hover:bg-muted/30 py-1.5 px-1 rounded-sm transition-colors">
-            <div className="flex items-center gap-1.5">
-              <span>{selectedSchedule.displayRole} 기본 업무</span>
-              <span className="text-[9px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium">자동</span>
-            </div>
-            <span className="text-[10px] text-muted-foreground transition-transform duration-200 group-open:rotate-180">▼</span>
-          </summary>
-          <div className="mt-2 flex flex-col gap-2 pl-2">
-            <div className="text-[10px] text-muted-foreground bg-muted/30 p-2.5 rounded border border-dashed text-center">
-              이 역할에 기본 부여된 정규 업무가 없습니다.<br />(관리자 설정에서 템플릿 연동 필요)
-            </div>
-          </div>
-        </details>
+        {(() => {
+          const allTasks = selectedSchedule.task_assignments || []
+          const customTasks = allTasks
 
-        <div className="w-full h-px bg-black/10 my-1" />
-
-        {/* 3. 개인별 업무(체크리스트) 관리 */}
-        <div className="flex flex-col gap-3 mt-2">
-          <div className="flex items-center justify-between px-1">
-            <span className="text-[13px] font-semibold text-[#1a1a1a]">개인별 업무 추가 관리</span>
-            <span className="text-[10px] text-muted-foreground">
-              완료: {selectedSchedule.task_assignments?.filter((ta: any) => ta.task?.status === 'done').length || 0} / {selectedSchedule.task_assignments?.length || 0}
-            </span>
-          </div>
-          
-          <div className="flex flex-col gap-2">
-            {selectedSchedule.task_assignments?.length > 0 ? (
-              selectedSchedule.task_assignments.map((ta: any) => {
-                // 시간 기반 자동 파생 상태 계산
-                const derivedStatus = getDerivedTaskStatus(ta, selectedSchedule.editDate, now)
-                const sInfo = STATUS_INFO[derivedStatus]
-                const isDone = derivedStatus === 'done'
-                const isPending = derivedStatus === 'pending'
-
-                if (editingTaskId === ta.task?.id) {
-                  return (
-                    <div key={ta.id} className="border border-primary/30 bg-primary/5 rounded-md p-3 flex flex-col gap-3 animate-in fade-in duration-200">
-                      <div className="flex flex-col gap-1.5">
-                        <label className="text-[10px] font-semibold text-[#1a1a1a]">업무 그룹 (대표 제목)</label>
-                        <Input 
-                          placeholder="예: 홀 테이블 정리, 화장실 청소 등" 
-                          className="h-8 text-[12px] font-medium bg-white" 
-                          value={editTaskDraft.title}
-                          onChange={(e) => setEditTaskDraft(prev => ({...prev, title: e.target.value}))}
-                          autoFocus
+          const renderTaskItem = (ta: any) => {
+            const derivedStatus = getDerivedTaskStatus(ta, selectedSchedule.editDate, now)
+            const sInfo = STATUS_INFO[derivedStatus]
+            const isDone = derivedStatus === 'done'
+            const isPending = derivedStatus === 'pending'
+            
+            if (editingTaskId === ta.task?.id) {
+              return (
+                <div key={ta.id} className="border border-primary/30 bg-primary/5 rounded-md p-3 flex flex-col gap-3 animate-in fade-in duration-200">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-semibold text-[#1a1a1a]">업무 그룹 (대표 제목)</label>
+                    <Input 
+                      placeholder="예: 홀 테이블 정리, 화장실 청소 등" 
+                      className="h-8 text-[12px] font-medium bg-white" 
+                      value={editTaskDraft.title}
+                      onChange={(e) => setEditTaskDraft(prev => ({...prev, title: e.target.value}))}
+                      autoFocus
+                    />
+                  </div>
+                  
+                  <div className="flex flex-col gap-1.5 bg-white p-2 rounded-md border border-black/5">
+                    <label className="text-[10px] font-semibold text-muted-foreground mb-1">세부 할 일 (체크리스트)</label>
+                    {editChecklists.map((item, index) => (
+                      <div key={item.id} className="flex items-center gap-2">
+                        <Checkbox disabled className="w-3.5 h-3.5 opacity-50" />
+                        <Input
+                          id={`checklist-edit-${index}`}
+                          placeholder={index === editChecklists.length - 1 ? "할 일 추가... (엔터 입력)" : "할 일 내용"}
+                          className="h-7 text-[11px] bg-transparent border-transparent hover:border-black/10 focus-visible:border-primary/50 focus-visible:ring-0 px-1 shadow-none transition-colors"
+                          value={item.text}
+                          onChange={(e) => handleChecklistChange(index, e.target.value, true)}
+                          onKeyDown={(e) => handleChecklistKeyDown(e, index, true)}
                         />
+                        {item.text && index !== editChecklists.length - 1 && (
+                          <button 
+                            className="w-6 h-6 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                            onClick={() => {
+                              const newItems = editChecklists.filter((_, i) => i !== index)
+                              setEditChecklists(newItems)
+                            }}
+                          >
+                            ✕
+                          </button>
+                        )}
                       </div>
-                      
-                      <div className="flex flex-col gap-1.5 bg-white p-2 rounded-md border border-black/5">
-                        <label className="text-[10px] font-semibold text-muted-foreground mb-1">세부 할 일 (체크리스트)</label>
-                        {editChecklists.map((item, index) => (
-                          <div key={item.id} className="flex items-center gap-2">
-                            <Checkbox disabled className="w-3.5 h-3.5 opacity-50" />
-                            <Input
-                              id={`checklist-edit-${index}`}
-                              placeholder={index === editChecklists.length - 1 ? "할 일 추가... (엔터 입력)" : "할 일 내용"}
-                              className="h-7 text-[11px] bg-transparent border-transparent hover:border-black/10 focus-visible:border-primary/50 focus-visible:ring-0 px-1 shadow-none transition-colors"
-                              value={item.text}
-                              onChange={(e) => handleChecklistChange(index, e.target.value, true)}
-                              onKeyDown={(e) => handleChecklistKeyDown(e, index, true)}
+                    ))}
+                  </div>
+                  
+                  <div className="flex items-center justify-between border-t border-black/5 pt-2">
+                    <label className="text-[10px] font-medium text-[#1a1a1a] flex items-center gap-2 cursor-pointer">
+                      <Switch 
+                        checked={editTaskDraft.hasTime} 
+                        onCheckedChange={(val) => setEditTaskDraft(prev => ({...prev, hasTime: val}))} 
+                        className="scale-75 origin-left"
+                      />
+                      수행 시간 지정하기
+                    </label>
+                  </div>
+
+                  {editTaskDraft.hasTime && (
+                    <div className="flex flex-col gap-1.5 bg-white p-2 rounded border border-black/5">
+                      <label className="text-[9px] text-muted-foreground">업무 시작 시간 (선택)</label>
+                      <div className="flex items-center gap-2">
+                        <Input type="time" className="h-7 text-[10px]" value={editTaskDraft.startTime} onChange={(e) => setEditTaskDraft(prev => ({...prev, startTime: e.target.value}))}/>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex justify-end gap-1.5 mt-1">
+                    <button 
+                      className="text-[11px] px-3 py-1.5 rounded text-muted-foreground hover:bg-black/5 transition-colors font-medium"
+                      onClick={() => setEditingTaskId(null)}
+                    >
+                      취소
+                    </button>
+                    <button 
+                      className="text-[11px] px-3 py-1.5 rounded bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors shadow-sm"
+                      onClick={async () => {
+                        if (!editTaskDraft.title.trim()) {
+                          toast.error('업무 그룹(대표 제목)을 입력해주세요.')
+                          return
+                        }
+                        
+                        const loadingToast = toast.loading('업무 수정 중...')
+                        const startTimeToUse = editTaskDraft.hasTime && editTaskDraft.startTime 
+                          ? `${selectedSchedule.editDate}T${editTaskDraft.startTime}:00` 
+                          : null;
+                        
+                        const finalChecklist = editChecklists
+                          .filter(c => c.text.trim() !== '')
+                          .map(c => ({ id: c.id, text: c.text.trim(), is_completed: c.is_completed }))
+
+                        const res = await updateTaskAssignment(
+                          ta.id, 
+                          ta.task.id, 
+                          storeId, 
+                          editTaskDraft.title, 
+                          startTimeToUse,
+                          30
+                        );
+                        
+                        const { createClient } = await import('@/lib/supabase/client')
+                        const supabase = createClient()
+                        await supabase.from('tasks').update({ checklist: finalChecklist }).eq('id', ta.task.id)
+
+                        if (res.error) {
+                          toast.dismiss(loadingToast)
+                          toast.error(res.error)
+                          return
+                        }
+
+                        const updatedSchedule = {
+                          ...selectedSchedule,
+                          task_assignments: selectedSchedule.task_assignments.map((assignment: any) => {
+                            if (assignment.id === ta.id) {
+                              return {
+                                ...assignment,
+                                start_time: editTaskDraft.hasTime ? editTaskDraft.startTime : null,
+                                task: {
+                                  ...assignment.task,
+                                  title: editTaskDraft.title,
+                                  start_time: startTimeToUse,
+                                  checklist: finalChecklist
+                                }
+                              }
+                            }
+                            return assignment
+                          })
+                        }
+                        setSelectedSchedule(updatedSchedule)
+                        setLocalSchedules(prev => prev.map(s => s.id === updatedSchedule.id ? updatedSchedule : s))
+
+                        toast.dismiss(loadingToast)
+                        toast.success('업무가 수정되었습니다.')
+                        setEditingTaskId(null)
+                        router.refresh()
+                      }}
+                    >
+                      저장
+                    </button>
+                  </div>
+                </div>
+              )
+            }
+
+            return (
+              <div key={ta.id} className={`relative flex flex-col gap-1 p-2.5 bg-[#fcfcfc] border ${isPending ? 'border-orange-300 bg-orange-50/30' : 'border-black/10'} rounded-md shadow-sm group hover:border-black/20 transition-colors`}>
+                
+                {/* Hover Actions (Edit / Delete) */}
+                <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                   <button 
+                     className="p-1 rounded bg-white border border-black/10 text-muted-foreground hover:text-black hover:bg-muted/50 shadow-sm"
+                     onClick={() => {
+                        setEditTaskDraft({
+                          title: ta.task?.title || '',
+                          hasTime: !!ta.start_time,
+                          startTime: ta.start_time ? (ta.start_time.includes('T') ? format(new Date(ta.start_time), 'HH:mm') : ta.start_time.substring(0, 5)) : ''
+                        })
+                        
+                        const existingList = ta.task?.checklist || []
+                        setEditChecklists([
+                            ...existingList,
+                            { id: crypto.randomUUID(), text: '', is_completed: false }
+                        ])
+                        
+                        setEditingTaskId(ta.task?.id)
+                     }}
+                     title="수정"
+                   >
+                     <Pencil className="w-3 h-3" />
+                   </button>
+                   <button 
+                     className="p-1 rounded bg-white border border-black/10 text-muted-foreground hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30 shadow-sm"
+                     onClick={async () => {
+                       if (window.confirm('이 업무를 정말 삭제하시겠습니까?')) {
+                         const loadingToast = toast.loading('업무 삭제 중...')
+                         const res = await deleteTask(ta.task?.id)
+                         if (res.error) {
+                           toast.dismiss(loadingToast)
+                           toast.error(res.error)
+                           return
+                         }
+                         
+                         const updatedSchedule = {
+                           ...selectedSchedule,
+                           task_assignments: selectedSchedule.task_assignments.filter((assignment: any) => assignment.id !== ta.id)
+                         }
+                         setSelectedSchedule(updatedSchedule)
+                         setLocalSchedules(prev => prev.map(s => s.id === updatedSchedule.id ? updatedSchedule : s))
+                         
+                         toast.dismiss(loadingToast)
+                         toast.success('업무가 삭제되었습니다.')
+                         router.refresh()
+                       }
+                     }}
+                     title="삭제"
+                   >
+                     <Trash2 className="w-3 h-3" />
+                   </button>
+                </div>
+
+                <div className="flex items-start gap-2 pr-12">
+                  <Checkbox 
+                    id={`panel-task-${ta.task?.id}`} 
+                    checked={isDone}
+                    onCheckedChange={() => handleTaskToggle(ta.task?.id, ta.task?.status)}
+                    className="mt-0.5 w-4 h-4 border-black/30 data-[state=checked]:bg-[#16a34a] data-[state=checked]:border-[#16a34a]"
+                  />
+                  <div className="flex flex-col flex-1 leading-tight mt-0.5">
+                    <label 
+                      htmlFor={`panel-task-${ta.task?.id}`}
+                      className={`text-[12px] font-medium cursor-pointer ${isDone ? 'line-through text-muted-foreground/60' : 'text-[#1a1a1a]'}`}
+                    >
+                      {ta.task?.title}
+                    </label>
+                    {ta.task?.checklist && ta.task.checklist.length > 0 && (
+                      <div className="flex flex-col gap-1.5 mt-2">
+                        {ta.task.checklist.map((item: any) => (
+                          <div key={item.id} className="flex items-start gap-1.5 group/chk">
+                            <Checkbox 
+                              id={`chk-${item.id}`}
+                              checked={item.is_completed}
+                              onCheckedChange={async (val) => {
+                                const newTasks = selectedSchedule.task_assignments.map((assignment: any) => {
+                                  if (assignment.task?.id === ta.task.id) {
+                                    const newChecklist = assignment.task.checklist.map((c: any) => 
+                                      c.id === item.id ? { ...c, is_completed: !!val } : c
+                                    )
+                                    
+                                    const allCompleted = newChecklist.length > 0 && newChecklist.every((c: any) => c.is_completed)
+                                    let newStatus = assignment.task.status
+                                    if (allCompleted) {
+                                      newStatus = 'done'
+                                    } else if (assignment.task.status === 'done') {
+                                      newStatus = 'todo'
+                                    }
+
+                                    return {
+                                      ...assignment,
+                                      task: {
+                                        ...assignment.task,
+                                        checklist: newChecklist,
+                                        status: newStatus
+                                      }
+                                    }
+                                  }
+                                  return assignment
+                                });
+                                const updatedSchedule = { ...selectedSchedule, task_assignments: newTasks };
+                                setSelectedSchedule(updatedSchedule);
+                                setLocalSchedules((prev: any[]) => prev.map(s => s.id === updatedSchedule.id ? updatedSchedule : s));
+                                
+                                await toggleTaskCheckitem(ta.task.id, item.id, !!val);
+                                router.refresh();
+                              }}
+                              className="mt-0.5 w-3 h-3 rounded-[3px] border-black/20 data-[state=checked]:bg-[#1a1a1a] data-[state=checked]:border-[#1a1a1a]"
                             />
-                            {item.text && index !== editChecklists.length - 1 && (
-                              <button 
-                                className="w-6 h-6 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors shrink-0"
-                                onClick={() => {
-                                  const newItems = editChecklists.filter((_, i) => i !== index)
-                                  setEditChecklists(newItems)
-                                }}
-                              >
-                                ✕
-                              </button>
-                            )}
+                            <label 
+                              htmlFor={`chk-${item.id}`}
+                              className={`text-[11px] cursor-pointer flex-1 leading-tight ${item.is_completed ? 'line-through text-muted-foreground/60' : 'text-muted-foreground hover:text-[#1a1a1a]'}`}
+                            >
+                              {item.text}
+                            </label>
                           </div>
                         ))}
                       </div>
-                      
-                      <div className="flex items-center justify-between border-t border-black/5 pt-2">
-                        <label className="text-[10px] font-medium text-[#1a1a1a] flex items-center gap-2 cursor-pointer">
-                          <Switch 
-                            checked={editTaskDraft.hasTime} 
-                            onCheckedChange={(val) => setEditTaskDraft(prev => ({...prev, hasTime: val}))} 
-                            className="scale-75 origin-left"
-                          />
-                          수행 시간 지정하기
-                        </label>
-                      </div>
-
-                      {editTaskDraft.hasTime && (
-                        <div className="flex flex-col gap-1.5 bg-white p-2 rounded border border-black/5">
-                          <label className="text-[9px] text-muted-foreground">업무 시작 시간 (선택)</label>
-                          <div className="flex items-center gap-2">
-                            <Input type="time" className="h-7 text-[10px]" value={editTaskDraft.startTime} onChange={(e) => setEditTaskDraft(prev => ({...prev, startTime: e.target.value}))}/>
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="flex justify-end gap-1.5 mt-1">
-                        <button 
-                          className="text-[11px] px-3 py-1.5 rounded text-muted-foreground hover:bg-black/5 transition-colors font-medium"
-                          onClick={() => setEditingTaskId(null)}
-                        >
-                          취소
-                        </button>
-                        <button 
-                          className="text-[11px] px-3 py-1.5 rounded bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors shadow-sm"
-                          onClick={async () => {
-                            if (!editTaskDraft.title.trim()) {
-                              toast.error('업무 그룹(대표 제목)을 입력해주세요.')
-                              return
-                            }
-                            
-                            const loadingToast = toast.loading('업무 수정 중...')
-                            const startTimeToUse = editTaskDraft.hasTime && editTaskDraft.startTime 
-                              ? `${selectedSchedule.editDate}T${editTaskDraft.startTime}:00` 
-                              : null;
-
-                            // Update checklist separately through a new action, or by extending updateTaskAssignment?
-                            // Wait, updateTask doesn't take checklist. Let's just update it separately or via an internal supabase call?
-                            // Actually, let's use the task table update logic inside updateTaskAssignment if we can, 
-                            // but the actions don't accept checklist parameter yet. Let's just update task's checklist in a separate call here or inline if possible.
-                            // Better yet, I can import updateTask which DOES accept checklist!
-                            
-                            const finalChecklist = editChecklists
-                              .filter(c => c.text.trim() !== '')
-                              .map(c => ({ id: c.id, text: c.text.trim(), is_completed: c.is_completed }))
-
-                            // First update assignment and start_time via existing RPC/action
-                            const res = await updateTaskAssignment(
-                              ta.id, 
-                              ta.task.id, 
-                              storeId, 
-                              editTaskDraft.title, 
-                              startTimeToUse,
-                              30
-                            );
-                            
-                            // Then update checklist and other fields
-                            const { createClient } = await import('@/lib/supabase/client')
-                            const supabase = createClient()
-                            await supabase.from('tasks').update({ checklist: finalChecklist }).eq('id', ta.task.id)
-
-                            if (res.error) {
-                              toast.dismiss(loadingToast)
-                              toast.error(res.error)
-                              return
-                            }
-
-                            // Update local state
-                            const updatedSchedule = {
-                              ...selectedSchedule,
-                              task_assignments: selectedSchedule.task_assignments.map((assignment: any) => {
-                                if (assignment.id === ta.id) {
-                                  return {
-                                    ...assignment,
-                                    start_time: editTaskDraft.hasTime ? editTaskDraft.startTime : null,
-                                    task: {
-                                      ...assignment.task,
-                                      title: editTaskDraft.title,
-                                      start_time: startTimeToUse,
-                                      checklist: finalChecklist
-                                    }
-                                  }
-                                }
-                                return assignment
-                              })
-                            }
-                            setSelectedSchedule(updatedSchedule)
-                            setLocalSchedules(prev => prev.map(s => s.id === updatedSchedule.id ? updatedSchedule : s))
-
-                            toast.dismiss(loadingToast)
-                            toast.success('업무가 수정되었습니다.')
-                            setEditingTaskId(null)
-                            router.refresh()
-                          }}
-                        >
-                          저장
-                        </button>
-                      </div>
-                    </div>
-                  )
-                }
-
-                return (
-                  <div key={ta.id} className={`relative flex flex-col gap-1 p-2.5 bg-[#fcfcfc] border ${isPending ? 'border-orange-300 bg-orange-50/30' : 'border-black/10'} rounded-md shadow-sm group hover:border-black/20 transition-colors`}>
-                    
-                    {/* Hover Actions (Edit / Delete) */}
-                    <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                       <button 
-                         className="p-1 rounded bg-white border border-black/10 text-muted-foreground hover:text-black hover:bg-muted/50 shadow-sm"
-                         onClick={() => {
-                            setEditTaskDraft({
-                              title: ta.task?.title || '',
-                              hasTime: !!ta.start_time,
-                              startTime: ta.start_time ? (ta.start_time.includes('T') ? format(new Date(ta.start_time), 'HH:mm') : ta.start_time.substring(0, 5)) : ''
-                            })
-                            
-                            // Load existing checklist items + 1 empty slot for easy addition
-                            const existingList = ta.task?.checklist || []
-                            setEditChecklists([
-                                ...existingList,
-                                { id: crypto.randomUUID(), text: '', is_completed: false }
-                            ])
-                            
-                            setEditingTaskId(ta.task?.id)
-                         }}
-                         title="수정"
-                       >
-                         <Pencil className="w-3 h-3" />
-                       </button>
-                       <button 
-                         className="p-1 rounded bg-white border border-black/10 text-muted-foreground hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30 shadow-sm"
-                         onClick={async () => {
-                           if (window.confirm('이 업무를 정말 삭제하시겠습니까?')) {
-                             const loadingToast = toast.loading('업무 삭제 중...')
-                             const res = await deleteTask(ta.task?.id)
-                             if (res.error) {
-                               toast.dismiss(loadingToast)
-                               toast.error(res.error)
-                               return
-                             }
-                             
-                             const updatedSchedule = {
-                               ...selectedSchedule,
-                               task_assignments: selectedSchedule.task_assignments.filter((assignment: any) => assignment.id !== ta.id)
-                             }
-                             setSelectedSchedule(updatedSchedule)
-                             setLocalSchedules(prev => prev.map(s => s.id === updatedSchedule.id ? updatedSchedule : s))
-                             
-                             toast.dismiss(loadingToast)
-                             toast.success('업무가 삭제되었습니다.')
-                             router.refresh()
-                           }
-                         }}
-                         title="삭제"
-                       >
-                         <Trash2 className="w-3 h-3" />
-                       </button>
-                    </div>
-
-                    <div className="flex items-start gap-2 pr-12">
-                      <Checkbox 
-                        id={`panel-task-${ta.task?.id}`} 
-                        checked={isDone}
-                        onCheckedChange={() => handleTaskToggle(ta.task?.id, ta.task?.status)}
-                        className="mt-0.5 w-4 h-4 border-black/30 data-[state=checked]:bg-[#16a34a] data-[state=checked]:border-[#16a34a]"
-                      />
-                      <div className="flex flex-col flex-1 leading-tight mt-0.5">
-                        <label 
-                          htmlFor={`panel-task-${ta.task?.id}`}
-                          className={`text-[12px] font-medium cursor-pointer ${isDone ? 'line-through text-muted-foreground/60' : 'text-[#1a1a1a]'}`}
-                        >
-                          {ta.task?.title}
-                        </label>
-                        {ta.task?.checklist && ta.task.checklist.length > 0 && (
-                          <div className="flex flex-col gap-1.5 mt-2">
-                            {ta.task.checklist.map((item: any) => (
-                              <div key={item.id} className="flex items-start gap-1.5 group/chk">
-                                <Checkbox 
-                                  id={`chk-${item.id}`}
-                                  checked={item.is_completed}
-                                  onCheckedChange={async (val) => {
-                                    // Optimistic update
-                                    const newTasks = selectedSchedule.task_assignments.map((assignment: any) => {
-                                      if (assignment.task?.id === ta.task.id) {
-                                        const newChecklist = assignment.task.checklist.map((c: any) => 
-                                          c.id === item.id ? { ...c, is_completed: !!val } : c
-                                        )
-                                        
-                                        const allCompleted = newChecklist.length > 0 && newChecklist.every((c: any) => c.is_completed)
-                                        let newStatus = assignment.task.status
-                                        if (allCompleted) {
-                                          newStatus = 'done'
-                                        } else if (assignment.task.status === 'done') {
-                                          newStatus = 'todo'
-                                        }
-
-                                        return {
-                                          ...assignment,
-                                          task: {
-                                            ...assignment.task,
-                                            checklist: newChecklist,
-                                            status: newStatus
-                                          }
-                                        }
-                                      }
-                                      return assignment
-                                    });
-                                    const updatedSchedule = { ...selectedSchedule, task_assignments: newTasks };
-                                    setSelectedSchedule(updatedSchedule);
-                                    setLocalSchedules((prev: any[]) => prev.map(s => s.id === updatedSchedule.id ? updatedSchedule : s));
-                                    
-                                    await toggleTaskCheckitem(ta.task.id, item.id, !!val);
-                                    router.refresh();
-                                  }}
-                                  className="mt-0.5 w-3 h-3 rounded-[3px] border-black/20 data-[state=checked]:bg-[#1a1a1a] data-[state=checked]:border-[#1a1a1a]"
-                                />
-                                <label 
-                                  htmlFor={`chk-${item.id}`}
-                                  className={`text-[11px] cursor-pointer flex-1 leading-tight ${item.is_completed ? 'line-through text-muted-foreground/60' : 'text-muted-foreground hover:text-[#1a1a1a]'}`}
-                                >
-                                  {item.text}
-                                </label>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      
-                      {/* 상태 뱃지 (자동 전환됨) */}
-                      {ta.start_time && (
-                        <div 
-                          className="text-[9px] px-1.5 py-0.5 rounded font-medium flex-shrink-0"
-                          style={{ backgroundColor: sInfo.bg, color: sInfo.color, border: `1px solid ${sInfo.border}` }}
-                        >
-                          {sInfo.label}
-                        </div>
-                      )}
-                    </div>
-                    
-                    {ta.start_time && (
-                      <div className="flex items-center gap-2 mt-1.5 pl-6">
-                        <span className={`text-[9px] font-medium flex items-center gap-1 bg-white px-1.5 py-0.5 rounded border ${isPending ? 'text-orange-500 border-orange-200' : isDone ? 'text-muted-foreground/50 border-black/5' : 'text-primary/80 border-primary/20'}`}>
-                          🕒 {ta.start_time.includes('T') ? format(new Date(ta.start_time), 'HH:mm') : ta.start_time.substring(0, 5)}
-                        </span>
-                      </div>
                     )}
                   </div>
-                )
-              })
-            ) : (
-              <div className="text-[11px] text-muted-foreground text-center py-5 border border-dashed border-black/10 rounded-md bg-[#fcfcfc]">
-                등록된 개별 업무가 없습니다.
+                  
+                  {ta.start_time && (
+                    <div 
+                      className="text-[9px] px-1.5 py-0.5 rounded font-medium flex-shrink-0"
+                      style={{ backgroundColor: sInfo.bg, color: sInfo.color, border: `1px solid ${sInfo.border}` }}
+                    >
+                      {sInfo.label}
+                    </div>
+                  )}
+                </div>
+                
+                {ta.start_time && (
+                  <div className="flex items-center gap-2 mt-1.5 pl-6">
+                    <span className={`text-[9px] font-medium flex items-center gap-1 bg-white px-1.5 py-0.5 rounded border ${isPending ? 'text-orange-500 border-orange-200' : isDone ? 'text-muted-foreground/50 border-black/5' : 'text-primary/80 border-primary/20'}`}>
+                      🕒 {ta.start_time.includes('T') ? format(new Date(ta.start_time), 'HH:mm') : ta.start_time.substring(0, 5)}
+                    </span>
+                  </div>
+                )}
               </div>
-            )}
+            )
+          }
 
-            {/* 업무 추가 폼 */}
+          return (
+            <>
+              {/* 2. 역할별 업무 가이드 (기본 토글: 닫힘) */}
+              <details className="group">
+                <summary className="text-[13px] font-semibold text-[#1a1a1a] cursor-pointer flex justify-between items-center select-none outline-none hover:bg-muted/30 py-1.5 px-1 rounded-sm transition-colors">
+                  <div className="flex items-center gap-1.5">
+                    <span>{selectedSchedule.displayRole} 업무 가이드</span>
+                    <span className="text-[9px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium">조회 전용</span>
+                  </div>
+                  <span className="text-[10px] text-muted-foreground transition-transform duration-200 group-open:rotate-180">▼</span>
+                </summary>
+                <div className="mt-2 flex flex-col gap-2 pl-2 pr-1">
+                  {loadingRoleTemplates ? (
+                    <div className="text-[10px] text-muted-foreground bg-muted/30 p-2.5 rounded border border-dashed text-center animate-pulse">
+                      불러오는 중...
+                    </div>
+                  ) : roleTemplates.length > 0 ? (
+                    <div className="flex flex-col gap-1.5">
+                      {roleTemplates.map((template: any) => (
+                        <div key={template.id} className="p-2.5 bg-[#fcfcfc] border border-black/10 rounded-md shadow-sm">
+                          <div className="flex items-start gap-2">
+                            <div className="w-1.5 h-1.5 rounded-full bg-primary/40 mt-1.5 shrink-0" />
+                            <div className="flex flex-col flex-1 leading-tight mt-0.5 gap-1">
+                              <span className="text-[12px] font-medium text-[#1a1a1a]">{template.title}</span>
+                              {template.description && (
+                                <span className="text-[11px] text-muted-foreground">{template.description}</span>
+                              )}
+                            </div>
+                            {template.start_time && template.task_type !== 'always' && (
+                              <div className="text-[9px] px-1.5 py-0.5 rounded font-medium flex-shrink-0 bg-muted/50 text-muted-foreground border border-black/5 whitespace-nowrap">
+                                🕒 {toKSTISOString(template.start_time).substring(11, 16)}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-[10px] text-muted-foreground bg-muted/30 p-2.5 rounded border border-dashed text-center">
+                      이 역할에 지정된 업무 가이드가 없습니다.
+                    </div>
+                  )}
+                </div>
+              </details>
+
+              <div className="w-full h-px bg-black/10 my-1" />
+
+              {/* 3. 개인별 업무(체크리스트) 관리 */}
+              <div className="flex flex-col gap-3 mt-2">
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-[13px] font-semibold text-[#1a1a1a]">오늘의 할 일 (체크리스트)</span>
+                  <span className="text-[10px] text-muted-foreground">
+                    완료: {customTasks.filter((ta: any) => ta.task?.status === 'done').length} / {customTasks.length}
+                  </span>
+                </div>
+                
+                <div className="flex flex-col gap-2">
+                  {customTasks.length > 0 ? (
+                    customTasks.map((ta: any) => renderTaskItem(ta))
+                  ) : (
+                    <div className="text-[11px] text-muted-foreground text-center py-5 border border-dashed border-black/10 rounded-md bg-[#fcfcfc]">
+                      등록된 개별 업무가 없습니다.
+                    </div>
+                  )}
+
+                  {/* 업무 추가 폼 */}
             {isTaskFormOpen ? (
               <div className="border border-primary/30 bg-primary/5 rounded-md p-3 flex flex-col gap-3 mt-1 animate-in fade-in zoom-in-95 duration-200">
                 <div className="flex flex-col gap-1.5">
@@ -788,9 +839,12 @@ export function ScheduleDetailPanel({
               >
                 <span className="text-[14px] leading-none mb-[1px]">+</span> 개별 업무 추가
               </button>
-            )}
-          </div>
-        </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )
+        })()}
         
         <div className="mt-auto pt-6 pb-2">
           <button 

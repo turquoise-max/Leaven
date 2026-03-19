@@ -30,6 +30,7 @@ export interface Task {
   status: 'todo' | 'in_progress' | 'pending' | 'done'
   is_template?: boolean
   recurrence_rule?: any
+  is_routine?: boolean
   role?: {
     name: string
     color: string
@@ -78,6 +79,7 @@ export interface CreateTaskInput {
   repeat_config?: RepeatConfig
   is_template?: boolean
   recurrence_rule?: any
+  is_routine?: boolean
 }
 
 export interface UpdateTaskInput {
@@ -282,22 +284,23 @@ export async function createTask(input: CreateTaskInput) {
             end_time = `${dateStr}T23:59:59Z` 
         }
 
-        tasksToCreate.push({
-          store_id: input.store_id,
-          title: input.title,
-          description: input.description,
-          is_critical: input.is_critical,
-          estimated_minutes: input.estimated_minutes,
-          task_type: input.task_type,
-          start_time: start_time,
-          end_time: end_time,
-          original_repeat_id: original_repeat_id,
-          assigned_role_ids: input.assigned_role_ids || [],
-          // assigned_role_id: null, // DB Default or handle via migration
-          checklist: input.checklist || [],
-          status: 'todo',
-          is_template: false
-        })
+      tasksToCreate.push({
+        store_id: input.store_id,
+        title: input.title,
+        description: input.description,
+        is_critical: input.is_critical,
+        estimated_minutes: input.estimated_minutes,
+        task_type: input.task_type,
+        start_time: start_time,
+        end_time: end_time,
+        original_repeat_id: original_repeat_id,
+        assigned_role_ids: input.assigned_role_ids || [],
+        // assigned_role_id: null, // DB Default or handle via migration
+        checklist: input.checklist || [],
+        status: 'todo',
+        is_template: false,
+        is_routine: input.is_routine || false
+      })
       }
 
       // 날짜 증가 로직
@@ -351,7 +354,8 @@ export async function createTask(input: CreateTaskInput) {
       checklist: input.checklist || [],
       status: 'todo',
       is_template: input.is_template || false,
-      recurrence_rule: input.recurrence_rule || null
+      recurrence_rule: input.recurrence_rule || null,
+      is_routine: input.is_routine || false
     })
   }
 

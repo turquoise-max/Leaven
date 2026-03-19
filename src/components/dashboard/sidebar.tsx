@@ -64,14 +64,8 @@ export function Sidebar({ user, role, isCollapsed = false, className, permission
       ]
     },
     {
-      title: '인사·근무 관리',
+      title: '근무 및 일정 관리',
       items: [
-        ...(permissions.view_staff ? [{
-          title: '직원 관리',
-          href: '/dashboard/staff',
-          icon: Users,
-          isUpcoming: false
-        }] : []),
         ...(permissions.view_schedule ? [{
           title: '스케줄 관리',
           href: '/dashboard/schedule',
@@ -79,9 +73,38 @@ export function Sidebar({ user, role, isCollapsed = false, className, permission
           isUpcoming: false
         }] : []),
         {
+          title: '출퇴근 관리',
+          href: '/dashboard/attendance',
+          icon: CalendarDays,
+          isUpcoming: true
+        },
+        {
           title: '휴가 및 연차',
-          href: '#leave',
+          href: '/dashboard/leave',
           icon: Umbrella,
+          isUpcoming: true
+        }
+      ]
+    },
+    {
+      title: '인사 및 급여 관리',
+      items: [
+        ...(permissions.view_staff ? [{
+          title: '직원 관리',
+          href: '/dashboard/staff',
+          icon: Users,
+          isUpcoming: false
+        }] : []),
+        ...(role === 'owner' ? [{
+          title: '역할 및 기본 업무',
+          href: '/dashboard/roles',
+          icon: Settings,
+          isUpcoming: false
+        }] : []),
+        {
+          title: '급여 및 인건비',
+          href: '/dashboard/payroll',
+          icon: Archive,
           isUpcoming: true
         }
       ]

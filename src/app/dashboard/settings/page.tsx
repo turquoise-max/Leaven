@@ -1,12 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
 import { StoreSettingsForm } from '@/features/store/components/store-settings-form'
-import { RoleManagement } from '@/features/store/components/role-management'
-import { getStoreRoles, getStorePermissions } from '@/features/store/roles'
 import { cookies } from 'next/headers'
 import { Card, CardContent } from '@/components/ui/card'
-import { Lock, Settings, Users } from 'lucide-react'
+import { Lock, Settings, Users, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 
 export const dynamic = 'force-dynamic'
 
@@ -83,14 +82,6 @@ export default async function StoreSettingsPage({ searchParams }: SettingsPagePr
     )
   }
 
-  // Fetch Roles and Permissions
-  const roles = await getStoreRoles(store.id)
-  const permissions = await getStorePermissions()
-  
-  // Check if migration is needed (if roles table exists but is empty, it might just be empty, 
-  // but initial migration creates default roles, so empty means likely error or no migration)
-  const isMigrationNeeded = roles.length === 0 && permissions.length > 0 ? false : (roles.length === 0 || permissions.length === 0)
-
   const navItems = [
     {
       id: 'general',
@@ -152,28 +143,25 @@ export default async function StoreSettingsPage({ searchParams }: SettingsPagePr
               
               <div className="w-full h-px bg-border/50 my-6" />
 
-              {isMigrationNeeded ? (
-                <div className="p-6 border rounded-xl bg-yellow-50 text-yellow-900 dark:bg-yellow-900/20 dark:text-yellow-200">
-                  <h4 className="font-semibold mb-2 flex items-center gap-2">
-                    ⚠️ 데이터베이스 업데이트 필요
-                  </h4>
-                  <p className="text-sm mb-4">
-                    역할 및 권한 관리 기능을 사용하기 위해서는 데이터베이스 구조 업데이트가 필요합니다.
-                  </p>
-                  <div className="text-xs bg-black/5 dark:bg-white/10 p-3 rounded font-mono">
-                    supabase/migrations/20260304000000_add_role_permissions.sql
+              <Card className="flex flex-col items-center justify-center p-8 text-center bg-muted/30">
+                <CardContent className="flex flex-col items-center gap-4">
+                  <div className="rounded-full bg-primary/10 p-4">
+                    <Users className="w-8 h-8 text-primary" />
                   </div>
-                  <p className="text-sm mt-4 text-muted-foreground">
-                    위 마이그레이션 파일을 실행하여 테이블을 생성해주세요.
-                  </p>
-                </div>
-              ) : (
-                <RoleManagement 
-                  storeId={store.id} 
-                  roles={roles} 
-                  permissions={permissions} 
-                />
-              )}
+                  <div className="space-y-2 max-w-sm">
+                    <h3 className="text-xl font-semibold">역할 관리가 이동되었습니다</h3>
+                    <p className="text-sm text-muted-foreground">
+                      역할 설정, 시스템 권한, 그리고 역할별 기본 부여 업무를 하나의 통합된 페이지에서 관리할 수 있습니다.
+                    </p>
+                  </div>
+                  <Button asChild className="mt-4 gap-2">
+                    <Link href="/dashboard/roles">
+                      역할 및 기본 업무 관리 페이지로 이동
+                      <ArrowRight className="w-4 h-4" />
+                    </Link>
+                  </Button>
+                </CardContent>
+              </Card>
             </div>
           )}
         </div>

@@ -148,8 +148,11 @@ export function TimelineStaffColumn({
             const schRoleColor = schRoleInfo?.color || sch.color || '#534AB7'
 
             const tasks = sch.task_assignments || []
-            const timeSpecificTasks = tasks.filter((ta: any) => ta.start_time)
-            const anytimeTasks = tasks.filter((ta: any) => !ta.start_time)
+            // 루틴 업무는 점(Dot)으로 표시하지 않음
+            const customTasks = tasks.filter((ta: any) => ta.task && !ta.task.is_routine)
+            const routineTasks = tasks.filter((ta: any) => ta.task && ta.task.is_routine)
+            const timeSpecificTasks = customTasks.filter((ta: any) => ta.start_time)
+            const anytimeTasks = customTasks.filter((ta: any) => !ta.start_time)
 
             return (
               <div 
@@ -188,6 +191,10 @@ export function TimelineStaffColumn({
                     name: sch.title || safeName,
                     role: tRoleInfo?.name || '역할 없음',
                     shift: `${format(start, 'HH:mm')} - ${format(end, 'HH:mm')} (${(endHour - startHour).toFixed(1)}h)`,
+                    routineTasks: routineTasks.map((ta: any) => ({
+                      title: ta.task?.title,
+                      checklist: ta.task?.checklist
+                    })),
                     anytimeTasks: anytimeTasks.map((ta: any) => ({
                       title: ta.task?.title,
                       checklist: ta.task?.checklist

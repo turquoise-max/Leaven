@@ -537,6 +537,7 @@ export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = []
       displayTime: `${format(start, 'HH:mm')} - ${format(end, 'HH:mm')} (${(endHour - startHour).toFixed(1)}시간)`,
       displayName: staffData?.name || member?.name || sch.title || '직원',
       displayRole: roleInfo?.name || '역할 없음',
+      roleId: roleInfo?.id,
       roleColor: roleColor,
       
       // Edit form fields

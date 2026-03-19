@@ -10,6 +10,7 @@ export type Role = {
   color: string
   is_system: boolean
   priority: number
+  parent_id: string | null
   created_at: string
 }
 
@@ -75,7 +76,7 @@ export async function getRolePermissions(roleId: string) {
   return data.map(p => p.permission_code) as string[]
 }
 
-export async function createRole(storeId: string, name: string, color: string) {
+export async function createRole(storeId: string, name: string, color: string, parentId?: string | null) {
   const supabase = await createClient()
   
   // Get max priority to add to the bottom (but above staff)
@@ -88,7 +89,8 @@ export async function createRole(storeId: string, name: string, color: string) {
       name,
       color,
       is_system: false,
-      priority: 10
+      priority: 10,
+      parent_id: parentId || null
     })
     .select()
     .single()
@@ -99,7 +101,7 @@ export async function createRole(storeId: string, name: string, color: string) {
   return { data }
 }
 
-export async function updateRole(storeId: string, roleId: string, data: { name?: string, color?: string }) {
+export async function updateRole(storeId: string, roleId: string, data: { name?: string, color?: string, parent_id?: string | null }) {
   const supabase = await createClient()
   
   const { error } = await supabase
