@@ -182,20 +182,32 @@ export default async function HomePage() {
                   </CardContent>
                   <CardFooter className="pt-0">
                     {member.status === 'active' ? (
-                      <Button asChild className="w-full group" variant="default">
-                        <Link href={`/dashboard`}>
+                      <form action={async () => {
+                        'use server'
+                        const { cookies } = await import('next/headers')
+                        const cookieStore = await cookies()
+                        cookieStore.set('leaven_current_store_id', member.store.id, { path: '/' })
+                        redirect('/dashboard')
+                      }} className="w-full">
+                        <Button type="submit" className="w-full group" variant="default">
                           매장으로 이동 
                           <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-                        </Link>
-                      </Button>
+                        </Button>
+                      </form>
                     ) : member.status === 'pending_approval' ? (
                       <div className="flex w-full gap-2">
-                        <Button asChild variant="outline" className="flex-1 text-orange-700 border-orange-200 bg-orange-50 hover:bg-orange-100">
-                          <Link href="/dashboard">
+                        <form action={async () => {
+                          'use server'
+                          const { cookies } = await import('next/headers')
+                          const cookieStore = await cookies()
+                          cookieStore.set('leaven_current_store_id', member.store.id, { path: '/' })
+                          redirect('/dashboard')
+                        }} className="flex-1">
+                          <Button type="submit" variant="outline" className="w-full text-orange-700 border-orange-200 bg-orange-50 hover:bg-orange-100">
                             합류 진행 중 (매장 입장)
                             <ArrowRight className="ml-2 h-4 w-4" />
-                          </Link>
-                        </Button>
+                          </Button>
+                        </form>
                         <CancelRequestButton storeId={member.store.id} />
                       </div>
                     ) : (

@@ -91,18 +91,19 @@ export function LeaveClientPage({
     <div className="flex flex-col h-full bg-white rounded-xl border shadow-sm overflow-hidden">
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-        <div className="px-6 pt-4 border-b bg-slate-50/50 flex justify-between items-center">
-          <TabsList className="bg-transparent h-10 p-0 gap-6">
+        <div className="px-6 pt-4 border-b bg-slate-50/50 flex justify-between items-end">
+          <TabsList className="bg-transparent h-10 p-0 gap-8 justify-start">
             <TabsTrigger 
               value="calendar" 
-              className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-1 pb-2 pt-2 text-base"
+              className="relative rounded-none px-1 pb-3 pt-2 text-base font-semibold text-muted-foreground hover:text-foreground data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none outline-none focus-visible:outline-none !shadow-none bg-transparent group"
             >
               <Calendar className="w-4 h-4 mr-2" />
               휴가 현황 (캘린더)
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary scale-x-0 origin-left transition-transform duration-200 group-data-[state=active]:scale-x-100" />
             </TabsTrigger>
             <TabsTrigger 
               value="requests" 
-              className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-1 pb-2 pt-2 text-base relative"
+              className="relative rounded-none px-1 pb-3 pt-2 text-base font-semibold text-muted-foreground hover:text-foreground data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none outline-none focus-visible:outline-none !shadow-none bg-transparent group"
             >
               <FileText className="w-4 h-4 mr-2" />
               휴가 신청함
@@ -111,13 +112,15 @@ export function LeaveClientPage({
                   {pendingCount}
                 </Badge>
               )}
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary scale-x-0 origin-left transition-transform duration-200 group-data-[state=active]:scale-x-100" />
             </TabsTrigger>
             <TabsTrigger 
               value="balances" 
-              className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-1 pb-2 pt-2 text-base"
+              className="relative rounded-none px-1 pb-3 pt-2 text-base font-semibold text-muted-foreground hover:text-foreground data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none outline-none focus-visible:outline-none !shadow-none bg-transparent group"
             >
               <Settings className="w-4 h-4 mr-2" />
               잔여 연차 관리
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary scale-x-0 origin-left transition-transform duration-200 group-data-[state=active]:scale-x-100" />
             </TabsTrigger>
           </TabsList>
           
