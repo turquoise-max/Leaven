@@ -11,6 +11,7 @@ import { Store, Plus, Mail, Check, X, Building, Loader2, ArrowRight, LogOut, Pac
 import { CancelRequestButton } from '@/features/onboarding/components/cancel-request-button'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { cn } from '@/lib/utils'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { logout } from '@/features/auth/actions'
 import {
@@ -22,7 +23,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
-export default async function HomePage() {
+export default async function HomePage(props: { searchParams?: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -36,21 +37,40 @@ export default async function HomePage() {
     getUserInvitations()
   ])
 
+  const searchParams = await props.searchParams
+  const isBypass = searchParams?.bypass === 'true'
+
+  // Phase 3: 직행 버스 (Auto-Redirect)
+  // 조건: 소속된 매장이 1개뿐이고, 받은 초대장이 없으며, 사용자가 의도적으로 홈으로 오지 않은 경우
+  if (stores.length === 1 && invitations.length === 0 && !isBypass) {
+    const member = stores[0]
+    if (member.status === 'active') {
+      // 대시보드 쪽에서 쿠키가 없을 경우 첫 번째 활성 매장을 자동으로 띄우도록 방어 로직이 있으므로,
+      // 서버 컴포넌트 단에서 불가능한(에러 유발) cookieStore.set()을 생략하고 단순히 이동만 시킵니다.
+      redirect('/dashboard')
+    }
+  }
+
   // 사용자 프로필 조회 (환영 메시지용)
   const { data: profile } = await supabase
     .from('profiles')
-    .select('full_name, avatar_url, email')
+    .select('full_name, avatar_url, email, phone')
     .eq('id', user.id)
     .single()
 
   const userName = profile?.full_name || user.email?.split('@')[0] || '사용자'
+  const userPhone = profile?.phone || ''
   const userEmail = profile?.email || user.email || ''
   const userAvatar = profile?.avatar_url || ''
 
+  // 컨텍스트 판별 (Phase 1, 2, 4)
+  const phase = (stores.length === 0 && invitations.length === 0) ? 1 : 
+                (stores.length === 0 && invitations.length > 0) ? 2 : 4;
+
   return (
-    <div className="min-h-screen bg-gray-50/50 dark:bg-gray-950">
+    <div className="min-h-screen bg-gray-50/50 dark:bg-gray-950 flex flex-col">
       {/* Global Header */}
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
+      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 shrink-0">
         <div className="container flex h-16 items-center justify-between px-4 md:px-6 mx-auto max-w-5xl">
           <div className="flex items-center gap-2 font-bold text-xl">
             <Package2 className="h-6 w-6 text-primary" />
@@ -59,18 +79,18 @@ export default async function HomePage() {
           <div className="flex items-center gap-4">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-                  <Avatar className="h-9 w-9 border">
+                <Button variant="ghost" className="relative h-9 w-9 rounded-full border border-border shadow-sm">
+                  <Avatar className="h-9 w-9">
                     <AvatarImage src={userAvatar} alt={userName} />
-                    <AvatarFallback>{userName.substring(0, 2)}</AvatarFallback>
+                    <AvatarFallback className="bg-primary/5 text-primary font-medium">{userName.substring(0, 2)}</AvatarFallback>
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56" align="end" forceMount>
                 <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">{userName}</p>
-                    <p className="text-xs leading-none text-muted-foreground">
+                    <p className="text-sm font-bold leading-none">{userName}</p>
+                    <p className="text-xs leading-none text-muted-foreground mt-1">
                       {userEmail}
                     </p>
                   </div>
@@ -78,7 +98,7 @@ export default async function HomePage() {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
                   <Link href="/account?next=/home" className="cursor-pointer flex w-full items-center">
-                    <Settings className="mr-2 h-4 w-4" />
+                    <Settings className="mr-2 h-4 w-4 text-muted-foreground" />
                     <span>내 계정 설정</span>
                   </Link>
                 </DropdownMenuItem>
@@ -100,53 +120,198 @@ export default async function HomePage() {
         </div>
       </header>
 
-      <main className="container max-w-5xl mx-auto py-10 px-4 md:px-6">
-        {/* Welcome Section */}
-        <div className="mb-10 flex flex-col gap-2">
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-50">
-            반가워요, {userName}님! 👋
-          </h1>
-          <p className="text-muted-foreground text-lg">
-            관리할 매장을 선택하거나 새로운 초대를 확인해보세요.
-          </p>
-        </div>
+      <main className="container max-w-5xl mx-auto py-10 px-4 md:px-6 flex-1 flex flex-col">
+        
+        {/* ==========================================
+            Phase 1. 백지 상태 (초기 진입자) 
+            ========================================== */}
+        {phase === 1 && (
+          <div className="flex-1 flex flex-col items-center justify-center animate-in fade-in zoom-in duration-500 -mt-10">
+            <div className="text-center space-y-4 mb-12">
+              <div className="mx-auto w-16 h-16 bg-primary/10 text-primary rounded-2xl flex items-center justify-center mb-6 shadow-sm border border-primary/20">
+                <Package2 className="w-8 h-8" />
+              </div>
+              <h1 className="text-4xl font-extrabold tracking-tight text-gray-900">
+                환영합니다, {userName}님! 🎉
+              </h1>
+              <p className="text-muted-foreground text-lg max-w-lg mx-auto leading-relaxed">
+                Leaven에 처음 오셨군요.<br/>어떤 목적으로 찾아오셨는지 선택해주세요.
+              </p>
+            </div>
 
-        <Tabs defaultValue="my-stores" className="space-y-8">
-          <TabsList className="grid w-full max-w-100 grid-cols-2 p-1">
-            <TabsTrigger value="my-stores" className="flex items-center gap-2 text-sm">
-              <Building className="h-4 w-4" />
-              내 매장
-              {stores.length > 0 && (
-                <Badge variant="secondary" className="ml-1 h-5 min-w-5 justify-center px-1">
-                  {stores.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="invitations" className="flex items-center gap-2 text-sm relative">
-              <Mail className="h-4 w-4" />
-              받은 초대
-              {invitations.length > 0 && (
-                <Badge variant="destructive" className="ml-1 h-5 min-w-5 justify-center px-1">
-                  {invitations.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-          </TabsList>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-3xl">
+              {/* 점주용 큰 카드 */}
+              <Link href="/onboarding/owner" className="group">
+                <Card className="h-full flex flex-col items-center text-center p-8 hover:border-primary/50 hover:shadow-lg transition-all duration-300 border-2 cursor-pointer bg-white">
+                  <div className="w-20 h-20 rounded-full bg-blue-50 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 border border-blue-100 text-blue-600 shadow-sm">
+                    <Building className="w-10 h-10" />
+                  </div>
+                  <h3 className="text-xl font-bold mb-3 text-gray-900">사장님이신가요?</h3>
+                  <p className="text-muted-foreground text-sm leading-relaxed mb-6">
+                    새로운 매장을 등록하고<br/>직원들의 근태와 스케줄을 우아하게 관리하세요.
+                  </p>
+                  <Button className="w-full mt-auto font-bold tracking-wide" variant="default">
+                    <Plus className="w-4 h-4 mr-2" /> 새 매장 개설하기
+                  </Button>
+                </Card>
+              </Link>
 
-          {/* 탭 1: 내 매장 목록 */}
-          <TabsContent value="my-stores" className="space-y-6 animate-in fade-in-50 duration-500">
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {/* 매장 카드 리스트 */}
+              {/* 직원용 큰 카드 */}
+              <Card className="h-full flex flex-col items-center text-center p-8 hover:border-primary/50 hover:shadow-lg transition-all duration-300 border-2 bg-white">
+                <div className="w-20 h-20 rounded-full bg-emerald-50 flex items-center justify-center mb-6 border border-emerald-100 text-emerald-600 shadow-sm">
+                  <Store className="w-10 h-10" />
+                </div>
+                <h3 className="text-xl font-bold mb-3 text-gray-900">직원이신가요?</h3>
+                <p className="text-muted-foreground text-sm leading-relaxed mb-6">
+                  점장님에게 전달받은 6자리 합류 코드를 입력하고<br/>매장에 합류하세요.
+                </p>
+                <div className="w-full mt-auto">
+                  <form action={async (formData) => {
+                    'use server'
+                    const code = formData.get('code') as string
+                    const name = formData.get('name') as string
+                    const phone = formData.get('phone') as string
+                    await joinStoreByCode(code, name, phone)
+                  }} className="w-full space-y-3 text-left">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="code-phase1" className="text-xs font-bold text-slate-600">초대 코드</Label>
+                      <Input id="code-phase1" name="code" placeholder="6자리 문자/숫자" required className="uppercase tracking-widest font-bold bg-slate-50" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="name-phase1" className="text-xs font-bold text-slate-600">이름 (본명)</Label>
+                        <Input id="name-phase1" name="name" defaultValue={userName !== '사용자' ? userName : ''} placeholder="홍길동" required className="bg-slate-50" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="phone-phase1" className="text-xs font-bold text-slate-600">전화번호</Label>
+                        <Input id="phone-phase1" name="phone" defaultValue={userPhone} placeholder="01012345678" required className="bg-slate-50" />
+                      </div>
+                    </div>
+                    
+                    <Button type="submit" className="w-full bg-[#1D9E75] hover:bg-[#1D9E75]/90 font-bold tracking-wide mt-2">
+                      <Check className="w-4 h-4 mr-2" /> 초대 코드로 합류하기
+                    </Button>
+                  </form>
+                </div>
+              </Card>
+            </div>
+          </div>
+        )}
+
+        {/* ==========================================
+            Phase 2. 대기 상태 뷰 (가입/초대 대기중) 
+            ========================================== */}
+        {phase === 2 && (
+          <div className="flex-1 flex flex-col items-center justify-center animate-in fade-in duration-500 -mt-10">
+            <div className="text-center space-y-4 mb-10">
+              <h1 className="text-3xl font-extrabold tracking-tight text-gray-900">
+                조금만 기다려주세요, {userName}님! ⏳
+              </h1>
+              <p className="text-muted-foreground text-lg max-w-lg mx-auto leading-relaxed">
+                현재 매장 합류 대기 중이거나 초대장을 받으셨습니다.
+              </p>
+            </div>
+
+            <div className="w-full max-w-2xl space-y-4">
+              {/* 받은 초대장 목록 */}
+              {invitations.map((invitation) => (
+                <Card key={invitation.id} className="overflow-hidden border-2 border-primary/20 shadow-md">
+                  <CardHeader className="bg-primary/5 pb-4">
+                    <CardTitle className="text-xl flex items-center gap-2 text-primary">
+                      <Mail className="w-5 h-5" /> 도착한 초대장
+                    </CardTitle>
+                    <CardDescription>
+                      <strong className="text-foreground">{invitation.store.name}</strong>에서 회원님을 직원으로 초대했습니다.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm text-muted-foreground">
+                        초대일시: {new Date(invitation.invited_at).toLocaleDateString()}
+                      </div>
+                      <div className="flex gap-3">
+                        <form action={async () => {
+                          'use server'
+                          await rejectInvitation(invitation.store.id)
+                        }}>
+                          <Button variant="outline" className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200">
+                            거절
+                          </Button>
+                        </form>
+                        <form action={async () => {
+                          'use server'
+                          await acceptInvitation(invitation.store.id)
+                        }}>
+                          <Button className="bg-primary shadow-sm font-bold">
+                            수락하고 합류하기
+                          </Button>
+                        </form>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+
+              {/* 합류 대기 목록 (pending_approval 상태인 member를 stores 쿼리에서 가져와야 함) */}
+              {stores.filter(s => s.status === 'pending_approval').map(member => (
+                <Card key={member.store.id} className="overflow-hidden border-dashed border-2 shadow-sm bg-slate-50/50">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg text-gray-700">{member.store.name}</CardTitle>
+                      <Badge variant="secondary" className="bg-orange-100 text-orange-700 border-orange-200 pointer-events-none">
+                        <Loader2 className="w-3 h-3 animate-spin mr-1.5" /> 승인 대기 중
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pb-4">
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      현재 점장님의 가입 승인을 기다리고 있습니다.<br/>
+                      전자 근로계약서 서명 안내를 이메일이나 카카오톡으로 받으시면 서명을 완료해주세요.
+                    </p>
+                  </CardContent>
+                  <CardFooter className="pt-0 bg-white border-t p-4 mt-2">
+                    <div className="w-full flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">잘못 신청하셨나요?</span>
+                      <CancelRequestButton storeId={member.store.id} />
+                    </div>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+            
+            {/* 로그아웃이나 계정 설정으로 빠져나갈 수 있게 */}
+            <div className="mt-8">
+              <Link href="/account?next=/home" className="text-sm text-muted-foreground hover:text-primary underline underline-offset-4">
+                내 계정 설정 가기
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* ==========================================
+            Phase 4. 통합 허브 뷰 (다점포 / 투잡 유저)
+            ========================================== */}
+        {phase === 4 && (
+          <div className="animate-in fade-in duration-500">
+            <div className="mb-8 flex items-center justify-between">
+              <h2 className="text-2xl font-bold tracking-tight text-gray-900 flex items-center gap-2">
+                <Building className="w-6 h-6 text-primary" /> 내 매장 및 근무지
+              </h2>
+            </div>
+
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 mb-12">
+              {/* 내 매장 카드 */}
               {stores.map((member) => (
                 <Card 
                   key={member.store.id} 
-                  className={`flex flex-col overflow-hidden transition-all duration-200 ${
+                  className={cn(
+                    "flex flex-col overflow-hidden transition-all duration-200 border-2",
                     member.status !== 'active' 
-                      ? 'opacity-80 bg-gray-50 dark:bg-gray-900/50 border-dashed' 
-                      : 'hover:shadow-md hover:border-primary/50 bg-white dark:bg-gray-900'
-                  }`}
+                      ? "opacity-80 bg-slate-50 border-dashed" 
+                      : "hover:shadow-md hover:border-primary/50 bg-white"
+                  )}
                 >
-                  <CardHeader className="pb-3">
+                  <CardHeader className="pb-3 bg-slate-50/50 border-b">
                     <div className="flex justify-between items-start gap-2">
                       <div className="space-y-1 overflow-hidden">
                         <CardTitle className="text-lg truncate leading-tight">
@@ -157,30 +322,28 @@ export default async function HomePage() {
                         </CardDescription>
                       </div>
                       {member.role === 'owner' ? (
-                         <Badge variant="outline" className="border-purple-200 text-purple-700 bg-purple-50 shrink-0">점주</Badge>
+                         <Badge variant="outline" className="border-purple-200 text-purple-700 bg-purple-50 shrink-0 font-bold">점주</Badge>
                       ) : (
-                         <Badge variant="outline" className="shrink-0">직원</Badge>
+                         <Badge variant="outline" className="shrink-0 font-medium bg-white">직원</Badge>
                       )}
                     </div>
                   </CardHeader>
-                  <CardContent className="flex-1 pb-4">
-                    <div className="flex items-center gap-2 text-sm mt-2">
+                  <CardContent className="flex-1 py-5">
+                    <div className="flex items-center gap-2 text-sm">
                       {member.status === 'active' ? (
-                        <div className="flex items-center gap-1.5 text-green-600 bg-green-50 px-2.5 py-1 rounded-full text-xs font-medium border border-green-100">
-                          <Check className="h-3 w-3" /> 
-                          <span>운영/근무 중</span>
+                        <div className="flex items-center gap-1.5 text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-md font-semibold border border-emerald-200 w-full justify-center shadow-sm">
+                          <Check className="h-4 w-4" /> 운영 및 근무 중
                         </div>
                       ) : member.status === 'pending_approval' ? (
-                        <div className="flex items-center gap-1.5 text-orange-600 bg-orange-50 px-2.5 py-1 rounded-full text-xs font-medium border border-orange-100">
-                          <Loader2 className="h-3 w-3 animate-spin" /> 
-                          <span>합류 진행 중</span>
+                        <div className="flex items-center gap-1.5 text-orange-600 bg-orange-50 px-3 py-1.5 rounded-md font-semibold border border-orange-200 w-full justify-center">
+                          <Loader2 className="h-4 w-4 animate-spin" /> 승인 대기 중
                         </div>
                       ) : (
                         <span className="text-muted-foreground text-xs">{member.status}</span>
                       )}
                     </div>
                   </CardContent>
-                  <CardFooter className="pt-0">
+                  <CardFooter className="pt-0 pb-4 px-4">
                     {member.status === 'active' ? (
                       <form action={async () => {
                         'use server'
@@ -189,131 +352,36 @@ export default async function HomePage() {
                         cookieStore.set('leaven_current_store_id', member.store.id, { path: '/' })
                         redirect('/dashboard')
                       }} className="w-full">
-                        <Button type="submit" className="w-full group" variant="default">
-                          매장으로 이동 
+                        <Button type="submit" className="w-full group font-bold tracking-wide" variant="default" size="lg">
+                          입장하기 
                           <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
                         </Button>
                       </form>
                     ) : member.status === 'pending_approval' ? (
-                      <div className="flex w-full gap-2">
-                        <form action={async () => {
-                          'use server'
-                          const { cookies } = await import('next/headers')
-                          const cookieStore = await cookies()
-                          cookieStore.set('leaven_current_store_id', member.store.id, { path: '/' })
-                          redirect('/dashboard')
-                        }} className="flex-1">
-                          <Button type="submit" variant="outline" className="w-full text-orange-700 border-orange-200 bg-orange-50 hover:bg-orange-100">
-                            합류 진행 중 (매장 입장)
-                            <ArrowRight className="ml-2 h-4 w-4" />
-                          </Button>
-                        </form>
-                        <CancelRequestButton storeId={member.store.id} />
+                      <div className="w-full text-center">
+                        <span className="text-xs text-muted-foreground">승인 대기 중에는 입장 불가</span>
                       </div>
                     ) : (
-                      <Button disabled variant="outline" className="w-full bg-muted/50">
-                        비활성 상태
-                      </Button>
+                      <Button disabled variant="outline" className="w-full bg-muted/50">비활성 상태</Button>
                     )}
                   </CardFooter>
                 </Card>
               ))}
-
-              {/* 새 매장 만들기 카드 */}
-              <Link href="/onboarding/owner" className="group block h-full">
-                <Card className="flex h-full flex-col items-center justify-center border-dashed border-2 bg-gray-50/50 hover:bg-white hover:border-primary/50 transition-all duration-200 min-h-50 cursor-pointer dark:bg-gray-900/20 dark:hover:bg-gray-900/50">
-                  <div className="flex flex-col items-center justify-center p-6 text-center space-y-4">
-                    <div className="h-12 w-12 rounded-full bg-white shadow-sm border flex items-center justify-center group-hover:scale-110 group-hover:border-primary/20 transition-all duration-200 dark:bg-gray-800">
-                      <Plus className="h-6 w-6 text-primary" />
-                    </div>
-                    <div className="space-y-1">
-                      <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-50">새 매장 만들기</h3>
-                      <p className="text-sm text-muted-foreground leading-relaxed">
-                        점주로서 새로운 매장을 등록하고<br/>관리를 시작하세요.
-                      </p>
-                    </div>
-                  </div>
-                </Card>
-              </Link>
             </div>
-          </TabsContent>
 
-          {/* 탭 2: 받은 초대 및 코드 입력 */}
-          <TabsContent value="invitations" className="space-y-8 animate-in fade-in-50 duration-500">
-            <div className="grid gap-8 lg:grid-cols-[1fr_350px]">
-              
-              {/* 받은 초대 목록 */}
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-semibold flex items-center gap-2 mb-1">
-                    <Mail className="h-5 w-5 text-primary" /> 
-                    받은 초대장
-                    <Badge variant="secondary" className="ml-1 rounded-full px-2">
-                      {invitations.length}
-                    </Badge>
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    매니저나 점주로부터 도착한 초대장 목록입니다.
-                  </p>
-                </div>
+            {/* 새로운 합류 및 생성 섹션 */}
+            <div className="pt-8 border-t border-border/60">
+              <h3 className="text-lg font-bold mb-6 text-gray-800">새로운 여정 시작하기</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl">
                 
-                {invitations.length === 0 ? (
-                  <div className="text-center py-16 bg-white border border-dashed rounded-xl dark:bg-gray-900/50">
-                    <div className="mx-auto h-12 w-12 text-muted-foreground/50 mb-3">
-                      <Mail className="h-full w-full" />
-                    </div>
-                    <h4 className="font-medium text-gray-900 dark:text-gray-100">도착한 초대장이 없습니다</h4>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      새로운 초대가 도착하면 여기에 표시됩니다.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    {invitations.map((invitation) => (
-                      <Card key={invitation.id} className="overflow-hidden border-l-4 border-l-primary shadow-sm hover:shadow-md transition-all">
-                        <CardHeader className="pb-3 bg-gray-50/50 dark:bg-gray-900/50">
-                          <CardTitle className="text-lg">{invitation.store.name}</CardTitle>
-                          <CardDescription>
-                            {new Date(invitation.invited_at).toLocaleDateString()}에 초대받음
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent className="pt-4 pb-2">
-                          <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
-                            <span className="font-medium text-gray-900 dark:text-gray-100">{invitation.store.name}</span>의 
-                            직원으로 초대되었습니다. 수락 시 즉시 매장에 합류하게 됩니다.
-                          </p>
-                        </CardContent>
-                        <CardFooter className="flex justify-end gap-2 pt-2 bg-gray-50/30 dark:bg-gray-900/30">
-                          <form action={async () => {
-                            'use server'
-                            await rejectInvitation(invitation.store.id)
-                          }}>
-                            <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50">
-                              거절하기
-                            </Button>
-                          </form>
-                          <form action={async () => {
-                            'use server'
-                            await acceptInvitation(invitation.store.id)
-                          }}>
-                            <Button size="sm" className="bg-primary hover:bg-primary/90">
-                              수락하기
-                            </Button>
-                          </form>
-                        </CardFooter>
-                      </Card>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* 초대 코드 입력 섹션 (사이드바 형태) */}
-              <div className="space-y-6">
-                <Card className="bg-primary/5 border-primary/20 shadow-none">
-                  <CardHeader>
-                    <CardTitle className="text-base">초대 코드로 매장 찾기</CardTitle>
+                {/* 직원: 초대 코드로 합류 */}
+                <Card className="bg-slate-50/50 border-dashed border-2 hover:border-primary/40 transition-colors shadow-none">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Store className="w-5 h-5 text-emerald-600" /> 초대 코드로 새 매장 합류
+                    </CardTitle>
                     <CardDescription className="text-xs">
-                      매니저나 점주에게 받은 6자리 초대 코드를 입력하여 가입을 신청하세요.
+                      점장님께 받은 6자리 코드를 입력해 알바/직원으로 합류하세요.
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -322,30 +390,88 @@ export default async function HomePage() {
                       const code = formData.get('code') as string
                       const name = formData.get('name') as string
                       const phone = formData.get('phone') as string
-                      // TODO: 폼 유효성 검사 및 에러 처리
                       await joinStoreByCode(code, name, phone)
-                    }} className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="code" className="text-xs font-medium">초대 코드</Label>
-                        <Input id="code" name="code" placeholder="예: A1B2C3" required className="uppercase tracking-widest bg-white" />
+                    }} className="space-y-3">
+                      <div className="flex gap-2">
+                        <Input id="code-phase4" name="code" placeholder="6자리 초대 코드" required className="uppercase tracking-widest font-mono flex-1 bg-white" />
+                        <Button type="submit" className="bg-[#1D9E75] hover:bg-[#1D9E75]/90 px-6">신청</Button>
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="name" className="text-xs font-medium">이름 (본명)</Label>
-                        <Input id="name" name="name" placeholder="홍길동" required defaultValue={userName !== '사용자' ? userName : ''} className="bg-white" />
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <Label htmlFor="name-phase4" className="text-xs text-muted-foreground">이름</Label>
+                          <Input id="name-phase4" name="name" defaultValue={userName !== '사용자' ? userName : ''} required className="h-8 text-xs bg-white" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="phone-phase4" className="text-xs text-muted-foreground">전화번호 (-제외)</Label>
+                          <Input id="phone-phase4" name="phone" defaultValue={userPhone} required className="h-8 text-xs bg-white" placeholder="01012345678" />
+                        </div>
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="phone" className="text-xs font-medium">전화번호</Label>
-                        <Input id="phone" name="phone" placeholder="010-1234-5678" required className="bg-white" />
-                      </div>
-                      <Button type="submit" className="w-full" size="sm">가입 신청하기</Button>
                     </form>
                   </CardContent>
                 </Card>
-              </div>
 
+                {/* 점주: 새 매장 개설 */}
+                <Card className="bg-slate-50/50 border-dashed border-2 hover:border-primary/40 transition-colors shadow-none">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Plus className="w-5 h-5 text-blue-600" /> 새 매장 만들기
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      점주로서 르븐에서 관리할 새로운 매장을 등록합니다.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex items-center">
+                    <Button asChild variant="outline" className="w-full bg-white border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800">
+                      <Link href="/onboarding/owner">
+                        새 매장 개설하기 <ArrowRight className="ml-2 w-4 h-4" />
+                      </Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
-          </TabsContent>
-        </Tabs>
+
+            {/* 받은 초대장 영역 (Phase 4 내에 포함) */}
+            {invitations.length > 0 && (
+              <div className="mt-12 pt-8 border-t border-border/60">
+                <h3 className="text-lg font-bold flex items-center gap-2 mb-6">
+                  <Mail className="h-5 w-5 text-primary" /> 받은 초대장
+                  <Badge variant="destructive" className="rounded-full">{invitations.length}</Badge>
+                </h3>
+                <div className="grid gap-4 sm:grid-cols-2 max-w-4xl">
+                  {invitations.map((invitation) => (
+                    <Card key={invitation.id} className="overflow-hidden border-l-4 border-l-primary shadow-sm bg-white">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base">{invitation.store.name}</CardTitle>
+                        <CardDescription className="text-xs">
+                          {new Date(invitation.invited_at).toLocaleDateString()} 초대됨
+                        </CardDescription>
+                      </CardHeader>
+                      <CardFooter className="flex justify-end gap-2 bg-slate-50/50 p-3 border-t">
+                        <form action={async () => {
+                          'use server'
+                          await rejectInvitation(invitation.store.id)
+                        }}>
+                          <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 text-xs">
+                            거절
+                          </Button>
+                        </form>
+                        <form action={async () => {
+                          'use server'
+                          await acceptInvitation(invitation.store.id)
+                        }}>
+                          <Button size="sm" className="bg-primary hover:bg-primary/90 h-8 text-xs font-bold px-4">
+                            수락하기
+                          </Button>
+                        </form>
+                      </CardFooter>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </main>
     </div>
   )

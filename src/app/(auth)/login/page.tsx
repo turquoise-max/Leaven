@@ -1,5 +1,8 @@
 import { LoginForm } from '@/features/auth/components/login-form'
 
-export default function LoginPage() {
-  return <LoginForm />
+export default async function LoginPage(props: { searchParams?: Promise<{ next?: string }> }) {
+  const searchParams = await props.searchParams
+  const nextUrl = searchParams?.next || '/home'
+  
+  return <LoginForm nextUrl={nextUrl} />
 }

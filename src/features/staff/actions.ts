@@ -209,7 +209,7 @@ export async function createManualStaff(storeId: string, formData: FormData) {
     user_id: null,
     role: 'staff', // Legacy
     role_id: roleId || null, // 빈 문자열("")이면 null로 처리
-    status: 'invited', // 수기 등록은 합류 대기 탭에 표시되도록 invited로 설정
+    status: 'active', // 수기 등록 직원은 생성 즉시 정규 직원(재직자) 탭에 표시되도록 active로 설정
     name,
     email: email || null,
     phone: phone || null,

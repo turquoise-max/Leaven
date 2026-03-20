@@ -73,13 +73,13 @@ export function DashboardClientLayout({
       <div className="hidden lg:flex h-full w-full">
         {/* 1. Store List Sidebar (Fixed Width) */}
         <div className="w-18 flex-none border-r bg-muted/10 flex flex-col items-center py-4 space-y-4 overflow-y-auto hide-scrollbar z-10">
-          {/* Home Button */}
-          <Link href="/home" className="group relative flex items-center justify-center">
+          {/* Home Button (Workspace Switcher / Bypass) */}
+          <Link href="/home?bypass=true" className="group relative flex items-center justify-center">
              <div className={cn(
-                  "flex items-center justify-center w-12 h-12 rounded-[24px] bg-background hover:bg-primary transition-all duration-300 group-hover:rounded-3xl",
-                  "text-foreground hover:text-primary-foreground"
+                  "flex items-center justify-center w-12 h-12 rounded-[24px] bg-background hover:bg-primary transition-all duration-300 group-hover:rounded-3xl shadow-sm border border-black/5",
+                  "text-foreground hover:text-white"
                 )}
-                title="Home"
+                title="모든 매장 보기 및 추가"
               >
                 <Home className="w-6 h-6" />
             </div>
@@ -117,12 +117,13 @@ export function DashboardClientLayout({
           
           <div className="w-8 h-0.5 bg-border rounded-full mx-auto" />
           
-          <button 
-            className="flex items-center justify-center w-12 h-12 rounded-[24px] bg-background hover:bg-green-500 hover:text-white transition-all duration-300 group hover:rounded-3xl"
-            title="Add Store"
+          <Link 
+            href="/home?bypass=true"
+            className="flex items-center justify-center w-12 h-12 rounded-[24px] bg-background hover:bg-green-500 hover:text-white transition-all duration-300 group hover:rounded-3xl shadow-sm border border-black/5"
+            title="새 매장 추가 및 합류"
           >
             <PlusIcon className="w-6 h-6 text-green-500 group-hover:text-white transition-colors" />
-          </button>
+          </Link>
         </div>
 
         {/* Resizable Area & Overlay Container */}

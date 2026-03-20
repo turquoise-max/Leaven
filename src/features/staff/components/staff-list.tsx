@@ -17,6 +17,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { StoreCodeDisplay } from '@/components/dashboard/store-code-display'
 import { EditStaffDialog } from './edit-staff-dialog'
 import { StaffTableRow } from './staff-table-row'
 import { approveRequest, rejectRequest, removeStaff, deleteStaffRecord, restoreStaff } from '../actions'
@@ -94,11 +95,12 @@ interface StaffListProps {
   initialData: any[]
   storeId: string
   canManage: boolean
+  inviteCode?: string
 }
 
 const DAYS = ['일', '월', '화', '수', '목', '금', '토']
 
-export function StaffList({ initialData, storeId, canManage }: StaffListProps) {
+export function StaffList({ initialData, storeId, canManage, inviteCode }: StaffListProps) {
   const [staffList, setStaffList] = useState<StaffMember[]>(initialData)
   const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -143,23 +145,30 @@ export function StaffList({ initialData, storeId, canManage }: StaffListProps) {
   }, [staffList, searchQuery, roleFilter])
 
   const sortStaff = (a: StaffMember, b: StaffMember) => {
+    // 1. Pending (요청) 상태인 직원을 최상단으로
+    const isPendingA = a.status === 'pending_approval' || a.status === 'invited'
+    const isPendingB = b.status === 'pending_approval' || b.status === 'invited'
+    if (isPendingA && !isPendingB) return -1
+    if (!isPendingA && isPendingB) return 1
+
+    // 2. Priority (Descending)
     const priorityA = a.role_info?.priority ?? (a.role === 'owner' ? 100 : (a.role === 'manager' ? 50 : 0))
     const priorityB = b.role_info?.priority ?? (b.role === 'owner' ? 100 : (b.role === 'manager' ? 50 : 0))
     if (priorityA !== priorityB) return priorityB - priorityA
     
+    // 3. Name (Ascending)
     const nameA = a.name || a.profile?.full_name || ''
     const nameB = b.name || b.profile?.full_name || ''
     return nameA.localeCompare(nameB)
   }
 
-  const pendingStaff = filteredStaffList.filter(s => !s.resigned_at && (s.status === 'pending_approval' || s.status === 'invited')).sort(sortStaff)
-  const activeStaff = filteredStaffList.filter(s => !s.resigned_at && s.status === 'active').sort(sortStaff)
+  const activeAndPendingStaff = filteredStaffList.filter(s => !s.resigned_at).sort(sortStaff)
   const resignedStaff = filteredStaffList.filter(s => s.resigned_at).sort((a, b) => new Date(b.resigned_at!).getTime() - new Date(a.resigned_at!).getTime())
 
   // Dashboard Stats
   const totalActive = staffList.filter(s => !s.resigned_at && s.status === 'active').length
   const totalPendingContracts = staffList.filter(s => !s.resigned_at && s.status === 'active' && s.contract_status !== 'signed').length
-  const totalPendingApprovals = staffList.filter(s => !s.resigned_at && s.status === 'pending_approval').length
+  const totalPendingApprovals = staffList.filter(s => !s.resigned_at && (s.status === 'pending_approval' || s.status === 'invited')).length
 
   // Unique Roles for Filter Dropdown
   const uniqueRoles = useMemo(() => {
@@ -266,136 +275,122 @@ export function StaffList({ initialData, storeId, canManage }: StaffListProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       
-      {/* 1. 상단 액션 대시보드 (Action-Driven Dashboard) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="border-border shadow-sm bg-white hover:border-primary/30 transition-colors">
-          <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
-            <div className="flex flex-col">
-              <CardDescription className="font-semibold text-muted-foreground">현재 총 재직자</CardDescription>
-              <CardTitle className="text-2xl mt-1">{totalActive}명</CardTitle>
-            </div>
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-              <Users className="w-5 h-5" />
-            </div>
-          </CardHeader>
-        </Card>
-
-        <Card className={cn("border-border shadow-sm transition-colors", totalPendingContracts > 0 ? "bg-orange-50/50 hover:border-orange-300 border-orange-200" : "bg-white hover:border-primary/30")}>
-          <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
-            <div className="flex flex-col">
-              <CardDescription className={cn("font-semibold", totalPendingContracts > 0 ? "text-orange-600" : "text-muted-foreground")}>미서명 근로계약서</CardDescription>
-              <CardTitle className="text-2xl mt-1">{totalPendingContracts}건</CardTitle>
-            </div>
-            <div className={cn("w-10 h-10 rounded-full flex items-center justify-center", totalPendingContracts > 0 ? "bg-orange-100 text-orange-600" : "bg-muted text-muted-foreground")}>
-              <FileText className="w-5 h-5" />
-            </div>
-          </CardHeader>
-        </Card>
-
-        <Card className={cn("border-border shadow-sm transition-colors", totalPendingApprovals > 0 ? "bg-red-50/50 hover:border-red-300 border-red-200" : "bg-white hover:border-primary/30")}>
-          <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
-            <div className="flex flex-col">
-              <CardDescription className={cn("font-semibold", totalPendingApprovals > 0 ? "text-red-600" : "text-muted-foreground")}>합류 승인 대기</CardDescription>
-              <CardTitle className="text-2xl mt-1">{totalPendingApprovals}건</CardTitle>
-            </div>
-            <div className={cn("w-10 h-10 rounded-full flex items-center justify-center", totalPendingApprovals > 0 ? "bg-red-100 text-red-600" : "bg-muted text-muted-foreground")}>
-              <ShieldAlert className="w-5 h-5" />
-            </div>
-          </CardHeader>
-        </Card>
-      </div>
-
-      {/* 2. 스마트 필터 및 검색 바 */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-2 border border-border shadow-sm rounded-xl">
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <div className="relative flex-1 sm:w-64">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input 
-              placeholder="이름으로 검색..." 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 bg-slate-50/50 border-border/50 focus-visible:ring-primary/20 h-9" 
-            />
-          </div>
-          <Select value={roleFilter} onValueChange={setRoleFilter}>
-            <SelectTrigger className="w-[140px] bg-slate-50/50 border-border/50 h-9 text-sm">
-              <div className="flex items-center gap-2">
-                <Filter className="w-3.5 h-3.5 text-muted-foreground" />
-                <SelectValue placeholder="직무 필터" />
-              </div>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">모든 직무</SelectItem>
-              {uniqueRoles.map(r => (
-                <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      {/* 1. 상단 요약 바 (Summary Bar) & 메인 액션 */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4">
+        {/* 우아한 Muted 요약 바 */}
+        <div className="flex flex-wrap items-center gap-2 text-sm font-medium text-slate-500">
+          <span className="flex items-center gap-1.5">
+            <span className="text-slate-700">재직 중 <strong className="text-emerald-600 font-bold ml-0.5">{totalActive}명</strong></span>
+          </span>
+          <span className="text-slate-300 mx-1">•</span>
+          <span className={cn("flex items-center gap-1.5", totalPendingContracts > 0 ? "text-amber-700 font-semibold" : "")}>
+            미체결 계약 {totalPendingContracts > 0 && <strong className="ml-0.5">{totalPendingContracts}건</strong>}
+            {totalPendingContracts === 0 && '0건'}
+          </span>
+          <span className="text-slate-300 mx-1">•</span>
+          <span className={cn("flex items-center gap-1.5", totalPendingApprovals > 0 ? "text-rose-600 font-bold" : "")}>
+            가입 대기 {totalPendingApprovals > 0 && <strong className="ml-0.5">{totalPendingApprovals}건</strong>}
+            {totalPendingApprovals === 0 && '0건'}
+          </span>
         </div>
 
-        {canManage && (
-          <Button 
-            className="w-full sm:w-auto bg-primary shadow-sm hover:shadow transition-all h-9"
-            onClick={() => {
-              setEditingStaff(null)
-              setDialogOpen(true)
-            }}
-          >
-            <UserPlus className="mr-2 h-4 w-4" />
-            새 직원 등록
-          </Button>
-        )}
+        {/* 핵심 액션 버튼 모음 (우측 상단) */}
+        <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+          {canManage && inviteCode && (
+            <StoreCodeDisplay code={inviteCode} />
+          )}
+          {canManage && (
+            <Button 
+              variant="outline" 
+              className="bg-white border-dashed border-2 hover:border-primary/40 hover:bg-slate-50 text-slate-700 font-semibold shadow-none h-[34px] px-3 shrink-0 transition-all"
+              onClick={() => {
+                setEditingStaff(null)
+                setDialogOpen(true)
+              }}
+            >
+              <PencilLine className="mr-1.5 h-3.5 w-3.5 text-slate-400" />
+              수기 등록
+            </Button>
+          )}
+        </div>
       </div>
 
-      {/* 3. 탭 및 리스트 뷰 */}
-      <Tabs defaultValue="active" className="w-full">
-        <div className="flex items-center justify-between mb-4 px-1">
-          <TabsList className="bg-transparent p-0 gap-8 h-auto border-b border-border/50 w-full justify-start rounded-none">
+      {/* 2. 탭 및 리스트 뷰 */}
+      <Tabs defaultValue="active" className="w-full rounded-xl border bg-card shadow-sm overflow-hidden flex flex-col">
+        {/* Table Toolbar (Tabs + Mac OS Style Filter) */}
+        <div className="bg-slate-50/50 border-b flex flex-col md:flex-row md:items-center justify-between px-4 pt-3 gap-4">
+          
+          <TabsList className="bg-transparent p-0 gap-6 h-auto justify-start rounded-none">
             <TabsTrigger 
               value="active" 
-              className="relative rounded-none px-1 pb-3 pt-2 text-sm font-semibold text-muted-foreground hover:text-foreground data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none outline-none focus-visible:outline-none !shadow-none bg-transparent group"
+              className="relative rounded-none px-1 pb-3 text-[13.5px] font-bold text-slate-500 hover:text-slate-800 data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none outline-none focus-visible:outline-none !shadow-none bg-transparent group"
             >
-              재직자 <Badge variant="secondary" className="ml-1.5 bg-slate-100 text-slate-600 font-mono group-data-[state=active]:bg-primary/10 group-data-[state=active]:text-primary transition-colors">{activeStaff.length}</Badge>
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary scale-x-0 origin-left transition-transform duration-200 group-data-[state=active]:scale-x-100" />
-            </TabsTrigger>
-            <TabsTrigger 
-              value="pending" 
-              className="relative rounded-none px-1 pb-3 pt-2 text-sm font-semibold text-muted-foreground hover:text-foreground data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none outline-none focus-visible:outline-none !shadow-none bg-transparent group"
-            >
-              합류 대기 
-              {pendingStaff.length > 0 && (
-                <Badge variant="destructive" className="ml-1.5 h-5 min-w-5 flex items-center justify-center p-0 px-1.5 font-mono font-bold animate-in fade-in zoom-in">{pendingStaff.length}</Badge>
+              직원 명부 
+              <Badge variant="secondary" className="ml-1.5 bg-slate-100/80 text-slate-500 font-mono font-medium group-data-[state=active]:bg-primary/10 group-data-[state=active]:text-primary transition-colors">
+                {activeAndPendingStaff.length}
+              </Badge>
+              {totalPendingApprovals > 0 && (
+                <span className="absolute top-0 -right-2 flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                </span>
               )}
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary scale-x-0 origin-left transition-transform duration-200 group-data-[state=active]:scale-x-100" />
+              <div className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-primary scale-x-0 origin-left transition-transform duration-200 group-data-[state=active]:scale-x-100 rounded-t-full" />
             </TabsTrigger>
             <TabsTrigger 
               value="resigned" 
-              className="relative rounded-none px-1 pb-3 pt-2 text-sm font-semibold text-muted-foreground hover:text-foreground data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none outline-none focus-visible:outline-none !shadow-none bg-transparent group"
+              className="relative rounded-none px-1 pb-3 text-[13.5px] font-bold text-slate-500 hover:text-slate-800 data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none outline-none focus-visible:outline-none !shadow-none bg-transparent group"
             >
-              퇴사자 <Badge variant="secondary" className="ml-1.5 bg-slate-100 text-slate-500 font-mono group-data-[state=active]:bg-primary/10 group-data-[state=active]:text-primary transition-colors">{resignedStaff.length}</Badge>
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary scale-x-0 origin-left transition-transform duration-200 group-data-[state=active]:scale-x-100" />
+              퇴사자 <Badge variant="secondary" className="ml-1.5 bg-slate-100/80 text-slate-400 font-mono font-medium group-data-[state=active]:bg-primary/10 group-data-[state=active]:text-primary transition-colors">{resignedStaff.length}</Badge>
+              <div className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-primary scale-x-0 origin-left transition-transform duration-200 group-data-[state=active]:scale-x-100 rounded-t-full" />
             </TabsTrigger>
           </TabsList>
+
+          {/* Mac OS Style Search/Filter Box tightly coupled with the Table */}
+          <div className="flex items-center bg-white rounded-lg border shadow-sm p-1 w-full md:w-[300px] transition-all focus-within:ring-2 focus-within:ring-primary/20 mb-3 md:mb-0">
+            <Search className="w-4 h-4 text-slate-400 ml-2 shrink-0" />
+            <input 
+              placeholder="이름 검색..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="bg-transparent border-none focus:outline-none focus:ring-0 text-[13px] font-medium w-full px-2 h-7" 
+            />
+            <div className="h-4 w-px bg-border mx-1 shrink-0" />
+            <Select value={roleFilter} onValueChange={setRoleFilter}>
+              <SelectTrigger className="border-none shadow-none bg-transparent h-7 w-[100px] text-[12px] focus:ring-0 px-2 font-semibold text-slate-600 hover:text-slate-900">
+                <div className="flex items-center gap-1.5 truncate">
+                  <Filter className="w-3 h-3 text-slate-400 shrink-0" />
+                  <span className="truncate">{roleFilter === 'all' ? '전체 직무' : uniqueRoles.find(r => r.id === roleFilter)?.name || '필터'}</span>
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" className="font-medium text-xs">전체 직무</SelectItem>
+                {uniqueRoles.map(r => (
+                  <SelectItem key={r.id} value={r.id} className="font-medium text-xs">{r.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* 공통 테이블 렌더러 */}
-        {['active', 'pending', 'resigned'].map((tab) => {
-          const list = tab === 'active' ? activeStaff : tab === 'pending' ? pendingStaff : resignedStaff
+        {['active', 'resigned'].map((tab) => {
+          const list = tab === 'active' ? activeAndPendingStaff : resignedStaff
           const isResigned = tab === 'resigned'
           
           return (
             <TabsContent key={tab} value={tab} className="mt-0 focus-visible:outline-none focus-visible:ring-0">
-              <div className="rounded-xl border bg-card/50 backdrop-blur-sm shadow-sm overflow-hidden">
+              <div className="bg-card w-full">
                 <Table>
-                  <TableHeader className="bg-muted/30">
-                    <TableRow className="hover:bg-transparent text-xs uppercase tracking-wider text-muted-foreground/70">
-                      <TableHead className="w-[80px] px-2 text-center font-semibold h-10">상태</TableHead>
-                      <TableHead className="w-[260px] font-semibold h-10 px-4">직원 정보</TableHead>
-                      <TableHead className="px-4 font-semibold h-10">근로 조건 및 스케줄</TableHead>
-                      <TableHead className="w-[120px] font-semibold h-10 px-4 text-center">근로계약서</TableHead>
-                      <TableHead className="w-[100px] text-right h-10 pr-6"></TableHead>
+                  <TableHeader className="bg-slate-50/80 border-b border-t border-border/50">
+                    <TableRow className="hover:bg-transparent text-[11px] uppercase tracking-widest text-slate-500">
+                      <TableHead className="w-[90px] px-2 text-center font-bold h-9">상태</TableHead>
+                      <TableHead className="w-[260px] font-bold h-9 px-4">직원 정보</TableHead>
+                      <TableHead className="px-4 font-bold h-9">근로 조건 및 스케줄</TableHead>
+                      <TableHead className="w-[120px] font-bold h-9 px-4 text-center">근로계약서</TableHead>
+                      <TableHead className="w-[100px] text-right h-9 pr-6"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -405,6 +400,7 @@ export function StaffList({ initialData, storeId, canManage }: StaffListProps) {
                         staff={staff}
                         isResigned={isResigned}
                         canManage={canManage}
+                        showContract={true}
                         processingId={processingId}
                         onApprove={handleApproveClick}
                         onReject={handleRejectClick}
@@ -424,17 +420,12 @@ export function StaffList({ initialData, storeId, canManage }: StaffListProps) {
                             {tab === 'active' ? (
                               <>
                                 <User className="w-8 h-8 opacity-20" />
-                                <p>현재 등록된 재직자가 없습니다.</p>
-                              </>
-                            ) : tab === 'pending' ? (
-                              <>
-                                <ShieldAlert className="w-8 h-8 opacity-20" />
-                                <p>현재 합류 대기 중인 인원이 없습니다.</p>
+                                <p className="text-sm">현재 등록된 직원이 없습니다.</p>
                               </>
                             ) : (
                               <>
                                 <Info className="w-8 h-8 opacity-20" />
-                                <p>퇴사자 기록이 없습니다.</p>
+                                <p className="text-sm">퇴사자 기록이 없습니다.</p>
                               </>
                             )}
                           </div>

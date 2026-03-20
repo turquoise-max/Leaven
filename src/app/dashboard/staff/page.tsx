@@ -46,14 +46,9 @@ export default async function StaffManagementPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <div className="flex items-center gap-3">
-            <h3 className="text-lg font-medium">직원 관리</h3>
-            {store?.invite_code && (
-              <StoreCodeDisplay code={store.invite_code} />
-            )}
-          </div>
+          <h3 className="text-2xl font-bold tracking-tight">직원 관리</h3>
           <p className="text-sm text-muted-foreground mt-1">
-            매장의 직원을 초대하고 권한을 관리합니다.
+            매장의 직원을 초대하고 근로 조건을 관리합니다.
           </p>
         </div>
       </div>
@@ -62,6 +57,7 @@ export default async function StaffManagementPage() {
         initialData={staffList || []} 
         storeId={member.store_id} 
         canManage={canManage}
+        inviteCode={store?.invite_code}
       />
     </div>
   )

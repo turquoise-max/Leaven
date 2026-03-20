@@ -1,10 +1,18 @@
 'use client'
 
+'use client'
+
 import { TableCell, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
-import { ShieldAlert, ShieldCheck, User, Check, X, Phone, Mail, CalendarDays, ChevronRight, FileText, Download, Link2, Link2Off } from 'lucide-react'
+import { Check, X, CalendarDays, ChevronRight, FileText, Download, Link2, Link2Off } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { StaffMember } from './staff-list'
@@ -29,85 +37,37 @@ const getDisplayPhone = (staff: StaffMember) => {
   return ''
 }
 
-const getRoleBadge = (staff: StaffMember) => {
-  let roleName = '역할 미설정'
-  let roleColor = '#808080'
-  let Icon = User
-
-  if (staff.role_info) {
-    roleName = staff.role_info.name
-    roleColor = staff.role_info.color || roleColor
-  } else if ((staff.details as any)?.last_role_name) {
-    roleName = (staff.details as any).last_role_name
-  } else if (staff.role === 'owner') {
-    roleName = '점주'
-    roleColor = '#7c3aed'
-  } else if (staff.role === 'manager') {
-    roleName = '매니저'
-    roleColor = '#4f46e5'
-  }
-
-  if (roleName === '점주' || roleName === 'Owner') {
-     Icon = ShieldAlert
-  } else if (roleName === '매니저' || roleName === 'Manager') {
-     Icon = ShieldCheck
-  }
-
-  return (
-    <Badge 
-      variant="outline"
-      style={{ 
-        backgroundColor: `${roleColor}15`,
-        color: roleColor,
-        borderColor: `${roleColor}40`
-      }}
-      className="px-2 py-0 h-5 text-[10px] font-semibold tracking-wide border rounded flex items-center gap-1 shadow-sm"
-    >
-      <Icon className="w-3 h-3" />
-      {roleName}
-    </Badge>
-  )
+const getRoleText = (staff: StaffMember) => {
+  if (staff.role_info) return staff.role_info.name
+  if ((staff.details as any)?.last_role_name) return (staff.details as any).last_role_name
+  if (staff.role === 'owner') return '점주'
+  if (staff.role === 'manager') return '매니저'
+  return '직원'
 }
 
-const getEmploymentBadge = (staff: StaffMember) => {
+const getEmploymentText = (staff: StaffMember) => {
   switch (staff.employment_type) {
-    case 'fulltime':
-      return <Badge variant="secondary" className="bg-blue-100/80 text-blue-800 hover:bg-blue-100 rounded-sm px-2 py-0 text-[11px] font-medium border border-blue-200">정규직</Badge>
-    case 'contract':
-      return <Badge variant="secondary" className="bg-purple-100/80 text-purple-800 hover:bg-purple-100 rounded-sm px-2 py-0 text-[11px] font-medium border border-purple-200">계약직</Badge>
-    case 'parttime':
-      return <Badge variant="secondary" className="bg-green-100/80 text-green-800 hover:bg-green-100 rounded-sm px-2 py-0 text-[11px] font-medium border border-green-200">파트타임</Badge>
-    case 'probation':
-      return <Badge variant="secondary" className="bg-amber-100/80 text-amber-800 hover:bg-amber-100 rounded-sm px-2 py-0 text-[11px] font-medium border border-amber-200">수습</Badge>
-    case 'daily':
-      return <Badge variant="secondary" className="bg-orange-100/80 text-orange-800 hover:bg-orange-100 rounded-sm px-2 py-0 text-[11px] font-medium border border-orange-200">일용직</Badge>
-    default:
-      return <Badge variant="secondary" className="bg-gray-100 text-gray-600 rounded-sm px-2 py-0 text-[11px] font-medium border border-gray-200">미지정</Badge>
+    case 'fulltime': return '정규직'
+    case 'contract': return '계약직'
+    case 'parttime': return '파트타임'
+    case 'probation': return '수습'
+    case 'daily': return '일용직'
+    default: return '미지정'
   }
 }
 
 const getStatusBadge = (staff: StaffMember) => {
   if (staff.resigned_at) {
-    return (
-      <Badge variant="outline" className="text-gray-500 border-gray-300 bg-gray-50 shadow-sm w-full justify-center py-0.5">퇴사자</Badge>
-    )
+    return <span className="flex items-center justify-center gap-1.5 text-[13px] text-muted-foreground font-medium"><span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>퇴사</span>
   }
-
   switch (staff.status) {
     case 'active':
-      return (
-        <Badge variant="outline" className="text-emerald-600 border-emerald-300 bg-emerald-50 shadow-sm w-full justify-center py-0.5 font-semibold">재직중</Badge>
-      )
+      return <span className="flex items-center justify-center gap-1.5 text-[13px] text-slate-700 font-medium"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>재직</span>
     case 'invited':
-      return (
-        <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50 shadow-sm w-full justify-center py-0.5">가입 대기</Badge>
-      )
     case 'pending_approval':
-      return (
-        <Badge variant="outline" className="text-orange-600 border-orange-300 bg-orange-50 shadow-sm w-full justify-center py-0.5 font-semibold">승인 대기</Badge>
-      )
+      return <span className="flex items-center justify-center gap-1.5 text-[13px] text-amber-700 font-medium"><span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>대기</span>
     default:
-      return <Badge variant="outline">알 수 없음</Badge>
+      return <span className="text-[13px] text-muted-foreground">-</span>
   }
 }
 
@@ -174,6 +134,7 @@ interface StaffTableRowProps {
   staff: StaffMember
   isResigned?: boolean
   canManage: boolean
+  showContract?: boolean
   processingId: string | null
   onApprove: (id: string, name: string) => void
   onReject: (id: string, name: string) => void
@@ -186,6 +147,7 @@ export function StaffTableRow({
   staff, 
   isResigned = false, 
   canManage, 
+  showContract = true,
   processingId, 
   onApprove, 
   onReject,
@@ -202,176 +164,134 @@ export function StaffTableRow({
     <TableRow 
       className={cn(
         "group transition-all duration-200 border-b relative",
-        canManage && !isResigned ? "cursor-pointer hover:bg-primary/5 hover:shadow-sm" : "",
-        isResigned ? "bg-muted/30 opacity-80" : "bg-card"
+        canManage && !isResigned ? "cursor-pointer hover:bg-slate-50 hover:shadow-sm" : "",
+        isResigned ? "bg-muted/10 opacity-70" : "bg-card"
       )}
       onClick={onClick}
     >
       {/* 1. 상태 */}
-      <TableCell className="w-[80px] align-middle text-center px-2">
+      <TableCell className="w-[90px] align-middle text-center px-2">
         <div className="flex items-center justify-center">
            {getStatusBadge(staff)}
         </div>
       </TableCell>
 
-      {/* 2. 직원 정보 (프로필 + 연락처) */}
-      <TableCell className="w-[260px] align-middle py-4 px-4">
-        <div className="flex gap-4 items-center">
-          <Avatar className={cn("h-11 w-11 border shadow-sm shrink-0", isResigned && "grayscale")}>
+      {/* 2. 직원 정보 (프로필 + 연락처 다이어트) */}
+      <TableCell className="w-[260px] align-middle py-3 px-4">
+        <div className="flex gap-3 items-center">
+          <Avatar className={cn("h-10 w-10 border shadow-sm shrink-0", isResigned && "grayscale opacity-50")}>
             <AvatarImage src={staff.profile?.avatar_url || ''} />
-            <AvatarFallback className="bg-primary/5 text-primary font-medium text-base">
+            <AvatarFallback className="bg-slate-100 text-slate-600 font-medium text-sm">
               {getDisplayName(staff).substring(0, 2)}
             </AvatarFallback>
           </Avatar>
-          <div className="flex flex-col justify-center min-w-0 gap-1">
-            <div className="flex items-center gap-2 flex-wrap mb-1">
-              <span className="font-bold text-sm tracking-tight text-foreground truncate max-w-[120px]">
+          <div className="flex flex-col justify-center min-w-0 gap-0.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="font-bold text-sm tracking-tight text-foreground truncate max-w-[100px]">
                 {getDisplayName(staff)}
               </span>
-              {getRoleBadge(staff)}
-              {staff.user_id ? (
-                <div title="계정 연동됨" className="flex items-center justify-center w-4 h-4 rounded-full bg-emerald-100 text-emerald-600">
-                  <Check className="w-2.5 h-2.5" />
-                </div>
-              ) : (
-                <div title="수기 등록 (미연동)" className="flex items-center justify-center w-4 h-4 rounded-full bg-muted text-muted-foreground">
-                  <Link2Off className="w-2.5 h-2.5" />
-                </div>
-              )}
+              <span className="text-xs text-muted-foreground font-medium">
+                 · {getRoleText(staff)}
+              </span>
+              
+              {/* 아주 작고 심플한 앱 연동 고리 */}
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className={cn(
+                      "flex items-center justify-center w-4 h-4 rounded-full ml-0.5",
+                      staff.user_id ? "bg-slate-100 text-slate-500" : "bg-rose-50 text-rose-400"
+                    )}>
+                      {staff.user_id ? <Link2 className="w-2.5 h-2.5" /> : <Link2Off className="w-2.5 h-2.5" />}
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-[10px]">
+                    {staff.user_id ? '앱 연동 완료' : '수기 등록 (앱 미연동)'}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
             
-            <div className="flex flex-col gap-1 text-[11px] text-muted-foreground">
-              {/* 입/퇴사일 정보 */}
-              <div className="flex items-center gap-1.5">
-                <CalendarDays className="w-3 h-3 shrink-0" />
-                <span>입사: {staff.hired_at ? new Date(staff.hired_at).toLocaleDateString('ko-KR') : '미지정'}</span>
-                {isResigned && staff.resigned_at && (
-                  <>
-                    <span className="text-muted-foreground/30 mx-0.5">|</span>
-                    <span className="text-red-500 font-medium">
-                      퇴사: {new Date(staff.resigned_at).toLocaleDateString('ko-KR')}
-                    </span>
-                  </>
-                )}
-              </div>
-
-              {/* 이메일 */}
-              {email && (
-                <div className="flex items-center gap-1.5 truncate" title={email}>
-                  <Mail className="w-3 h-3 shrink-0" />
-                  <span className="truncate">{email}</span>
-                </div>
-              )}
-              
-              {/* 전화번호 */}
-              {phone && (
-                <div className="flex items-center gap-1.5">
-                  <Phone className="w-3 h-3 shrink-0" />
-                  <span className="font-mono tracking-tight">{phone}</span>
-                </div>
-              )}
-              
-              {!email && !phone && (
-                <div className="flex items-center gap-1.5">
-                  <Phone className="w-3 h-3 shrink-0 opacity-0" />
-                  <span>연락처 미등록</span>
-                </div>
-              )}
+            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5 truncate">
+              {email && <span className="truncate" title={email}>{email}</span>}
+              {email && phone && <span className="text-muted-foreground/30">|</span>}
+              {phone && <span className="font-mono tracking-tight">{phone}</span>}
+              {!email && !phone && <span>연락처 미등록</span>}
             </div>
           </div>
         </div>
       </TableCell>
 
-      {/* 3. 근로 조건 및 스케줄 (가장 많은 여백 차지) */}
-      <TableCell className="align-middle py-4 px-4">
-        <div className="flex flex-col gap-2.5 justify-center">
+      {/* 3. 근로 조건 및 스케줄 (텍스트 + 알약 디자인) */}
+      <TableCell className="align-middle py-3 px-4">
+        <div className="flex flex-col gap-1.5 justify-center">
           
-          <div className="flex items-center gap-2 flex-wrap">
-            {getEmploymentBadge(staff)}
-            <div className="flex items-center gap-2">
-              {canManage && staff.base_wage ? (
-                <span className="text-[13px] font-semibold tracking-tight text-foreground/90">
-                  {wageText} {staff.base_wage.toLocaleString()}원
-                  {(staff.wage_type === 'hourly' || staff.wage_type === 'daily') && expectedPay && (
-                    <span className="text-[11px] font-normal text-muted-foreground ml-1">
-                      (약 {expectedPay.toLocaleString()}원/월)
-                    </span>
-                  )}
-                </span>
-              ) : (
-                <span className="text-sm text-muted-foreground">급여 미설정</span>
-              )}
-            </div>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-xs font-semibold text-slate-600">{getEmploymentText(staff)}</span>
+            <span className="text-muted-foreground/30 text-xs">|</span>
+            {canManage && staff.base_wage ? (
+              <span className="text-[13px] font-bold tracking-tight text-foreground/90">
+                {wageText} {staff.base_wage.toLocaleString()}원
+                {(staff.wage_type === 'hourly' || staff.wage_type === 'daily') && expectedPay && (
+                  <span className="text-[11px] font-normal text-muted-foreground ml-1">
+                    (약 {expectedPay.toLocaleString()}원)
+                  </span>
+                )}
+              </span>
+            ) : (
+              <span className="text-[12px] text-muted-foreground">급여 미설정</span>
+            )}
           </div>
 
-          <div className="flex items-start gap-1.5 px-2 py-1.5 rounded-md bg-muted/40 border border-muted/50 w-fit max-w-full">
-            <CalendarDays className="w-3.5 h-3.5 text-muted-foreground mt-[2px] shrink-0" />
+          <div className="flex items-start gap-1.5">
+            <CalendarDays className="w-3 h-3 text-muted-foreground/70 mt-0.5 shrink-0" />
             {staff.work_schedules && staff.work_schedules.length > 0 ? (
-              <div className="flex flex-col gap-0.5 text-xs font-medium text-foreground/80 leading-snug break-keep">
+              <div className="flex flex-col gap-0.5 text-[11px] font-medium text-slate-500 leading-snug break-keep">
                 {getDetailedScheduleText(staff.work_schedules).map((line, i) => (
                   <span key={i}>{line}</span>
                 ))}
               </div>
             ) : (
-              <span className="text-xs text-muted-foreground/60">{staff.work_hours || '등록된 스케줄 없음'}</span>
+              <span className="text-[11px] text-muted-foreground/50">{staff.work_hours || '스케줄 미등록'}</span>
             )}
           </div>
           
         </div>
       </TableCell>
 
-      {/* 4. 근로계약서 문서 */}
-      <TableCell className="w-[120px] align-middle text-center py-4 px-4">
-        <div className="flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
-          {staff.contract_status === 'signed' ? (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="h-7 text-xs bg-purple-50 text-purple-700 hover:bg-purple-100 hover:text-purple-800 border-purple-200"
-              onClick={() => {
-                if (staff.contract_file_url) {
-                  window.open(staff.contract_file_url, '_blank')
-                } else {
-                  toast.info('문서 열람 기능은 준비 중입니다.')
-                }
-              }}
-            >
-              <FileText className="w-3.5 h-3.5 mr-1" />
-              완료
-              <Download className="w-3 h-3 ml-1.5 opacity-50" />
-            </Button>
-          ) : staff.contract_status === 'pending_staff' ? (
-            <div className="flex flex-col items-center gap-0.5" title="직원이 서명할 차례입니다.">
-              <div className="flex items-center gap-1 text-[11px] font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                <FileText className="w-3 h-3" />
-                직원 확인중
-              </div>
-            </div>
-          ) : staff.contract_status === 'sent' ? (
-            <div className="flex flex-col items-center gap-0.5" title="점주님의 서명이 필요합니다.">
-              <div className="flex items-center gap-1 text-[11px] font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                <FileText className="w-3 h-3" />
-                점주 확인중
-              </div>
-            </div>
-          ) : staff.contract_status === 'rejected' ? (
-            <div className="flex flex-col items-center gap-0.5">
-              <div className="flex items-center gap-1 text-[11px] font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-200">
-                <X className="w-3 h-3" />
-                거절됨
-              </div>
-            </div>
-          ) : staff.contract_status === 'canceled' ? (
-            <div className="flex flex-col items-center gap-0.5">
-              <div className="flex items-center gap-1 text-[11px] font-medium text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-200">
-                취소됨
-              </div>
-            </div>
-          ) : (
-            <span className="text-xs text-muted-foreground/50 px-1">미작성</span>
-          )}
-        </div>
-      </TableCell>
+      {/* 4. 근로계약서 상태 뱃지 (미니멀리즘) */}
+      {showContract !== false && (
+        <TableCell className="w-[120px] align-middle text-center py-3 px-4">
+          <div className="flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+            {staff.contract_status === 'signed' ? (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="h-6 text-[11px] bg-slate-50 text-slate-700 hover:bg-slate-100 hover:text-slate-900 border-slate-200 px-2 font-medium shadow-none"
+                onClick={() => {
+                  if (staff.contract_file_url) {
+                    window.open(staff.contract_file_url, '_blank')
+                  } else {
+                    toast.info('문서 열람 기능은 준비 중입니다.')
+                  }
+                }}
+                title="문서 열람"
+              >
+                <FileText className="w-3 h-3 mr-1" />
+                체결 완료
+              </Button>
+            ) : staff.contract_status === 'pending_staff' || staff.contract_status === 'sent' ? (
+              <Badge variant="outline" className="bg-amber-50/50 text-amber-700 border-amber-200/50 font-medium px-2 py-0.5 shadow-none" title={staff.contract_status === 'pending_staff' ? '직원이 서명할 차례입니다.' : '점주님의 서명이 필요합니다.'}>
+                서명 대기
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="bg-slate-50 text-slate-500 border-slate-200/50 font-medium px-2 py-0.5 shadow-none" title="근로계약서가 아직 전송되지 않았습니다.">
+                미작성
+              </Badge>
+            )}
+          </div>
+        </TableCell>
+      )}
 
       {/* 5. 승인/거절/삭제 액션 & 화살표 아이콘 */}
       <TableCell className="w-[100px] align-middle text-right pr-6">

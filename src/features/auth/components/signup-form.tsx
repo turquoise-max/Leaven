@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Store } from 'lucide-react'
 
-export function SignupForm() {
+export function SignupForm({ nextUrl = '/home' }: { nextUrl?: string }) {
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
 
@@ -39,8 +39,8 @@ export function SignupForm() {
     }
   }
 
-  async function handleGoogleLogin() {
-    const result = await signInWithGoogle()
+  async function handleGoogleLogin(formData: FormData) {
+    const result = await signInWithGoogle(formData)
     if (result?.error) {
       setError(result.error)
     }
@@ -66,6 +66,7 @@ export function SignupForm() {
         </CardHeader>
         <CardContent>
           <form action={handleSignup} className="grid gap-4">
+            <input type="hidden" name="nextUrl" value={nextUrl} />
             <div className="grid gap-2">
               <Label htmlFor="fullName">이름</Label>
               <Input
@@ -101,6 +102,7 @@ export function SignupForm() {
             </Button>
           </form>
           <form action={handleGoogleLogin} className="mt-4">
+            <input type="hidden" name="nextUrl" value={nextUrl} />
             <Button variant="outline" type="submit" className="w-full">
               <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
                 <path
@@ -125,7 +127,7 @@ export function SignupForm() {
           </form>
           <div className="mt-4 text-center text-sm">
             이미 계정이 있으신가요?{' '}
-            <Link href="/login" className="underline">
+            <Link href={`/login${nextUrl !== '/home' ? `?next=${encodeURIComponent(nextUrl)}` : ''}`} className="underline">
               로그인
             </Link>
           </div>
