@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   Table,
   TableBody,
@@ -10,10 +10,12 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
-import { Shield, ShieldAlert, ShieldCheck, User, Check, X, UserPlus, Phone, Info, PencilLine, Mail, CalendarDays, Wallet, ChevronRight, FileText, Download } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Shield, ShieldAlert, ShieldCheck, User, Check, X, UserPlus, Phone, Info, PencilLine, Mail, CalendarDays, Wallet, ChevronRight, FileText, Download, Search, Filter, AlertCircle, Users } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { EditStaffDialog } from './edit-staff-dialog'
 import { StaffTableRow } from './staff-table-row'
@@ -104,6 +106,9 @@ export function StaffList({ initialData, storeId, canManage }: StaffListProps) {
   const [isMounted, setIsMounted] = useState(false)
 
   // Confirm Modal State
+  const [searchQuery, setSearchQuery] = useState('')
+  const [roleFilter, setRoleFilter] = useState<string>('all')
+
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean
     type: 'approve' | 'reject' | 'delete' | 'restore' | null
@@ -124,7 +129,19 @@ export function StaffList({ initialData, storeId, canManage }: StaffListProps) {
     setStaffList(initialData)
   }, [initialData])
 
-  // 정렬 함수
+  // 정렬 및 필터 함수
+  const filteredStaffList = useMemo(() => {
+    return staffList.filter(staff => {
+      const name = (staff.name || staff.profile?.full_name || '').toLowerCase()
+      const matchesSearch = name.includes(searchQuery.toLowerCase())
+      
+      const roleId = staff.role_info?.id || staff.role
+      const matchesRole = roleFilter === 'all' || roleId === roleFilter
+
+      return matchesSearch && matchesRole
+    })
+  }, [staffList, searchQuery, roleFilter])
+
   const sortStaff = (a: StaffMember, b: StaffMember) => {
     const priorityA = a.role_info?.priority ?? (a.role === 'owner' ? 100 : (a.role === 'manager' ? 50 : 0))
     const priorityB = b.role_info?.priority ?? (b.role === 'owner' ? 100 : (b.role === 'manager' ? 50 : 0))
@@ -135,9 +152,27 @@ export function StaffList({ initialData, storeId, canManage }: StaffListProps) {
     return nameA.localeCompare(nameB)
   }
 
-  const pendingStaff = staffList.filter(s => !s.resigned_at && (s.status === 'pending_approval' || s.status === 'invited')).sort(sortStaff)
-  const activeStaff = staffList.filter(s => !s.resigned_at && s.status === 'active').sort(sortStaff)
-  const resignedStaff = staffList.filter(s => s.resigned_at).sort((a, b) => new Date(b.resigned_at!).getTime() - new Date(a.resigned_at!).getTime())
+  const pendingStaff = filteredStaffList.filter(s => !s.resigned_at && (s.status === 'pending_approval' || s.status === 'invited')).sort(sortStaff)
+  const activeStaff = filteredStaffList.filter(s => !s.resigned_at && s.status === 'active').sort(sortStaff)
+  const resignedStaff = filteredStaffList.filter(s => s.resigned_at).sort((a, b) => new Date(b.resigned_at!).getTime() - new Date(a.resigned_at!).getTime())
+
+  // Dashboard Stats
+  const totalActive = staffList.filter(s => !s.resigned_at && s.status === 'active').length
+  const totalPendingContracts = staffList.filter(s => !s.resigned_at && s.status === 'active' && s.contract_status !== 'signed').length
+  const totalPendingApprovals = staffList.filter(s => !s.resigned_at && s.status === 'pending_approval').length
+
+  // Unique Roles for Filter Dropdown
+  const uniqueRoles = useMemo(() => {
+    const rolesMap = new Map()
+    staffList.forEach(s => {
+      if (s.role_info) {
+        rolesMap.set(s.role_info.id, s.role_info.name)
+      } else if (s.role) {
+        rolesMap.set(s.role, s.role === 'owner' ? '점주' : s.role === 'manager' ? '매니저' : '직원')
+      }
+    })
+    return Array.from(rolesMap.entries()).map(([id, name]) => ({ id, name }))
+  }, [staffList])
 
   const handleApproveClick = (memberId: string, staffName: string) => {
     setConfirmDialog({ open: true, type: 'approve', staffId: memberId, staffName })
@@ -232,38 +267,120 @@ export function StaffList({ initialData, storeId, canManage }: StaffListProps) {
 
   return (
     <div className="space-y-6">
-      <Tabs defaultValue="active" className="w-full">
-        <div className="flex items-center justify-between mb-4">
-          <TabsList className="bg-muted/50 p-1">
-            <TabsTrigger value="active" className="w-32 data-[state=active]:shadow-sm">
-              재직자 <Badge variant="secondary" className="ml-2 bg-foreground/10 hover:bg-foreground/10 font-mono">{activeStaff.length}</Badge>
-            </TabsTrigger>
-            <TabsTrigger value="pending" className="w-32 data-[state=active]:shadow-sm">
-              합류 대기 
-              {pendingStaff.length > 0 && (
-                <Badge variant="destructive" className="ml-2 h-5 min-w-5 flex items-center justify-center p-0 px-1.5 font-mono font-bold animate-in fade-in zoom-in">{pendingStaff.length}</Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="resigned" className="w-32 data-[state=active]:shadow-sm">
-              퇴사자 <Badge variant="secondary" className="ml-2 bg-foreground/10 hover:bg-foreground/10 font-mono text-muted-foreground">{resignedStaff.length}</Badge>
-            </TabsTrigger>
-          </TabsList>
-          
-          {canManage && (
-            <Button 
-              className="bg-primary shadow-sm hover:shadow transition-all"
-              onClick={() => {
-                setEditingStaff(null) // null이면 수기 등록 모드
-                setDialogOpen(true)
-              }}
-            >
-              <UserPlus className="mr-2 h-4 w-4" />
-              새 직원 등록
-            </Button>
-          )}
+      
+      {/* 1. 상단 액션 대시보드 (Action-Driven Dashboard) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="border-border shadow-sm bg-white hover:border-primary/30 transition-colors">
+          <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
+            <div className="flex flex-col">
+              <CardDescription className="font-semibold text-muted-foreground">현재 총 재직자</CardDescription>
+              <CardTitle className="text-2xl mt-1">{totalActive}명</CardTitle>
+            </div>
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+              <Users className="w-5 h-5" />
+            </div>
+          </CardHeader>
+        </Card>
+
+        <Card className={cn("border-border shadow-sm transition-colors", totalPendingContracts > 0 ? "bg-orange-50/50 hover:border-orange-300 border-orange-200" : "bg-white hover:border-primary/30")}>
+          <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
+            <div className="flex flex-col">
+              <CardDescription className={cn("font-semibold", totalPendingContracts > 0 ? "text-orange-600" : "text-muted-foreground")}>미서명 근로계약서</CardDescription>
+              <CardTitle className="text-2xl mt-1">{totalPendingContracts}건</CardTitle>
+            </div>
+            <div className={cn("w-10 h-10 rounded-full flex items-center justify-center", totalPendingContracts > 0 ? "bg-orange-100 text-orange-600" : "bg-muted text-muted-foreground")}>
+              <FileText className="w-5 h-5" />
+            </div>
+          </CardHeader>
+        </Card>
+
+        <Card className={cn("border-border shadow-sm transition-colors", totalPendingApprovals > 0 ? "bg-red-50/50 hover:border-red-300 border-red-200" : "bg-white hover:border-primary/30")}>
+          <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
+            <div className="flex flex-col">
+              <CardDescription className={cn("font-semibold", totalPendingApprovals > 0 ? "text-red-600" : "text-muted-foreground")}>합류 승인 대기</CardDescription>
+              <CardTitle className="text-2xl mt-1">{totalPendingApprovals}건</CardTitle>
+            </div>
+            <div className={cn("w-10 h-10 rounded-full flex items-center justify-center", totalPendingApprovals > 0 ? "bg-red-100 text-red-600" : "bg-muted text-muted-foreground")}>
+              <ShieldAlert className="w-5 h-5" />
+            </div>
+          </CardHeader>
+        </Card>
+      </div>
+
+      {/* 2. 스마트 필터 및 검색 바 */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-2 border border-border shadow-sm rounded-xl">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="relative flex-1 sm:w-64">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input 
+              placeholder="이름으로 검색..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 bg-slate-50/50 border-border/50 focus-visible:ring-primary/20 h-9" 
+            />
+          </div>
+          <Select value={roleFilter} onValueChange={setRoleFilter}>
+            <SelectTrigger className="w-[140px] bg-slate-50/50 border-border/50 h-9 text-sm">
+              <div className="flex items-center gap-2">
+                <Filter className="w-3.5 h-3.5 text-muted-foreground" />
+                <SelectValue placeholder="직무 필터" />
+              </div>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">모든 직무</SelectItem>
+              {uniqueRoles.map(r => (
+                <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
-        {/* 탭 공통 테이블 렌더러 - 레이아웃 통일 */}
+        {canManage && (
+          <Button 
+            className="w-full sm:w-auto bg-primary shadow-sm hover:shadow transition-all h-9"
+            onClick={() => {
+              setEditingStaff(null)
+              setDialogOpen(true)
+            }}
+          >
+            <UserPlus className="mr-2 h-4 w-4" />
+            새 직원 등록
+          </Button>
+        )}
+      </div>
+
+      {/* 3. 탭 및 리스트 뷰 */}
+      <Tabs defaultValue="active" className="w-full">
+        <div className="flex items-center justify-between mb-4 px-1">
+          <TabsList className="bg-transparent p-0 gap-8 h-auto border-b border-border/50 w-full justify-start rounded-none">
+            <TabsTrigger 
+              value="active" 
+              className="relative rounded-none px-1 pb-3 pt-2 text-sm font-semibold text-muted-foreground hover:text-foreground data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none outline-none focus-visible:outline-none !shadow-none bg-transparent group"
+            >
+              재직자 <Badge variant="secondary" className="ml-1.5 bg-slate-100 text-slate-600 font-mono group-data-[state=active]:bg-primary/10 group-data-[state=active]:text-primary transition-colors">{activeStaff.length}</Badge>
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary scale-x-0 origin-left transition-transform duration-200 group-data-[state=active]:scale-x-100" />
+            </TabsTrigger>
+            <TabsTrigger 
+              value="pending" 
+              className="relative rounded-none px-1 pb-3 pt-2 text-sm font-semibold text-muted-foreground hover:text-foreground data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none outline-none focus-visible:outline-none !shadow-none bg-transparent group"
+            >
+              합류 대기 
+              {pendingStaff.length > 0 && (
+                <Badge variant="destructive" className="ml-1.5 h-5 min-w-5 flex items-center justify-center p-0 px-1.5 font-mono font-bold animate-in fade-in zoom-in">{pendingStaff.length}</Badge>
+              )}
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary scale-x-0 origin-left transition-transform duration-200 group-data-[state=active]:scale-x-100" />
+            </TabsTrigger>
+            <TabsTrigger 
+              value="resigned" 
+              className="relative rounded-none px-1 pb-3 pt-2 text-sm font-semibold text-muted-foreground hover:text-foreground data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none outline-none focus-visible:outline-none !shadow-none bg-transparent group"
+            >
+              퇴사자 <Badge variant="secondary" className="ml-1.5 bg-slate-100 text-slate-500 font-mono group-data-[state=active]:bg-primary/10 group-data-[state=active]:text-primary transition-colors">{resignedStaff.length}</Badge>
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary scale-x-0 origin-left transition-transform duration-200 group-data-[state=active]:scale-x-100" />
+            </TabsTrigger>
+          </TabsList>
+        </div>
+
+        {/* 공통 테이블 렌더러 */}
         {['active', 'pending', 'resigned'].map((tab) => {
           const list = tab === 'active' ? activeStaff : tab === 'pending' ? pendingStaff : resignedStaff
           const isResigned = tab === 'resigned'
