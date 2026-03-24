@@ -1,18 +1,28 @@
 import { createClient } from '@/lib/supabase/server'
 import { cache } from 'react'
 
-export type PermissionCode = 
+export type PermissionCode =
+  // 📦 매장 및 시스템
   | 'manage_store'
+  | 'manage_roles'
+  // 👥 인사 및 근로
+  | 'view_staff'
   | 'manage_staff'
-  | 'view_sales'
-  | 'manage_menu'
-  | 'manage_inventory'
+  | 'view_salary'
+  | 'manage_payroll'
+  // ⏰ 일정 및 근태
   | 'view_schedule'
   | 'manage_schedule'
+  | 'view_attendance'
+  | 'manage_attendance'
+  | 'view_leave'
+  | 'manage_leave'
+  // 📊 운영 및 업무
   | 'view_tasks'
   | 'manage_tasks'
-  | 'view_staff'
-  | 'view_salary'
+  | 'view_sales'
+  | 'manage_inventory'
+  | 'manage_menu'
 
 // 캐싱을 통해 동일한 요청 내에서 중복 DB 조회를 방지
 export const getStoreMemberRole = cache(async (userId: string, storeId: string) => {

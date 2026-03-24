@@ -14,12 +14,12 @@ interface CalendarHeaderProps {
   getStaffRoleInfo: (staff: any) => any
   hexToRgba: (hex: string, alpha: number) => string
   
-  viewMode: 'day' | 'week'
-  setViewMode: (mode: 'day' | 'week') => void
-  selectedDate: Date
-  setSelectedDate: (date: Date) => void
-  weekStart: Date
-  setWeekStart: (date: Date) => void
+  viewMode: 'matrix' | 'calendar'
+  setViewMode: (mode: 'matrix' | 'calendar') => void
+  matrixStartDate: Date
+  setMatrixStartDate: (date: Date) => void
+  calendarDate: Date
+  setCalendarDate: (date: Date) => void
   
   roles: any[]
   activeRoleIds: string[]
@@ -41,10 +41,10 @@ export function CalendarHeader({
   
   viewMode,
   setViewMode,
-  selectedDate,
-  setSelectedDate,
-  weekStart,
-  setWeekStart,
+  matrixStartDate,
+  setMatrixStartDate,
+  calendarDate,
+  setCalendarDate,
   
   roles,
   activeRoleIds,
@@ -72,42 +72,47 @@ export function CalendarHeader({
         {/* 뷰 토글 */}
         <div className="flex bg-[#f3f2ef] rounded-md p-0.5 shrink-0 shadow-inner border border-black/5">
           <button 
-            className={`text-[12px] px-4 py-1.5 rounded-md transition-all ${viewMode === 'day' ? 'bg-white font-semibold text-[#1a1a1a] shadow-sm' : 'text-[#6b6b6b] hover:text-[#1a1a1a]'}`}
-            onClick={() => setViewMode('day')}
+            className={`text-[12px] px-4 py-1.5 rounded-md transition-all ${viewMode === 'matrix' ? 'bg-white font-semibold text-[#1a1a1a] shadow-sm' : 'text-[#6b6b6b] hover:text-[#1a1a1a]'}`}
+            onClick={() => setViewMode('matrix')}
           >
-            일간
+            직원 스케줄
           </button>
           <button 
-            className={`text-[12px] px-4 py-1.5 rounded-md transition-all ${viewMode === 'week' ? 'bg-white font-semibold text-[#1a1a1a] shadow-sm' : 'text-[#6b6b6b] hover:text-[#1a1a1a]'}`}
-            onClick={() => {
-              setViewMode('week')
-              setWeekStart(startOfWeek(selectedDate, { weekStartsOn: 0 }))
-            }}
+            className={`text-[12px] px-4 py-1.5 rounded-md transition-all ${viewMode === 'calendar' ? 'bg-white font-semibold text-[#1a1a1a] shadow-sm' : 'text-[#6b6b6b] hover:text-[#1a1a1a]'}`}
+            onClick={() => setViewMode('calendar')}
           >
-            주간
+            월간 캘린더
           </button>
         </div>
 
         {/* 날짜 이동 */}
         <div className="flex items-center gap-3">
-          {viewMode === 'day' ? (
+          {viewMode === 'matrix' ? (
             <>
               <div className="flex gap-1">
-                <button className="flex items-center justify-center w-7 h-7 border border-black/15 rounded-md bg-white text-[#6b6b6b] hover:text-[#1a1a1a] hover:bg-black/5 transition-colors shadow-sm" onClick={() => setSelectedDate(addDays(selectedDate, -1))}>‹</button>
-                <button className="flex items-center justify-center w-7 h-7 border border-black/15 rounded-md bg-white text-[#6b6b6b] hover:text-[#1a1a1a] hover:bg-black/5 transition-colors shadow-sm" onClick={() => setSelectedDate(addDays(selectedDate, 1))}>›</button>
+                <button className="flex items-center justify-center w-7 h-7 border border-black/15 rounded-md bg-white text-[#6b6b6b] hover:text-[#1a1a1a] hover:bg-black/5 transition-colors shadow-sm" onClick={() => setMatrixStartDate(addDays(matrixStartDate, -7))}>‹</button>
+                <button className="flex items-center justify-center w-7 h-7 border border-black/15 rounded-md bg-white text-[#6b6b6b] hover:text-[#1a1a1a] hover:bg-black/5 transition-colors shadow-sm" onClick={() => setMatrixStartDate(addDays(matrixStartDate, 7))}>›</button>
               </div>
               <div className="text-[14px] font-semibold text-[#1a1a1a]">
-                {format(selectedDate, 'M월 d일 (E)', { locale: ko })}
+                {format(matrixStartDate, 'yyyy년 M월 d일')} - {format(addDays(matrixStartDate, 6), 'M월 d일', { locale: ko })}
               </div>
             </>
           ) : (
             <>
               <div className="flex gap-1">
-                <button className="flex items-center justify-center w-7 h-7 border border-black/15 rounded-md bg-white text-[#6b6b6b] hover:text-[#1a1a1a] hover:bg-black/5 transition-colors shadow-sm" onClick={() => setWeekStart(addDays(weekStart, -7))}>‹</button>
-                <button className="flex items-center justify-center w-7 h-7 border border-black/15 rounded-md bg-white text-[#6b6b6b] hover:text-[#1a1a1a] hover:bg-black/5 transition-colors shadow-sm" onClick={() => setWeekStart(addDays(weekStart, 7))}>›</button>
+                <button className="flex items-center justify-center w-7 h-7 border border-black/15 rounded-md bg-white text-[#6b6b6b] hover:text-[#1a1a1a] hover:bg-black/5 transition-colors shadow-sm" onClick={() => {
+                  const newDate = new Date(calendarDate)
+                  newDate.setMonth(newDate.getMonth() - 1)
+                  setCalendarDate(newDate)
+                }}>‹</button>
+                <button className="flex items-center justify-center w-7 h-7 border border-black/15 rounded-md bg-white text-[#6b6b6b] hover:text-[#1a1a1a] hover:bg-black/5 transition-colors shadow-sm" onClick={() => {
+                  const newDate = new Date(calendarDate)
+                  newDate.setMonth(newDate.getMonth() + 1)
+                  setCalendarDate(newDate)
+                }}>›</button>
               </div>
               <div className="text-[14px] font-semibold text-[#1a1a1a]">
-                {format(weekStart, 'M월 d일')} - {format(addDays(weekStart, 6), 'M월 d일', { locale: ko })}
+                {format(calendarDate, 'yyyy년 M월', { locale: ko })}
               </div>
             </>
           )}

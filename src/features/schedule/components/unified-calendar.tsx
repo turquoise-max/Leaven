@@ -22,8 +22,8 @@ import { MiniCalendar } from './mini-calendar'
 import { CalendarHeader } from './calendar-header'
 import { TimelineTooltip } from './timeline-tooltip'
 import { SingleDayDeleteModal, ConfirmMoveModal } from './schedule-action-modals'
-import { TimelineStaffColumn } from './timeline-staff-column'
-import { WeeklyShiftBoard } from './weekly-shift-board'
+import { StaffScheduleMatrix } from './staff-schedule-matrix'
+import { MonthlyCalendarView } from './monthly-calendar-view'
 
 // 자동 파생 상태 계산 헬퍼 (시간 기반)
 export function getDerivedTaskStatus(ta: any, scheduleDateStr: string, now: Date): 'todo' | 'in_progress' | 'pending' | 'done' {
@@ -74,12 +74,11 @@ interface UnifiedCalendarProps {
 }
 
 export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = [], storeOpeningHours }: UnifiedCalendarProps) {
-  const [viewMode, setViewMode] = useState<'day' | 'week'>('day')
+  const [viewMode, setViewMode] = useState<'matrix' | 'calendar'>('matrix')
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null)
   
-  const [currentDate, setCurrentDate] = useState<Date>(new Date()) // 미니 달력 뷰 기준
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date())
-  const [weekStart, setWeekStart] = useState<Date>(startOfWeek(new Date(), { weekStartsOn: 0 }))
+  const [matrixStartDate, setMatrixStartDate] = useState<Date>(startOfWeek(new Date(), { weekStartsOn: 0 }))
+  const [calendarDate, setCalendarDate] = useState<Date>(new Date())
   
   const tooltipRef = useRef<HTMLDivElement>(null)
   const [tooltipData, setTooltipData] = useState<any>(null)
@@ -247,7 +246,9 @@ export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = []
             return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
           }
 
-          const dateStr = format(selectedDate, 'yyyy-MM-dd')
+          // 드래그 기능은 매트릭스 뷰나 캘린더 뷰에서 일시적으로 제한하거나 현재 뷰의 기준일(예: new Date() 또는 셀의 날짜)을 사용해야 함.
+          // 현재 타임라인이 제거되었으므로 드래그 기능은 사용하지 않으나 컴파일 오류 방지를 위해 dateStr을 오늘 날짜로 대체
+          const dateStr = format(new Date(), 'yyyy-MM-dd')
           const startTimeStr = formatTimeStr(startHour)
           const endTimeStr = formatTimeStr(endHour)
           
@@ -314,7 +315,7 @@ export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = []
             return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
           }
 
-          const dateStr = format(selectedDate, 'yyyy-MM-dd')
+          const dateStr = format(new Date(), 'yyyy-MM-dd')
           const startTimeStr = formatTimeStr(startHour)
           const endTimeStr = formatTimeStr(endHour)
           
@@ -373,7 +374,7 @@ export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = []
       window.removeEventListener('mousemove', handleGlobalMouseMove)
       window.removeEventListener('mouseup', handleGlobalMouseUp)
     }
-  }, [selectedDate]) // selectedDate가 바뀔 때만(Date 객체 기준 모달 초기값 생성을 위해) 갱신
+  }, [])
 
   const processScheduleUpdate = (scheduleId: string, newStartUTC: string, newEndUTC: string, moveTasks: boolean, deltaMinutes: number = 0) => {
     // API 호출
@@ -597,18 +598,9 @@ export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = []
 
   const [searchQuery, setSearchQuery] = useState('')
 
-  // 데이터 필터링 (선택된 날짜에 스케줄이 있는 직원만 필터링 + 이름 검색 + 역할 필터링)
+  // 데이터 필터링 (이름 검색 + 역할 필터링만 적용, 뷰 모드에 따른 스케줄 유무 필터링 제거)
   const filteredStaff = useMemo(() => {
     let filtered = staffList
-
-    // 1. 뷰 모드에 따라 스케줄 유무 필터링 적용
-    // 일간 뷰: 선택된 날짜에 스케줄이 있는 직원만
-    // 주간 뷰: 선택된 주에 스케줄이 하루라도 있는 직원만
-    if (viewMode === 'day') {
-      filtered = filtered.filter(staff => hasScheduleOnDate(selectedDate, staff.id))
-    } else if (viewMode === 'week') {
-      filtered = filtered.filter(staff => hasScheduleInWeek(weekStart, staff.id))
-    }
 
     // 2. 이름 검색 필터링
     if (searchQuery.trim()) {
@@ -626,23 +618,7 @@ export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = []
     }
     
     return filtered
-  }, [staffList, searchQuery, selectedDate, localSchedules, activeRoleIds])
-
-  // 달력 렌더링 로직
-  const calendarDays = useMemo(() => {
-    const monthStart = startOfMonth(currentDate)
-    const monthEnd = endOfMonth(monthStart)
-    const startDate = startOfWeek(monthStart, { weekStartsOn: 0 })
-    const endDate = endOfWeek(monthEnd, { weekStartsOn: 0 })
-    
-    const days = []
-    let day = startDate
-    while (day <= endDate) {
-      days.push(day)
-      day = addDays(day, 1)
-    }
-    return days
-  }, [currentDate])
+  }, [staffList, searchQuery, localSchedules, activeRoleIds])
 
   // Get dynamic hours from storeOpeningHours
   const hours = useMemo(() => {
@@ -722,17 +698,17 @@ export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = []
         hexToRgba={hexToRgba}
         viewMode={viewMode}
         setViewMode={setViewMode}
-        selectedDate={selectedDate}
-        setSelectedDate={setSelectedDate}
-        weekStart={weekStart}
-        setWeekStart={setWeekStart}
+        matrixStartDate={matrixStartDate}
+        setMatrixStartDate={setMatrixStartDate}
+        calendarDate={calendarDate}
+        setCalendarDate={setCalendarDate}
         roles={roles}
         activeRoleIds={activeRoleIds}
         toggleRole={toggleRole}
         onAddSchedule={() => {
           setCreateForm({
             title: '정규 근무',
-            date: format(selectedDate, 'yyyy-MM-dd'),
+            date: format(new Date(), 'yyyy-MM-dd'),
             startTime: '09:00',
             endTime: '18:00',
             staffId: ''
@@ -743,138 +719,73 @@ export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = []
         onBulkDelete={() => setIsBulkDeleteModalOpen(true)}
       />
 
-      {/* Main Layout (Calendar + Timeline) */}
+      {/* Main Layout (Matrix or Calendar) */}
       <div className="flex-1 flex gap-4 px-6 pt-4 pb-6 overflow-hidden min-h-0">
         
-        {/* Left: Mini Calendar */}
-        <MiniCalendar 
-          currentDate={currentDate}
-          setCurrentDate={setCurrentDate}
-          selectedDate={selectedDate}
-          setSelectedDate={setSelectedDate}
-          calendarDays={calendarDays}
-          hasScheduleOnDate={hasScheduleOnDate}
-        />
-
-        {/* Right: Timeline Panel */}
-        <div className="flex-1 bg-white border border-black/10 rounded-xl p-4 shadow-sm flex flex-col min-w-0 overflow-hidden">
+        {/* Main View Area */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           
-          {/* Main Body (일간 뷰 or 주간 뷰) */}
-          {viewMode === 'week' ? (
-            <div className="flex-1 min-h-0 mt-0">
-              <WeeklyShiftBoard 
-                weekStart={weekStart}
-                staffList={filteredStaff} // 검색어 필터링 적용된 목록
-                localSchedules={localSchedules}
-                roles={roles}
-                activeRoleIds={activeRoleIds}
-                hours={hours}
-                getStaffRoleInfo={getStaffRoleInfo}
-                onDayClick={(date) => {
-                  setSelectedDate(date)
-                  setCurrentDate(date)
-                  setViewMode('day')
-                }}
-                onScheduleClick={(sch, staff) => {
-                  handleScheduleClick(sch, staff)
-                }}
-              />
-            </div>
+          {viewMode === 'matrix' ? (
+            <StaffScheduleMatrix 
+              startDate={matrixStartDate}
+              daysCount={7}
+              staffList={filteredStaff}
+              localSchedules={localSchedules}
+              roles={roles}
+              activeRoleIds={activeRoleIds}
+              getStaffRoleInfo={getStaffRoleInfo}
+              onCellClick={(staff, date) => {
+                setCreateForm({
+                  title: '정규 근무',
+                  date: format(date, 'yyyy-MM-dd'),
+                  startTime: '09:00',
+                  endTime: '18:00',
+                  staffId: staff.id
+                })
+                setIsCreateModalOpen(true)
+              }}
+              onScheduleClick={(sch, staff) => {
+                handleScheduleClick(sch, staff)
+              }}
+            />
           ) : (
-          <div className="flex-1 flex overflow-auto relative select-none pt-4 mt-2 border-t border-black/5">
-            
-            {/* 실시간 현재 시간 지시선 */}
-            {isSameDay(selectedDate, now) && (() => {
-              const currentHourNum = now.getHours() + now.getMinutes() / 60
-              const displayTimeStr = format(now, 'HH:mm')
-              // hours[0] = 6 (06:00 기준)
-              // 스크롤 컨테이너 기준: pt-4(16px) + 헤더높이(36px) = 52px
-              const lineTop = 52 + (currentHourNum - hours[0]) * 40
-              
-              return currentHourNum >= hours[0] && currentHourNum < hours[0] + 24 ? (
-                <div 
-                  className="absolute left-[40px] right-0 h-[1.5px] z-40 pointer-events-none flex items-center"
-                  style={{ 
-                    top: `${lineTop}px`,
-                    background: 'linear-gradient(to right, rgba(29,158,117,0.8) 0%, rgba(29,158,117,0.3) 50%, rgba(29,158,117,0) 100%)'
-                  }}
-                >
-                  <div className="absolute -left-[38px] top-1/2 -translate-y-1/2 bg-[#1D9E75] text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md shadow-[0_2px_4px_rgba(29,158,117,0.4)]">
-                    {displayTimeStr}
-                  </div>
-                  <div className="absolute left-0 -translate-x-1/2 w-[7px] h-[7px] rounded-full bg-[#1D9E75] border-[1.5px] border-white shadow-[0_0_4px_rgba(29,158,117,0.6)]" />
-                </div>
-              ) : null
-            })()}
-
-            {/* 좌측 Y축: 시간 표기 */}
-            <div className="w-[40px] shrink-0 bg-white sticky left-0 z-30 pt-[36px]">
-              {hours.map(h => {
-                const displayHour = h >= 24 ? h - 24 : h;
-                const isNextDay = h >= 24;
-                return (
-                <div key={h} className="h-[40px] text-[9px] text-muted-foreground relative">
-                  {/* 시간 텍스트를 가로 보조선의 정중앙(수직) 위치에 맞춤 */}
-                  <span className="absolute -top-[7px] left-0 w-full text-center">
-                    {displayHour.toString().padStart(2, '0')}:00
-                    {isNextDay && <span className="absolute -top-1 right-0 text-[6px] text-primary/60 font-semibold">+1</span>}
-                  </span>
-                  {/* 시간 기준 가로 보조선 (아주 연한 점선) - top 0px 위치로 맞춰 스케줄 블록의 시작점과 일치시킴 */}
-                  <div className="absolute top-0 left-full w-[2000px] h-px border-t border-dashed border-black/5 pointer-events-none" />
-                </div>
-                )
-              })}
-            </div>
-
-            {/* 우측 X축: 직원 컬럼들 (반응형 80% 정도를 채우도록 설정) */}
-            {filteredStaff.length > 0 ? (
-              <div className="flex flex-1 pl-4 gap-6 w-full max-w-[80%]">
-                {filteredStaff.map(staff => {
-                  const roleInfo = getStaffRoleInfo(staff)
-                  return (
-                    <TimelineStaffColumn
-                      key={staff.id}
-                      staff={staff}
-                      safeName={staff.name || '알 수 없음'}
-                      roleColor={roleInfo?.color || '#534AB7'}
-                      selectedDate={selectedDate}
-                      isDragCreate={dragState?.type === 'create_v' && dragState.staffId === staff.id}
-                      dragState={dragState}
-                      setDragState={setDragState}
-                      localSchedules={localSchedules}
-                      hours={hours}
-                      now={now}
-                      isDraggingRef={isDraggingRef}
-                      isModalOpen={isModalOpen}
-                      selectedScheduleId={selectedSchedule?.id}
-                      handleScheduleClick={handleScheduleClick}
-                      setTooltipData={setTooltipData}
-                      setSingleDayDeleteModal={setSingleDayDeleteModal}
-                      getStaffRoleInfo={getStaffRoleInfo}
-                    />
-                  )
-                })}
-              </div>
-            ) : (
-              <div className="flex flex-1 items-center justify-center text-[12px] text-muted-foreground pt-10 h-full w-full shrink-0">
-                이 날짜에 배정된 스케줄이 없습니다.<br/>우측 상단의 [스케줄 추가] 버튼을 눌러보세요.
-              </div>
-            )}
-          </div>
+            <MonthlyCalendarView 
+              currentDate={calendarDate}
+              staffList={filteredStaff}
+              localSchedules={localSchedules}
+              roles={roles}
+              activeRoleIds={activeRoleIds}
+              getStaffRoleInfo={getStaffRoleInfo}
+              onDateClick={(date) => {
+                setCreateForm({
+                  title: '정규 근무',
+                  date: format(date, 'yyyy-MM-dd'),
+                  startTime: '09:00',
+                  endTime: '18:00',
+                  staffId: ''
+                })
+                setIsCreateModalOpen(true)
+              }}
+              onScheduleClick={(sch, staff) => {
+                handleScheduleClick(sch, staff)
+              }}
+            />
           )}
         </div>
 
-        {/* 3단 레이아웃 우측: Schedule Detail Panel (주간 뷰에서는 숨김) */}
-        {viewMode === 'day' && (
-          <ScheduleDetailPanel
-            storeId={storeId}
-            selectedSchedule={selectedSchedule}
-            setSelectedSchedule={setSelectedSchedule}
-            staffList={staffList}
-            setLocalSchedules={setLocalSchedules}
-            handleTaskToggle={handleTaskToggle}
-            now={now}
-          />
+        {/* 우측 패널 (스케줄 선택 시 표시) */}
+        {selectedSchedule && (
+          <div className="w-[320px] shrink-0">
+            <ScheduleDetailPanel
+              storeId={storeId}
+              selectedSchedule={selectedSchedule}
+              setSelectedSchedule={setSelectedSchedule}
+              staffList={staffList}
+              setLocalSchedules={setLocalSchedules}
+              handleTaskToggle={handleTaskToggle}
+              now={now}
+            />
+          </div>
         )}
       </div>
 
@@ -888,6 +799,7 @@ export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = []
         staffList={staffList}
         checkOverlap={checkOverlap}
         setLocalSchedules={setLocalSchedules}
+        localSchedules={localSchedules}
       />
 
       {/* Auto Schedule Modal */}

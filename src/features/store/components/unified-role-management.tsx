@@ -17,7 +17,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Plus, Trash2, Save, Shield, Lock, RotateCcw, AlertTriangle, Users, ChevronDown, ChevronRight } from 'lucide-react'
+import { Plus, Trash2, Save, Shield, Lock, RotateCcw, AlertTriangle, Users, ChevronDown, ChevronRight, Check, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import {
@@ -32,16 +32,26 @@ import {
 } from '@/components/ui/alert-dialog'
 
 const permissionDescriptions: Record<string, string> = {
-  'manage_inventory': '재고 수량을 수정하고 입출고 내역을 관리합니다.',
-  'manage_menu': '메뉴 정보를 수정하고 카테고리를 관리합니다.',
-  'manage_schedule': '직원 근무 일정을 생성, 수정, 삭제합니다.',
-  'view_schedule': '전체 직원의 근무 일정을 조회합니다.',
-  'manage_tasks': '업무를 생성, 수정, 삭제하고 직원에게 할당합니다.',
-  'view_tasks': '매장의 모든 업무 목록을 조회합니다.',
-  'manage_staff': '직원 정보를 수정하고 역할을 관리합니다.',
-  'view_staff': '직원 목록과 연락처 등 기본 정보를 조회합니다.',
-  'view_salary': '직원의 급여 정보를 조회합니다.',
-  'manage_store': '매장 기본 정보를 수정합니다.',
+  'manage_store': '매장 정보 및 시스템 설정 변경',
+  'manage_roles': '직급 생성 및 역할별 권한 범위 설정',
+  
+  'view_staff': '직원 명부 및 연락처, 입/퇴사일 열람',
+  'manage_staff': '새 직원 초대, 정보 수정 및 퇴사 처리',
+  'view_salary': '다른 직원의 민감한 급여(시급) 정보 열람',
+  'manage_payroll': '직원별 급여 정산 및 명세서 발급 관리',
+  
+  'view_schedule': '전체 직원의 주간/월간 근무표 열람',
+  'manage_schedule': '근무표 생성, 수정 및 오토 스케줄링 승인',
+  'view_attendance': '직원들의 실시간 출퇴근 현황 및 기록부 열람',
+  'manage_attendance': '지각/결근 관리 및 출퇴근 기록 수정 요청 승인',
+  'view_leave': '직원별 휴가/연차 사용 현황 캘린더 열람',
+  'manage_leave': '휴가 신청 승인/반려 및 잔여 연차 강제 수정',
+  
+  'view_tasks': '매장의 모든 직무별 플레이북(업무) 조회',
+  'manage_tasks': '플레이북 템플릿(체크리스트) 생성 및 수정',
+  'view_sales': '매장 매출 분석 데이터 및 결제 내역 조회',
+  'manage_inventory': '재고 수량 변경 및 입출고 내역 등록',
+  'manage_menu': 'POS 메뉴 정보 수정 및 카테고리 관리'
 }
 
 interface UnifiedRoleManagementProps {
@@ -143,26 +153,34 @@ export function UnifiedRoleManagement({ storeId, roles, permissions, taskTemplat
     return isNameChanged || isColorChanged || isParentChanged || isPermissionsChanged
   }, [selectedRole, editName, editColor, editParentId, rolePermissions, initialRolePermissions])
 
-  // Group permissions by category
-  const permissionGroups = permissions.reduce((acc, perm) => {
-    // Assuming category exists, or map code prefix to category
-    const category = getCategoryName(perm.code)
-    if (!acc[category]) acc[category] = []
-    acc[category].push(perm)
-    return acc
-  }, {} as Record<string, Permission[]>)
+  // 3차원 디스코드 폼 매트릭스 카테고리 정의
+  const PERMISSION_CATEGORIES = [
+    {
+      id: 'system',
+      title: '매장 및 시스템 권한',
+      desc: '매장의 최상위 설정과 직급 체계를 관리합니다.',
+      codes: ['manage_store', 'manage_roles']
+    },
+    {
+      id: 'hr',
+      title: '인사 및 근로 권한',
+      desc: '직원들의 개인정보, 채용, 퇴사 및 급여를 관리합니다.',
+      codes: ['view_staff', 'manage_staff', 'view_salary', 'manage_payroll']
+    },
+    {
+      id: 'time',
+      title: '일정 및 근태 권한',
+      desc: '스케줄표 작성부터 출퇴근 기록, 휴가 승인까지 관리합니다.',
+      codes: ['view_schedule', 'manage_schedule', 'view_attendance', 'manage_attendance', 'view_leave', 'manage_leave']
+    },
+    {
+      id: 'ops',
+      title: '운영 및 업무 권한',
+      desc: '매출 데이터, 재고, 그리고 직무별 플레이북(업무)을 관리합니다.',
+      codes: ['view_tasks', 'manage_tasks', 'view_sales', 'manage_inventory', 'manage_menu']
+    }
+  ]
 
-  function getCategoryName(code: string) {
-    if (code.startsWith('manage_store')) return '매장 관리'
-    if (code.startsWith('manage_staff') || code === 'view_staff' || code === 'view_salary') return '직원 관리'
-    if (code.includes('sales')) return '매출 관리'
-    if (code.includes('menu') || code.includes('inventory')) return '상품/재고 관리'
-    if (code.includes('schedule')) return '근무표 관리'
-    if (code.includes('tasks')) return '업무 관리'
-    return '기타'
-  }
-
-  // Fetch permissions when role is selected
   // Ensure default roles exist when component mounts
   useEffect(() => {
     ensureDefaultRoles(storeId).catch(console.error)
@@ -563,83 +581,85 @@ export function UnifiedRoleManagement({ storeId, roles, permissions, taskTemplat
                       <p className="text-[13px] text-muted-foreground">이 직무를 수행하는 직원이 매장 관리 시스템에서 조회하거나 수정할 수 있는 메뉴와 기능을 제어합니다.</p>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-8 max-w-4xl pb-24">
-                    {Object.entries(permissionGroups).map(([category, perms]) => {
-                      const allChecked = perms.every(p => rolePermissions.includes(p.code))
-                      const someChecked = perms.some(p => rolePermissions.includes(p.code)) && !allChecked
-                      
-                      const handleToggleCategory = () => {
-                        if (isOwner) return
-                        if (allChecked) {
-                          setRolePermissions(prev => prev.filter(c => !perms.some(p => p.code === c)))
-                        } else {
-                          setRolePermissions(prev => {
-                            const next = [...prev]
-                            perms.forEach(p => { if (!next.includes(p.code)) next.push(p.code) })
-                            return next
-                          })
-                        }
-                      }
+                    <div className="flex-1 pb-24">
+                      <div className="space-y-10 max-w-4xl">
+                      {PERMISSION_CATEGORIES.map((category) => {
+                        const availableCodes = category.codes.filter(code => permissions.some(p => p.code === code) || true)
+                        
+                        return (
+                          <div key={category.id} className="space-y-5 bg-card border shadow-sm rounded-xl p-6">
+                            <div className="border-b pb-4">
+                              <h4 className="text-lg font-bold text-foreground tracking-tight">{category.title}</h4>
+                              <p className="text-[13px] text-muted-foreground mt-1">{category.desc}</p>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 pt-2">
+                              {availableCodes.map((code) => {
+                                const dbPerm = permissions.find(p => p.code === code)
+                                const title = dbPerm?.name || code
+                                const desc = permissionDescriptions[code] || dbPerm?.description || code
+                                const isDangerous = code.startsWith('manage_') || code === 'view_salary'
 
-                      return (
-                        <div key={category} className="flex flex-col gap-3 bg-muted/20 p-4 rounded-xl border border-border/50">
-                          <div className="flex items-center justify-between border-b border-border/50 pb-3">
-                            <h4 className="text-[13px] font-bold text-foreground">
-                              {category}
-                            </h4>
-                            {!isOwner && (
-                              <button 
-                                type="button" 
-                                onClick={handleToggleCategory}
-                                className="text-[11px] text-muted-foreground hover:text-primary transition-colors flex items-center gap-1.5 font-medium"
-                              >
-                                <CheckSquare className={cn("w-3.5 h-3.5", allChecked ? "text-primary" : "opacity-40")} />
-                                {allChecked ? '전체 해제' : '전체 선택'}
-                              </button>
-                            )}
-                          </div>
-                          
-                          <div className="grid gap-4 mt-1">
-                            {perms.map(perm => {
-                              const isDangerous = perm.code.includes('salary') || perm.code.includes('store') || perm.code === 'manage_staff'
-                              return (
-                                <div 
-                                  key={perm.code} 
-                                  className={cn(
-                                    "flex items-start space-x-3 p-2.5 rounded-lg transition-all",
-                                    isOwner ? "opacity-60 grayscale" : "hover:bg-background shadow-sm border border-transparent hover:border-border/50",
-                                    isDangerous && !isOwner && rolePermissions.includes(perm.code) ? "bg-orange-50/50 hover:border-orange-200" : ""
-                                  )}
-                                >
-                                  <Checkbox 
-                                    id={perm.code} 
-                                    checked={isOwner || rolePermissions.includes(perm.code)}
-                                    onCheckedChange={() => togglePermission(perm.code)}
-                                    disabled={isOwner || loading}
-                                    className={cn("mt-0.5", isDangerous && !isOwner && rolePermissions.includes(perm.code) ? "data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500" : "")}
-                                  />
-                                  <div className="flex flex-col gap-1 leading-none flex-1">
-                                    <Label 
-                                      htmlFor={perm.code}
-                                      className={cn(
-                                        "text-[13px] font-semibold leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex items-center gap-1.5",
-                                        isDangerous && !isOwner && rolePermissions.includes(perm.code) ? "text-orange-700" : "text-foreground"
-                                      )}
-                                    >
-                                      {perm.description || perm.code}
-                                      {isDangerous && <AlertTriangle className="w-3 h-3 text-orange-500" />}
-                                    </Label>
-                                    <p className="text-[11.5px] text-muted-foreground/80 leading-relaxed">
-                                      {permissionDescriptions[perm.code] || perm.code}
-                                    </p>
+                                return (
+                                  <div
+                                    key={code}
+                                    className={cn(
+                                      "flex items-start space-x-4 transition-all group",
+                                      isOwner ? "opacity-60 grayscale cursor-not-allowed" : ""
+                                    )}
+                                  >
+                                    {/* Discord-style Toggle Switch */}
+                                    <div className="relative flex items-center mt-1">
+                                      <input
+                                        type="checkbox"
+                                        id={code}
+                                        className="sr-only peer"
+                                        checked={isOwner || rolePermissions.includes(code)}
+                                        onChange={() => togglePermission(code)}
+                                        disabled={isOwner || loading}
+                                      />
+                                      <div className={cn(
+                                        "w-9 h-5 rounded-full peer-focus:outline-none transition-all duration-300 relative border cursor-pointer shrink-0 shadow-inner",
+                                        (isOwner || rolePermissions.includes(code)) 
+                                          ? (isDangerous ? "bg-emerald-500 border-emerald-600" : "bg-[#1D9E75] border-[#1D9E75]/80") 
+                                          : "bg-slate-200 border-slate-300 hover:bg-slate-300"
+                                      )} onClick={() => { if(!isOwner && !loading) togglePermission(code) }}>
+                                        <div className={cn(
+                                          "absolute top-0.5 left-0.5 bg-white w-4 h-4 rounded-full transition-all duration-300 shadow flex items-center justify-center",
+                                          (isOwner || rolePermissions.includes(code)) ? "translate-x-4" : "translate-x-0"
+                                        )}>
+                                          {(isOwner || rolePermissions.includes(code)) ? (
+                                            <Check className={cn("w-2.5 h-2.5", isDangerous ? "text-emerald-600" : "text-[#1D9E75]")} />
+                                          ) : (
+                                            <X className="w-2.5 h-2.5 text-slate-400" />
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    <div className="flex flex-col gap-1.5 leading-none flex-1 cursor-pointer" onClick={() => { if(!isOwner && !loading) togglePermission(code) }}>
+                                      <Label
+                                        htmlFor={code}
+                                        className={cn(
+                                          "text-[14px] font-bold leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center gap-1.5 pointer-events-none",
+                                          isDangerous && !isOwner && rolePermissions.includes(code) ? "text-emerald-700" : "text-slate-800"
+                                        )}
+                                      >
+                                        {title}
+                                        {isDangerous && <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />}
+                                      </Label>
+                                      <p className="text-[12px] text-muted-foreground/90 leading-relaxed font-medium">
+                                        {desc}
+                                      </p>
+                                    </div>
                                   </div>
-                                </div>
-                              )
-                            })}
+                                )
+                              })}
+                            </div>
                           </div>
-                        </div>
-                      )
-                    })}
+                        )
+                      })}
+                      </div>
                     </div>
                   </div>
                 </TabsContent>
