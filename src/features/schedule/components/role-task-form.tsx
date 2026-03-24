@@ -141,7 +141,7 @@ export function RoleTaskForm({
             </div>
           </div>
 
-          {!hideRoleSelection && (
+          {!hideRoleSelection ? (
             <>
               <Separator className="bg-border/50" />
 
@@ -176,6 +176,27 @@ export function RoleTaskForm({
                 </div>
               </div>
             </>
+          ) : (
+            // 역할 선택이 숨겨졌을 때, 초기값으로 세팅된 역할 이름을 읽기 전용 뱃지로 고정 노출
+            <div className="flex items-center gap-3 bg-muted/20 p-3 rounded-lg border border-border/50 mt-2">
+              <Label className="text-xs font-semibold text-muted-foreground shrink-0">대상 직무:</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {formData.assigned_role_ids.includes('all') ? (
+                  <Badge variant="secondary" className="text-[11px] font-medium bg-primary/10 text-primary hover:bg-primary/10">전체 공통 업무</Badge>
+                ) : formData.assigned_role_ids.length > 0 ? (
+                  roles
+                    .filter(r => formData.assigned_role_ids.includes(r.id))
+                    .map(r => (
+                      <Badge key={r.id} variant="outline" className="text-[11px] font-medium bg-white text-[#1a1a1a] flex items-center gap-1">
+                        <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: r.color || '#ccc' }} />
+                        {r.name}
+                      </Badge>
+                    ))
+                ) : (
+                  <span className="text-[11px] text-muted-foreground">선택 안 됨</span>
+                )}
+              </div>
+            </div>
           )}
 
           {/* 시간 설정 */}

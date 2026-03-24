@@ -50,13 +50,13 @@ export function Sidebar({ user, role, isCollapsed = false, className, permission
       title: '메인',
       items: [
         ...(isManager ? [{
-          title: '대시보드(관리자용)',
+          title: '대시보드',
           href: '/dashboard',
           icon: LayoutDashboard,
           isUpcoming: false
         }] : []),
         {
-          title: '대시보드',
+          title: '할 일',
           href: isManager ? '/dashboard/my-tasks' : '/dashboard',
           icon: CheckSquare,
           isUpcoming: false

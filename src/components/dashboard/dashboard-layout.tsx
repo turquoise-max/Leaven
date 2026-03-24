@@ -15,6 +15,7 @@ import { PlusIcon, Home } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { setCurrentStore } from '@/features/store/actions'
+import { MobileBottomNav } from '@/components/dashboard/mobile-bottom-nav'
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -62,11 +63,12 @@ export function DashboardClientLayout({
   return (
     <div className="h-screen w-full bg-background overflow-hidden flex">
       {/* Mobile Layout (Hidden on LG and above) */}
-      <div className="flex flex-col h-full w-full lg:hidden">
+      <div className="flex flex-col h-full w-full lg:hidden pb-16 relative">
         <Header storeName={storeName} />
-        <main className="flex-1 overflow-auto p-4 bg-muted/5">
+        <main className="flex-1 overflow-auto p-4 bg-muted/5 hide-scrollbar">
           {children}
         </main>
+        <MobileBottomNav role={role} permissions={permissions} />
       </div>
 
       {/* Desktop Layout (Discord Style) */}

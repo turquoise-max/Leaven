@@ -4,6 +4,7 @@ import { cookies } from 'next/headers'
 import { DashboardTaskList } from '@/features/schedule/components/dashboard-task-list'
 import { getStoreAnnouncements } from '@/features/store/announcement-actions'
 import { StaffAnnouncementList } from '@/features/store/components/staff-announcement-list'
+import { getTodayDateString } from '@/lib/date-utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,7 +16,7 @@ export default async function MyTasksPage() {
 
   const { data: members, error } = await supabase
     .from('store_members')
-    .select('role, role_id, status, store:stores(*)')
+    .select('id, role, role_id, status, store:stores(*)')
     .eq('user_id', user.id)
 
   if (error || !members || members.length === 0) redirect('/home')
@@ -51,8 +52,9 @@ export default async function MyTasksPage() {
         </div>
       )}
 
-      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-        <DashboardTaskList storeId={store.id} />
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden w-full relative">
+        {/* 전체화면 하단: 오늘의 타임라인 (시간 지정/미지정 업무) */}
+        <DashboardTaskList storeId={store.id} roleId={activeMember.role_id} />
       </div>
     </div>
   )

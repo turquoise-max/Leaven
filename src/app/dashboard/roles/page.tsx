@@ -49,9 +49,9 @@ export default async function RolesPage() {
       <div className="flex flex-col gap-6 h-[calc(100vh-4rem)]">
         <div className="flex items-center justify-between shrink-0">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">역할 및 기본 업무 관리</h1>
+            <h1 className="text-3xl font-bold tracking-tight">직급 및 권한 설정</h1>
             <p className="text-muted-foreground">
-              직원 역할과 역할별 기본 할당 업무를 관리합니다.
+              매장의 직급 체계와 직원들이 볼 수 있는 메뉴, 기본 업무를 설정합니다.
             </p>
           </div>
         </div>
@@ -62,9 +62,9 @@ export default async function RolesPage() {
               <Lock className="w-8 h-8 text-muted-foreground" />
             </div>
             <div className="space-y-1">
-              <h2 className="text-xl font-semibold">설정 권한이 없습니다</h2>
+              <h2 className="text-xl font-semibold">접근할 수 없습니다</h2>
               <p className="text-sm text-muted-foreground max-w-sm">
-                역할 및 업무 관리는 점주(Owner)만 접근할 수 있습니다. 
+                직급 및 권한 관리는 점주(Owner)만 접근할 수 있는 메뉴입니다.
               </p>
             </div>
           </CardContent>
@@ -83,9 +83,9 @@ export default async function RolesPage() {
   return (
     <div className="pb-10 pt-2 flex flex-col h-full min-h-[calc(100vh-6rem)]">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight">역할 및 기본 업무 관리</h1>
+        <h1 className="text-3xl font-bold tracking-tight">직급 및 권한 설정</h1>
         <p className="text-muted-foreground mt-1">
-          직원들의 역할을 분류하고 상세 권한 및 출근 시 자동 부여될 기본 체크리스트를 설정합니다.
+          매장의 직급(매니저, 스태프 등)을 만들고, 직원들이 시스템에서 볼 수 있는 권한과 출근 시 확인해야 할 기본 업무를 설정합니다.
         </p>
       </div>
 

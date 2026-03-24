@@ -131,6 +131,11 @@ export function StaffScheduleMatrix({
                               const title = sch.title || '근무'
                               const start = new Date(sch.start_time)
                               const end = new Date(sch.end_time)
+                              
+                              // 스케줄 자체에 지정된 색상이 있으면 그것을 최우선으로 사용하고 (휴가 등), 없으면 직급 색상을 사용
+                              const scheduleColor = sch.color || roleColor
+                              const isLeave = sch.schedule_type === 'leave'
+
                               return (
                                 <TooltipProvider key={sch.id} delayDuration={300}>
                                   <Tooltip>
@@ -140,46 +145,65 @@ export function StaffScheduleMatrix({
                                           e.stopPropagation()
                                           onScheduleClick(sch, staff)
                                         }}
-                                        className="px-2 py-1.5 rounded-md text-[11px] font-medium transition-all hover:scale-[1.02] shadow-sm border border-black/5 text-left cursor-pointer"
+                                        className={cn(
+                                          "px-2 py-1.5 rounded-md text-[11px] font-medium transition-all hover:scale-[1.02] shadow-sm border border-black/5 text-left cursor-pointer flex flex-col justify-center",
+                                          isLeave ? "h-full min-h-[50px] items-center text-center opacity-90 hover:opacity-100" : ""
+                                        )}
                                         style={{ 
-                                          backgroundColor: hexToRgba(roleColor, 0.1), 
+                                          backgroundColor: hexToRgba(scheduleColor, isLeave ? 0.15 : 0.1), 
                                           color: '#1a1a1a',
-                                          borderLeft: `3px solid ${roleColor}`
+                                          borderLeft: isLeave ? 'none' : `3px solid ${scheduleColor}`
                                         }}
                                       >
-                                        <div className="font-semibold text-[10px] opacity-70 mb-0.5" style={{ color: roleColor }}>
-                                          {format(start, 'HH:mm')} - {format(end, 'HH:mm')}
+                                        {!isLeave && (
+                                          <div className="font-semibold text-[10px] opacity-70 mb-0.5" style={{ color: scheduleColor }}>
+                                            {format(start, 'HH:mm')} - {format(end, 'HH:mm')}
+                                          </div>
+                                        )}
+                                        <div className={cn("truncate text-[#1a1a1a]", isLeave && "font-bold text-[12px] tracking-wide")} style={isLeave ? { color: scheduleColor } : {}}>
+                                          {title}
                                         </div>
-                                        <div className="truncate text-[#1a1a1a]">{title}</div>
-                                      </div>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="top" className="p-3 max-w-[250px] bg-white border border-black/10 shadow-lg text-[#1a1a1a]">
-                                      <div className="font-semibold text-[12px] mb-2 border-b border-black/5 pb-1 flex justify-between items-center">
-                                        <span>세부 할 일 ({(sch.task_assignments || []).length}개)</span>
-                                        <span className="text-[10px] text-muted-foreground font-normal bg-black/5 px-1.5 py-0.5 rounded">
-                                          {format(start, 'HH:mm')} - {format(end, 'HH:mm')}
-                                        </span>
-                                      </div>
-                                      <div className="flex flex-col gap-1.5 max-h-[150px] overflow-y-auto no-scrollbar">
-                                        {(sch.task_assignments || []).length > 0 ? (
-                                          (sch.task_assignments || []).map((ta: any) => (
-                                            <div key={ta.id} className="flex items-start gap-1.5 text-[11px]">
-                                              <CheckSquare className={cn(
-                                                "w-3.5 h-3.5 shrink-0 mt-[1px]", 
-                                                ta.task?.status === 'done' ? "text-[#1D9E75]" : "text-muted-foreground/50"
-                                              )} />
-                                              <span className={cn("leading-tight", ta.task?.status === 'done' && "line-through text-muted-foreground")}>
-                                                {ta.task?.title || '할 일'}
-                                              </span>
-                                            </div>
-                                          ))
-                                        ) : (
-                                          <div className="text-[11px] text-muted-foreground text-center py-2">
-                                            등록된 세부 할 일이 없습니다.
+                                        {isLeave && sch.memo && (
+                                          <div className="text-[9px] mt-0.5 opacity-60 truncate max-w-full px-1">
+                                            {sch.memo}
                                           </div>
                                         )}
                                       </div>
-                                    </TooltipContent>
+                                    </TooltipTrigger>
+                                    {!isLeave ? (
+                                      <TooltipContent side="top" className="p-3 max-w-[250px] bg-white border border-black/10 shadow-lg text-[#1a1a1a]">
+                                        <div className="font-semibold text-[12px] mb-2 border-b border-black/5 pb-1 flex justify-between items-center">
+                                          <span>세부 할 일 ({(sch.task_assignments || []).length}개)</span>
+                                          <span className="text-[10px] text-muted-foreground font-normal bg-black/5 px-1.5 py-0.5 rounded">
+                                            {format(start, 'HH:mm')} - {format(end, 'HH:mm')}
+                                          </span>
+                                        </div>
+                                        <div className="flex flex-col gap-1.5 max-h-[150px] overflow-y-auto no-scrollbar">
+                                          {(sch.task_assignments || []).length > 0 ? (
+                                            (sch.task_assignments || []).map((ta: any) => (
+                                              <div key={ta.id} className="flex items-start gap-1.5 text-[11px]">
+                                                <CheckSquare className={cn(
+                                                  "w-3.5 h-3.5 shrink-0 mt-[1px]", 
+                                                  ta.task?.status === 'done' ? "text-[#1D9E75]" : "text-muted-foreground/50"
+                                                )} />
+                                                <span className={cn("leading-tight", ta.task?.status === 'done' && "line-through text-muted-foreground")}>
+                                                  {ta.task?.title || '할 일'}
+                                                </span>
+                                              </div>
+                                            ))
+                                          ) : (
+                                            <div className="text-[11px] text-muted-foreground text-center py-2">
+                                              등록된 세부 할 일이 없습니다.
+                                            </div>
+                                          )}
+                                        </div>
+                                      </TooltipContent>
+                                    ) : (
+                                      <TooltipContent side="top" className="p-3 max-w-[250px] bg-white border border-black/10 shadow-lg text-[#1a1a1a]">
+                                        <div className="font-bold text-[12px] mb-1">{title}</div>
+                                        {sch.memo && <div className="text-[11px] text-muted-foreground">{sch.memo}</div>}
+                                      </TooltipContent>
+                                    )}
                                     </Tooltip>
                                   </TooltipProvider>
                                 )

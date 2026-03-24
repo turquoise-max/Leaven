@@ -1,3 +1,7 @@
+-- First, add the missing columns to the permissions table
+ALTER TABLE public.permissions ADD COLUMN IF NOT EXISTS name text;
+ALTER TABLE public.permissions ADD COLUMN IF NOT EXISTS category text;
+
 -- Add new permissions to the permissions table
 INSERT INTO public.permissions (code, name, description, category) VALUES
   ('manage_roles', '역할 및 직무 관리', '매장 내 직급 및 역할별 시스템 접근 권한을 편집합니다.', '매장 및 시스템 권한'),

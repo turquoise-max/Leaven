@@ -212,8 +212,9 @@ export function ScheduleDetailPanel({
       formData.append('date', newSchedule.editDate)
       formData.append('startTime', newSchedule.editStartTime)
       formData.append('endTime', newSchedule.editEndTime)
-      formData.append('title', newSchedule.title || '')
+      formData.append('title', newSchedule.title || '정규 근무')
       formData.append('color', newSchedule.color || '')
+      formData.append('schedule_type', newSchedule.scheduleType || 'regular')
       
       const res = await updateSchedule(storeId, newSchedule.id, formData)
       if (res.error) {
@@ -282,15 +283,32 @@ export function ScheduleDetailPanel({
             </div>
             <div className="flex flex-col gap-1.5 flex-1">
               <label className="text-[10px] font-medium text-muted-foreground">스케줄 유형</label>
-              <Select value={selectedSchedule.title || '정규 근무'} onValueChange={(val) => handleFieldChange('title', val)}>
+              <Select 
+                value={selectedSchedule.scheduleType || 'regular'} 
+                onValueChange={(val) => {
+                  handleFieldChange('scheduleType', val)
+                  // 유형에 따라 타이틀도 연동 변경
+                  const typeLabelMap: Record<string, string> = {
+                    'regular': '정규 근무',
+                    'substitute': '대체 근무',
+                    'overtime': '연장 근무',
+                    'off': '휴무',
+                    'leave': '휴가/병가',
+                    'training': '교육',
+                    'etc': '기타'
+                  }
+                  handleFieldChange('title', typeLabelMap[val] || '정규 근무')
+                }}
+              >
                 <SelectTrigger className="h-8 text-[11px] px-2"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="정규 근무" className="text-[11px]">정규 근무</SelectItem>
-                  <SelectItem value="대체 근무" className="text-[11px]">대체 근무</SelectItem>
-                  <SelectItem value="연장 근무" className="text-[11px]">연장 근무</SelectItem>
-                  <SelectItem value="교육" className="text-[11px]">교육</SelectItem>
-                  <SelectItem value="휴가" className="text-[11px]">휴가</SelectItem>
-                  <SelectItem value="병가" className="text-[11px]">병가</SelectItem>
+                  <SelectItem value="regular" className="text-[11px]">정규 근무</SelectItem>
+                  <SelectItem value="substitute" className="text-[11px]">대체 근무</SelectItem>
+                  <SelectItem value="overtime" className="text-[11px]">연장 근무</SelectItem>
+                  <SelectItem value="off" className="text-[11px]">휴무</SelectItem>
+                  <SelectItem value="leave" className="text-[11px]">휴가/병가</SelectItem>
+                  <SelectItem value="training" className="text-[11px]">교육</SelectItem>
+                  <SelectItem value="etc" className="text-[11px]">기타</SelectItem>
                 </SelectContent>
               </Select>
             </div>

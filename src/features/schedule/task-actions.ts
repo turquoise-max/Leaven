@@ -695,62 +695,143 @@ export async function getDashboardTasks(storeId: string, date: string) {
     
     if (!user) return []
 
-    // 1. 현재 직원의 member_id를 가져옵니다.
+    // 1. 현재 직원의 member_id와 role(점주 여부 확인)을 가져옵니다.
     const { data: memberData } = await supabase
         .from('store_members')
-        .select('id')
+        .select('id, role')
         .eq('store_id', storeId)
         .eq('user_id', user.id)
         .single()
         
     if (!memberData) return []
 
-    // 2. 해당 직원의 오늘 날짜 근무 스케줄이 존재하는지 확인 (관리자/직원 무관)
-    // schedules 테이블과 schedule_members를 조인하여 확인해야 합니다.
-    // 날짜 비교를 위해 start_time과 end_time의 범위를 사용
-    const startIso = toUTCISOString(date, '00:00')
-    const nextDate = getNextDateString(date)
-    const endIso = toUTCISOString(nextDate, '00:00')
-    
-    const { data: scheduleData } = await supabase
-        .from('schedules')
-        .select('id, schedule_members!inner(member_id)')
-        .eq('store_id', storeId)
-        .eq('schedule_members.member_id', memberData.id)
-        .gte('start_time', startIso)
-        .lt('start_time', endIso)
-        .limit(1)
-        .maybeSingle()
+    const member = await getStoreMemberRole(user.id, storeId)
+    const isOwner = memberData.role === 'owner' || member?.role === 'owner'
 
-    // 오늘 스케줄이 없다면 대시보드 업무에 보여주지 않음
-    if (!scheduleData) {
-        return []
+    // 2. 해당 직원의 오늘 날짜 근무 스케줄이 존재하는지 확인합니다.
+    // 점주(Owner)는 스케줄 표 등록 여부와 무관하게 대시보드 가이드를 항상 열람할 수 있도록 예외(Bypass) 처리합니다.
+    if (!isOwner) {
+        const startIso = toUTCISOString(date, '00:00')
+        const nextDate = getNextDateString(date)
+        const endIso = toUTCISOString(nextDate, '00:00')
+        
+        const { data: scheduleData } = await supabase
+            .from('schedules')
+            .select('id, schedule_members!inner(member_id)')
+            .eq('store_id', storeId)
+            .eq('schedule_members.member_id', memberData.id)
+            .gte('start_time', startIso)
+            .lt('start_time', endIso)
+            .limit(1)
+            .maybeSingle()
+
+        // 일반 직원은 오늘 스케줄이 없다면 대시보드 업무에 아무것도 보여주지 않음
+        if (!scheduleData) {
+            return []
+        }
     }
+
+    // 나에게 할당된 업무를 가져오는 쿼리 문자열 작성 (Supabase Filter Chain 대신 .or() 안에서 처리하기 위함)
+    // PostgREST 에서는 릴레이션 필터 조인 조건식을 직접 or()에 넣기 어렵기 때문에,
+    // 최선의 방법은 'task_assignments'가 매칭되는 레코드만 필터링하는 것입니다.
     
-    let query = supabase
+    // [핵심 변경] 오늘 날짜의 세부 업무(내 task_assignments에 포함된)와
+    // 내 역할의 템플릿(가이드라인)을 한 번에 통합해서 가져오는 쿼리입니다.
+
+    // 1. 내 task_assignments (세부 할 일) ID 목록 추출 (user_id 컬럼 사용)
+    const { data: myAssignments } = await supabase
+        .from('task_assignments')
+        .select('*, task:tasks(*)') // task 테이블도 함께 join
+        .eq('store_id', storeId)
+        .eq('user_id', user.id) // 최신 스키마에서는 user_id로 연결됨
+        .eq('assigned_date', date)
+
+    // 조인된 task 객체들 추출 (실제로는 assignment의 start_time이 오버라이드 됨)
+    const assignedTasks: Task[] = []
+    myAssignments?.forEach(a => {
+      if (a.task) {
+        // DB에 저장된 a.start_time은 주로 'HH:mm:ss' (ex: "09:00:00") 형태로 저장되어 있을 가능성이 높습니다.
+        // 이를 T와 Z를 조합하여 ISO String 형태로 완벽히 조립해야 프론트엔드의 new Date() 에서 Invalid Date가 나지 않습니다.
+        
+        let safeStartTime = null;
+        if (a.start_time) {
+           // 이미 ISO 포맷이면 그대로, 아니면 조합
+           safeStartTime = a.start_time.includes('T') ? a.start_time : `${date}T${a.start_time}Z`;
+        } else if (a.task.start_time) {
+           safeStartTime = a.task.start_time.includes('T') ? a.task.start_time : `${date}T${a.task.start_time}Z`;
+        }
+
+        let safeEndTime = null;
+        if (a.end_time) {
+           safeEndTime = a.end_time.includes('T') ? a.end_time : `${date}T${a.end_time}Z`;
+        } else if (a.task.end_time) {
+           safeEndTime = a.task.end_time.includes('T') ? a.task.end_time : `${date}T${a.task.end_time}Z`;
+        }
+
+        assignedTasks.push({
+          ...a.task,
+          start_time: safeStartTime,
+          end_time: safeEndTime,
+          status: a.status === 'completed' || a.status === 'verified' ? 'done' : 'todo',
+          task_type: safeStartTime ? 'scheduled' : 'always',
+          assignment_id: a.id // 참조용
+        } as any)
+      }
+    })
+    
+    // 2. 내 역할의 플레이북(가이드라인) 조회 (is_template = true)
+    // DB의 배열 필터(`contains`)를 사용하여 더 정확하고 안전하게 가져옵니다.
+    let templateQuery = supabase
         .from('tasks')
         .select('*')
         .eq('store_id', storeId)
-        .eq('is_template', false)
-        .gte('start_time', startIso)
-        .lt('start_time', endIso)
-        .order('start_time', { ascending: true })
+        .eq('is_template', true)
 
-    const member = await getStoreMemberRole(user.id, storeId)
-        
-    if (member?.role_id) {
-        // 본인 역할 할당 업무 또는 공통 업무
-        query = query.or(`assigned_role_ids.cs.{${member.role_id}},assigned_role_ids.eq.{},assigned_role_ids.is.null`)
+    // DB의 배열을 직접 .cs (contains)로 조회 시 owner와 같이 UUID 형태가 아닌 문자열일 경우
+    // Supabase PostgREST에서 오류가 나거나 조회가 안 되는 버그가 존재합니다.
+    // 따라서 템플릿을 먼저 모두 조회한 뒤, 안전하게 메모리 단에서 필터링합니다.
+    const { data: rawTemplates, error } = await templateQuery
+
+    let templateData: any[] = []
+    if (!error && rawTemplates) {
+      const currentRoleMatch = member?.role_id || member?.role;
+
+      // 1. 메모리 상에서 안전하게 현재 로그인한 사람의 역할에 맞는 플레이북만 필터링
+      const filteredTemplates = rawTemplates.filter(t => {
+         const assignedRoles = t.assigned_role_ids || [];
+         if (assignedRoles.includes('all')) return true;
+         if (currentRoleMatch === 'owner' && assignedRoles.includes('owner')) return true;
+         if (currentRoleMatch && assignedRoles.includes(currentRoleMatch)) return true;
+         return false;
+      });
+
+      // 2. 날짜/시간 포맷팅 처리
+      templateData = filteredTemplates.map(t => {
+        let safeStartTime = t.start_time;
+        if (safeStartTime && !safeStartTime.includes('T')) {
+          safeStartTime = `${date}T${safeStartTime}Z`; 
+        }
+        return {
+          ...t,
+          start_time: safeStartTime
+        }
+      });
     }
-        
-    const { data, error } = await query
-        
+
     if (error) {
-        console.error('Error fetching dashboard tasks:', error)
-        return []
+        console.error('Error fetching template tasks:', error)
+        return assignedTasks
     }
-    
-    return data as Task[]
+
+    // 서버 사이드에서 합치기
+    const allTasks = [...assignedTasks, ...(templateData as Task[])]
+
+    // start_time 오름차순으로 최종 정렬
+    return allTasks.sort((a, b) => {
+      const aTime = a.start_time ? new Date(a.start_time).getTime() : 0
+      const bTime = b.start_time ? new Date(b.start_time).getTime() : 0
+      return aTime - bTime
+    })
 }
 
 // 체크리스트 아이템 토글 및 업무 상태 자동 업데이트

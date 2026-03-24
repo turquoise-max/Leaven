@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Umbrella, Calendar, FileText, Settings, Search, Download, Plus, Check, X } from 'lucide-react'
-import { getLeaveBalances, getLeaveRequests, resolveLeaveRequest, createLeaveRequest, updateLeaveBalance } from '@/features/leave/actions'
+import { getLeaveBalances, getLeaveRequests, resolveLeaveRequest, createLeaveRequest, updateLeaveBalance, cancelLeaveRequest } from '@/features/leave/actions'
 import { toast } from 'sonner'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog'
@@ -87,8 +87,94 @@ export function LeaveClientPage({
     return null
   }
 
-  return (
-    <div className="flex flex-col h-full bg-white rounded-xl border shadow-sm overflow-hidden">
+  const myStaff = staffList.find(s => s.user_id === currentUserId)
+
+  const myRequests = requests.filter(r => r.member?.user_id === currentUserId)
+  const myBalance = balances.find(b => b.member_id === myStaff?.id)
+  const total = myBalance?.total_days || 0
+  const used = myBalance?.used_days || 0
+  const remain = total - used
+
+  const staffView = (
+    <div className={cn("flex flex-col h-full bg-white rounded-xl border shadow-sm overflow-hidden", isManager ? "lg:hidden" : "")}>
+      <div className="p-6 border-b bg-slate-50 flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold">나의 휴가/연차 현황</h2>
+          <p className="text-sm text-muted-foreground mt-1">올해 남은 연차와 신청 내역을 확인하세요.</p>
+        </div>
+        <Button className="gap-2 shadow-sm" onClick={() => setIsRequestModalOpen(true)}>
+          <Plus className="w-4 h-4" /> 휴가 신청
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-3 gap-0 border-b shrink-0">
+        <div className="p-6 flex flex-col items-center justify-center border-r">
+          <span className="text-sm font-medium text-muted-foreground mb-1">총 발생 연차</span>
+          <span className="text-3xl font-bold">{total}<span className="text-lg font-medium text-muted-foreground ml-1">일</span></span>
+        </div>
+        <div className="p-6 flex flex-col items-center justify-center border-r">
+          <span className="text-sm font-medium text-muted-foreground mb-1">사용 완료</span>
+          <span className="text-3xl font-bold">{used}<span className="text-lg font-medium text-muted-foreground ml-1">일</span></span>
+        </div>
+        <div className="p-6 flex flex-col items-center justify-center">
+          <span className="text-sm font-medium text-primary mb-1">잔여 연차</span>
+          <span className="text-3xl font-bold text-primary">{remain}<span className="text-lg font-medium opacity-70 ml-1">일</span></span>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-auto p-6 bg-slate-50/30">
+        <h3 className="font-semibold text-base mb-4 flex items-center gap-2">
+          <FileText className="w-4 h-4 text-primary" /> 나의 신청 내역
+        </h3>
+        
+        {myRequests.length === 0 ? (
+          <div className="flex flex-col items-center justify-center text-muted-foreground py-16 bg-white rounded-xl border border-dashed border-border/50">
+            <FileText className="w-12 h-12 mb-4 opacity-20" />
+            <p>휴가 신청 내역이 없습니다.</p>
+          </div>
+        ) : (
+          <div className="grid gap-4 max-w-4xl mx-auto">
+            {myRequests.map(req => {
+              const leaveTypeLabel = req.leave_type === 'annual' ? '연차' : req.leave_type === 'sick' ? '병가' : req.leave_type === 'unpaid' ? '무급휴가' : '반차'
+
+              return (
+                <div key={req.id} className={cn("bg-white border shadow-sm rounded-xl p-5 flex flex-col gap-4 transition-colors", req.status !== 'pending' && "opacity-80 bg-slate-50/50")}>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20">{leaveTypeLabel}</Badge>
+                        <span className="font-bold text-base">{req.start_date} ~ {req.end_date}</span>
+                        <span className="text-sm font-medium text-muted-foreground">({req.requested_days}일)</span>
+                      </div>
+                    </div>
+                    <div>
+                      {req.status === 'pending' ? (
+                        <Badge variant="secondary" className="bg-orange-100 text-orange-700">심사 대기 중</Badge>
+                      ) : req.status === 'approved' ? (
+                        <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-200">승인됨</Badge>
+                      ) : (
+                        <Badge variant="secondary" className="bg-red-100 text-red-700 border-red-200">반려됨</Badge>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <span className="text-xs font-semibold text-muted-foreground">사유</span>
+                    <div className="text-sm bg-muted/30 p-3 rounded-md border border-dashed border-black/10 whitespace-pre-wrap">
+                      {req.reason}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+
+  const managerView = isManager ? (
+    <div className="hidden lg:flex flex-col h-full bg-white rounded-xl border shadow-sm overflow-hidden">
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
         <div className="px-6 pt-4 border-b bg-slate-50/50 flex justify-between items-end">
@@ -303,6 +389,36 @@ export function LeaveClientPage({
                               </Button>
                             </div>
                           )}
+
+                          {req.status === 'approved' && isManager && (
+                            <div className="flex justify-end mt-2 pt-2 border-t border-black/5">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                className="text-muted-foreground hover:bg-black/5 h-8 text-[12px]" 
+                                disabled={actionLoading === req.id} 
+                                onClick={async () => {
+                                  if (!window.confirm('이 휴가 승인을 취소하시겠습니까? (차감된 연차가 복구됩니다)')) return
+                                  
+                                  setActionLoading(req.id)
+                                  try {
+                                    const res = await cancelLeaveRequest(req.id, storeId)
+                                    if (res.error) toast.error(res.error)
+                                    else {
+                                      toast.success('휴가 승인이 취소되었습니다.')
+                                      fetchData()
+                                    }
+                                  } catch (e) {
+                                    toast.error('오류가 발생했습니다.')
+                                  } finally {
+                                    setActionLoading(null)
+                                  }
+                                }}
+                              >
+                                승인 취소 (원복)
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       )
                     })}
@@ -355,13 +471,10 @@ export function LeaveClientPage({
                           <td className="px-4 py-3 text-right">
                             {isManager && (
                               <Button variant="ghost" size="sm" className="h-7 text-[11px] text-muted-foreground" onClick={async () => {
-                                const newTotal = prompt(`${staff.name || staff.profile?.full_name}님의 총 발생 연차 일수를 입력하세요:`, String(total))
+                                const newTotal = prompt(`${staff.name || staff.profile?.full_name}님의 올해 총 발생 연차 일수를 입력하세요:`, String(total))
                                 if (newTotal !== null && !isNaN(Number(newTotal))) {
-                                  if (!balance?.id) {
-                                    toast.error('아직 연차 데이터가 생성되지 않았습니다. 휴가가 한 번 신청되거나 초기화 스크립트가 필요합니다.')
-                                    return
-                                  }
-                                  const res = await updateLeaveBalance(balance.id, storeId, Number(newTotal))
+                                  const year = new Date().getFullYear()
+                                  const res = await updateLeaveBalance(storeId, staff.id, year, Number(newTotal))
                                   if (res.error) toast.error(res.error)
                                   else {
                                     toast.success('잔여 연차가 수정되었습니다.')
@@ -475,5 +588,12 @@ export function LeaveClientPage({
         </DialogContent>
       </Dialog>
     </div>
+  ) : null
+
+  return (
+    <>
+      {staffView}
+      {managerView}
+    </>
   )
 }

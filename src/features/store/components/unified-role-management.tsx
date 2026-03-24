@@ -31,6 +31,29 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 
+const permissionTitles: Record<string, string> = {
+  'manage_store': '매장 설정 관리',
+  'manage_roles': '직급 및 권한 관리',
+  
+  'view_staff': '직원 명부 열람',
+  'manage_staff': '직원 관리',
+  'view_salary': '급여 정보 열람',
+  'manage_payroll': '급여 정산 관리',
+  
+  'view_schedule': '근무표 열람',
+  'manage_schedule': '근무표 관리',
+  'view_attendance': '출퇴근 현황 열람',
+  'manage_attendance': '근태 관리',
+  'view_leave': '휴가 현황 열람',
+  'manage_leave': '휴가 관리',
+  
+  'view_tasks': '업무 가이드 열람',
+  'manage_tasks': '업무 가이드 관리',
+  'view_sales': '매출 및 결제 조회',
+  'manage_inventory': '재고 관리',
+  'manage_menu': '메뉴 관리'
+}
+
 const permissionDescriptions: Record<string, string> = {
   'manage_store': '매장 정보 및 시스템 설정 변경',
   'manage_roles': '직급 생성 및 역할별 권한 범위 설정',
@@ -454,7 +477,7 @@ export function UnifiedRoleManagement({ storeId, roles, permissions, taskTemplat
               <Plus className="h-5 w-5" />
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">매장의 직무와 위계를 설정하세요.</p>
+          <p className="text-xs text-muted-foreground">매장의 직급 체계를 자유롭게 만들어 보세요.</p>
         </div>
         <ScrollArea className="flex-1 p-4">
           <div className="space-y-1 relative">
@@ -472,16 +495,19 @@ export function UnifiedRoleManagement({ storeId, roles, permissions, taskTemplat
                 <h3 className="text-xl font-bold flex items-center gap-2">
                   {isOwner ? (
                     <>
-                      {editName} <Badge variant="secondary">시스템 관리자</Badge>
+                      {editName} <Badge variant="secondary">최고 관리자</Badge>
                     </>
                   ) : (
-                    "직무 역할 및 플레이북 설정"
+                    <>
+                      <Badge variant="outline" className="border-primary/20 text-primary bg-primary/5">{editName}</Badge>
+                      권한 및 기본 업무 설정
+                    </>
                   )}
                 </h3>
                 <p className="text-[13px] text-muted-foreground">
                   {isOwner 
-                    ? "점주는 매장의 모든 권한을 가지며 수정할 수 없습니다." 
-                    : "선택한 역할의 접근 권한을 설정하고 일일 업무 시나리오를 디자인합니다."}
+                    ? "점주는 매장의 모든 권한을 가지며 기본 설정은 수정할 수 없습니다." 
+                    : "선택한 직급의 직원이 앱에서 어떤 메뉴를 볼 수 있는지, 어떤 권한을 가지는지 설정합니다."}
                 </p>
               </div>
               {!isOwner && (
@@ -493,27 +519,29 @@ export function UnifiedRoleManagement({ storeId, roles, permissions, taskTemplat
                   disabled={loading}
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
-                  역할 삭제
+                  직급 삭제
                 </Button>
               )}
             </div>
 
             <div className="flex-1 overflow-hidden">
               <Tabs defaultValue="permissions" className="w-full h-full flex flex-col">
-                <div className="px-6 pt-2 border-b">
-                  <TabsList className="bg-transparent space-x-2 h-10 p-0">
+                <div className="px-6 pt-4 border-b">
+                  <TabsList className="bg-transparent p-0 gap-6 h-auto justify-start rounded-none">
                     <TabsTrigger 
                       value="permissions" 
-                      className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 pb-2 pt-2 font-medium"
+                      className="group relative px-1 pb-3 pt-0 font-medium text-[14px] text-muted-foreground data-[state=active]:text-foreground data-[state=active]:font-bold data-[state=active]:shadow-none rounded-none bg-transparent hover:bg-transparent data-[state=active]:bg-transparent outline-none ring-0 focus:ring-0 focus-visible:ring-0 !shadow-none border-0"
                     >
                       기본 정보 및 시스템 권한
+                      <div className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-primary scale-x-0 origin-left transition-transform duration-200 group-data-[state=active]:scale-x-100 rounded-t-full" />
                     </TabsTrigger>
                     <TabsTrigger 
                       value="tasks" 
-                      className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 pb-2 pt-2 font-medium flex items-center gap-1.5"
+                      className="group relative px-1 pb-3 pt-0 font-medium text-[14px] text-muted-foreground data-[state=active]:text-foreground data-[state=active]:font-bold data-[state=active]:shadow-none rounded-none bg-transparent hover:bg-transparent data-[state=active]:bg-transparent flex items-center gap-1.5 outline-none ring-0 focus:ring-0 focus-visible:ring-0 !shadow-none border-0"
                     >
-                      <BookOpen className="w-3.5 h-3.5" />
-                      업무 플레이북 (SOP)
+                      <BookOpen className="w-4 h-4 opacity-70 group-data-[state=active]:opacity-100" />
+                      기본 업무 가이드
+                      <div className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-primary scale-x-0 origin-left transition-transform duration-200 group-data-[state=active]:scale-x-100 rounded-t-full" />
                     </TabsTrigger>
                   </TabsList>
                 </div>
@@ -575,10 +603,10 @@ export function UnifiedRoleManagement({ storeId, roles, permissions, taskTemplat
                   <div className="flex flex-col gap-5">
                     <div className="flex flex-col gap-1 border-b pb-4">
                       <div className="flex items-center justify-between">
-                        <Label className="text-lg font-semibold">시스템 접근 권한</Label>
-                        {isOwner && <span className="text-[11px] font-medium text-muted-foreground bg-muted px-2 py-1 rounded">최고 권한 (수정 불가)</span>}
+                        <Label className="text-lg font-semibold">메뉴 및 기능 접근 권한</Label>
+                        {isOwner && <span className="text-[11px] font-medium text-muted-foreground bg-muted px-2 py-1 rounded">점주 전용 (수정 불가)</span>}
                       </div>
-                      <p className="text-[13px] text-muted-foreground">이 직무를 수행하는 직원이 매장 관리 시스템에서 조회하거나 수정할 수 있는 메뉴와 기능을 제어합니다.</p>
+                      <p className="text-[13px] text-muted-foreground">이 직급의 직원이 매장 관리 앱에서 접근할 수 있는 기능(보기/수정)을 제어합니다.</p>
                     </div>
                     
                     <div className="flex-1 pb-24">
@@ -596,9 +624,11 @@ export function UnifiedRoleManagement({ storeId, roles, permissions, taskTemplat
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 pt-2">
                               {availableCodes.map((code) => {
                                 const dbPerm = permissions.find(p => p.code === code)
-                                const title = dbPerm?.name || code
+                                const title = permissionTitles[code] || dbPerm?.name || code
                                 const desc = permissionDescriptions[code] || dbPerm?.description || code
                                 const isDangerous = code.startsWith('manage_') || code === 'view_salary'
+                                
+                                const dangerousTooltip = isDangerous ? "이 권한은 민감한 정보를 열람하거나 시스템을 변경할 수 있어 주의가 필요합니다." : null;
 
                                 return (
                                   <div
@@ -646,7 +676,15 @@ export function UnifiedRoleManagement({ storeId, roles, permissions, taskTemplat
                                         )}
                                       >
                                         {title}
-                                        {isDangerous && <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />}
+                                        {isDangerous && (
+                                          <div className="relative group/tooltip inline-flex items-center">
+                                            <AlertTriangle className="w-3.5 h-3.5 text-amber-500 cursor-help pointer-events-auto" />
+                                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-xs px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all z-50">
+                                              {dangerousTooltip}
+                                              <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800" />
+                                            </div>
+                                          </div>
+                                        )}
                                       </Label>
                                       <p className="text-[12px] text-muted-foreground/90 leading-relaxed font-medium">
                                         {desc}

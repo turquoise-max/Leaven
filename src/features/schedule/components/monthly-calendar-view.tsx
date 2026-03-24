@@ -140,6 +140,9 @@ export function MonthlyCalendarView({
                       const roleColor = roleInfo?.color || '#534AB7'
                       const title = sch.title || '근무'
                       const safeName = staff?.name || '직원'
+                      
+                      // 스케줄 자체 색상(휴가용 회색 등)이 있으면 그것을 최우선 적용
+                      const scheduleColor = sch.color || roleColor
 
                       return (
                         <div
@@ -150,13 +153,19 @@ export function MonthlyCalendarView({
                           }}
                           className="px-1.5 py-1 rounded text-[10px] truncate transition-transform hover:scale-[1.02] cursor-pointer shadow-sm border border-black/5"
                           style={{ 
-                            backgroundColor: hexToRgba(roleColor, 0.1), 
+                            backgroundColor: hexToRgba(scheduleColor, 0.1), 
                             color: '#1a1a1a',
-                            borderLeft: `2.5px solid ${roleColor}`
+                            borderLeft: `2.5px solid ${scheduleColor}`
                           }}
                           title={`${safeName} - ${title}`}
                         >
-                          <span className="font-semibold" style={{ color: roleColor }}>{safeName}</span> <span className="opacity-80 ml-0.5">{format(new Date(sch.start_time), 'HH:mm')}</span>
+                          <span className="font-semibold" style={{ color: scheduleColor }}>{safeName}</span> 
+                          {!title.includes('[') && (
+                            <span className="opacity-80 ml-0.5">{format(new Date(sch.start_time), 'HH:mm')}</span>
+                          )}
+                          {title.includes('[') && (
+                            <span className="opacity-80 ml-1 font-medium">{title}</span>
+                          )}
                         </div>
                       )
                     })}

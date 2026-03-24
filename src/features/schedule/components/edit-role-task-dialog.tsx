@@ -10,7 +10,7 @@ import {
 import { RoleTaskForm, RoleTaskFormData } from './role-task-form'
 import { updateTask, deleteTask } from '../task-actions'
 import { toast } from 'sonner'
-import { getTodayDateString, toUTCISOString } from '@/lib/date-utils'
+import { getTodayDateString, toUTCISOString, toKSTISOString } from '@/lib/date-utils'
 
 interface EditRoleTaskDialogProps {
   storeId: string
@@ -32,8 +32,8 @@ export function EditRoleTaskDialog({ storeId, task, open, onOpenChange, hideRole
     description: task.description || '',
     is_critical: task.is_critical || false,
     task_type: task.task_type || 'scheduled',
-    start_time: task.start_time ? task.start_time.split('T')[1]?.substring(0, 5) : '09:00',
-    end_time: task.end_time ? task.end_time.split('T')[1]?.substring(0, 5) : '18:00',
+    start_time: task.start_time ? toKSTISOString(task.start_time).split('T')[1]?.substring(0, 5) : '09:00',
+    end_time: task.end_time ? toKSTISOString(task.end_time).split('T')[1]?.substring(0, 5) : '18:00',
     assigned_role_ids: task.assigned_role_ids || ['all'],
     checklist: task.checklist || []
   }

@@ -9,7 +9,7 @@ import { toUTCISOString, getCurrentISOString, getNextDateString, getDiffInMinute
 export async function getSchedules(storeId: string, startDate: string, endDate: string) {
   const supabase = await createClient()
 
-  const { data, error } = await supabase
+  const { data: schedules, error } = await supabase
     .from('schedules')
     .select(`
       id,
@@ -19,6 +19,7 @@ export async function getSchedules(storeId: string, startDate: string, endDate: 
       memo,
       title,
       color,
+      schedule_type,
       schedule_members (
         member_id,
         member:store_members (name, user_id, profile:profiles(full_name, avatar_url))
@@ -33,7 +34,7 @@ export async function getSchedules(storeId: string, startDate: string, endDate: 
     return []
   }
 
-  return data
+  return schedules
 }
 
 // 스케줄 생성 (다중 인원, 반복 지원)

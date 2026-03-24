@@ -15,6 +15,7 @@ import { toast } from 'sonner'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { getDiffInMinutes, toKSTISOString, toUTCISOString } from '@/lib/date-utils'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { CalendarDays } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TimePicker } from '@/components/ui/time-picker'
 import { Textarea } from '@/components/ui/textarea'
@@ -82,8 +83,237 @@ export function AttendanceClientPage({
     return null
   }
 
-  return (
-    <div className="flex flex-col h-full bg-white rounded-xl border shadow-sm overflow-hidden">
+  const myStaff = staffList.find(s => s.user_id === currentUserId)
+  const myAttendance = attendanceData.find(a => a.member_id === myStaff?.id)
+  const myStatus = myAttendance?.status || 'none'
+  
+  const mySchedule = schedulesData.find(sch => 
+    sch.schedule_members?.some((sm: any) => sm.member_id === myStaff?.id) &&
+    toKSTISOString(sch.start_time).startsWith(selectedDate)
+  )
+
+  const formatTime = (isoString?: string | null) => {
+    if (!isoString) return '-'
+    return format(new Date(isoString), 'HH:mm')
+  }
+
+  const handleMyAction = async (action: 'in' | 'out') => {
+    if (!myStaff) return
+    setActionLoading(myStaff.id)
+    
+    try {
+      let res: any = { error: 'Unknown action' }
+      if (action === 'in') {
+        res = await clockIn(storeId, myStaff.id, selectedDate)
+      } else if (action === 'out') {
+        res = await clockOut(myAttendance.id, storeId)
+      }
+      
+      if (res?.error) {
+        toast.error(res.error)
+      } else {
+        toast.success('성공적으로 처리되었습니다.')
+        fetchData()
+      }
+    } catch (err) {
+      toast.error('오류가 발생했습니다.')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const staffView = (
+    <div className={cn("flex flex-col h-full bg-white rounded-xl border shadow-sm p-6 overflow-auto", isManager ? "lg:hidden" : "")}>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h2 className="text-2xl font-bold">{format(new Date(selectedDate), 'M월 d일 (EEEE)', { locale: ko })}</h2>
+          <p className="text-muted-foreground mt-1">오늘의 출퇴근을 기록해주세요.</p>
+        </div>
+        <Input 
+          type="date" 
+          value={selectedDate}
+          onChange={(e) => setSelectedDate(e.target.value)}
+          className="w-[140px]"
+        />
+      </div>
+
+      <div className="flex flex-col items-center justify-center gap-8 py-10 bg-slate-50/50 rounded-2xl border border-dashed border-border/60 mb-8">
+        <div className="flex flex-col items-center gap-2">
+          <span className="text-sm font-medium text-muted-foreground">현재 상태</span>
+          {myStatus === 'none' && <Badge variant="secondary" className="text-base px-4 py-1.5 bg-slate-100 text-slate-500">출근 전</Badge>}
+          {myStatus === 'working' && <Badge className="text-base px-4 py-1.5 bg-primary/10 text-primary border border-primary/20 animate-pulse">근무 중</Badge>}
+          {myStatus === 'completed' && <Badge variant="secondary" className="text-base px-4 py-1.5 bg-green-100 text-green-700 border-green-200">퇴근 완료</Badge>}
+        </div>
+
+        <div className="flex items-center gap-6">
+          <div className="flex flex-col items-center gap-3">
+            <Button 
+              size="lg" 
+              className={cn("w-32 h-32 rounded-full text-lg shadow-lg flex flex-col gap-2 transition-all", myStatus === 'none' ? "bg-[#1D9E75] hover:bg-[#1D9E75]/90 hover:scale-105" : "bg-muted text-muted-foreground opacity-50 cursor-not-allowed")}
+              disabled={myStatus !== 'none' || actionLoading === myStaff?.id}
+              onClick={() => handleMyAction('in')}
+            >
+              <PlayCircle className="w-10 h-10" />
+              출근하기
+            </Button>
+            <div className="text-center">
+              <p className="text-xs font-medium text-muted-foreground mb-1">출근 시간</p>
+              <p className="text-lg font-bold">{formatTime(myAttendance?.clock_in_time)}</p>
+            </div>
+          </div>
+
+          <div className="w-12 h-[2px] bg-border border-dashed" />
+
+          <div className="flex flex-col items-center gap-3">
+            <Button 
+              size="lg" 
+              variant="outline"
+              className={cn("w-32 h-32 rounded-full text-lg shadow-lg flex flex-col gap-2 transition-all border-2", myStatus === 'working' ? "border-destructive text-destructive hover:bg-destructive/10 hover:scale-105" : "bg-muted border-transparent text-muted-foreground opacity-50 cursor-not-allowed")}
+              disabled={myStatus !== 'working' || actionLoading === myStaff?.id}
+              onClick={() => handleMyAction('out')}
+            >
+              <StopCircle className="w-10 h-10" />
+              퇴근하기
+            </Button>
+            <div className="text-center">
+              <p className="text-xs font-medium text-muted-foreground mb-1">퇴근 시간</p>
+              <p className="text-lg font-bold">{formatTime(myAttendance?.clock_out_time)}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card className="shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <CalendarDays className="w-4 h-4 text-primary" />
+              오늘의 스케줄
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {mySchedule ? (
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-lg">{formatTime(mySchedule.start_time)} ~ {formatTime(mySchedule.end_time)}</span>
+                </div>
+                <p className="text-sm text-muted-foreground">{mySchedule.title || '기본 스케줄'}</p>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground py-2">배정된 스케줄이 없습니다.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-sm bg-slate-50 border-dashed">
+          <CardContent className="flex flex-col items-center justify-center h-full p-6 text-center gap-2">
+            <p className="text-sm font-medium">출퇴근 기록을 잊으셨나요?</p>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => {
+                if(!myStaff) return;
+                setRequestDraft({
+                  memberId: myStaff.id,
+                  attendanceId: myAttendance?.id || '',
+                  inTime: formatTime(myAttendance?.clock_in_time) !== '-' ? formatTime(myAttendance?.clock_in_time) : '09:00',
+                  outTime: formatTime(myAttendance?.clock_out_time) !== '-' ? formatTime(myAttendance?.clock_out_time) : '18:00',
+                  reason: ''
+                })
+                setIsRequestModalOpen(true)
+              }}
+            >
+              <PenBox className="w-4 h-4 mr-2" />
+              기록 수정 요청하기
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Edit Request Modal for Staff */}
+      <Dialog open={isRequestModalOpen} onOpenChange={setIsRequestModalOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>출퇴근 기록 수정 요청</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-6 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-2">
+                <Label className="text-sm font-medium text-foreground">수정 요청 시각 (출근)</Label>
+                <TimePicker 
+                  value={requestDraft.inTime} 
+                  onChange={(val) => setRequestDraft(prev => ({...prev, inTime: val}))} 
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label className="text-sm font-medium text-foreground">수정 요청 시각 (퇴근)</Label>
+                <TimePicker 
+                  value={requestDraft.outTime} 
+                  onChange={(val) => setRequestDraft(prev => ({...prev, outTime: val}))} 
+                />
+              </div>
+            </div>
+            
+            <div className="flex flex-col gap-2">
+              <Label className="text-sm font-medium text-foreground">사유 작성 (필수)</Label>
+              <Textarea 
+                placeholder="예: 어제 마감 때 바빠서 퇴근 버튼 누르는 걸 깜빡했습니다."
+                value={requestDraft.reason}
+                onChange={(e) => setRequestDraft(prev => ({...prev, reason: e.target.value}))}
+                className="h-24 resize-none"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsRequestModalOpen(false)}>취소</Button>
+            <Button 
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
+              disabled={submitLoading || !requestDraft.reason.trim()}
+              onClick={async () => {
+                if (!requestDraft.reason.trim()) {
+                  toast.error('수정 요청 사유를 작성해주세요.')
+                  return
+                }
+                
+                setSubmitLoading(true)
+                try {
+                  const reqIn = requestDraft.inTime ? toUTCISOString(selectedDate, requestDraft.inTime) : null
+                  const reqOut = requestDraft.outTime ? toUTCISOString(selectedDate, requestDraft.outTime) : null
+                  
+                  const res = await createAttendanceRequest(
+                    storeId, 
+                    requestDraft.memberId, 
+                    selectedDate, 
+                    reqIn, 
+                    reqOut, 
+                    requestDraft.reason,
+                    requestDraft.attendanceId
+                  )
+                  
+                  if (res.error) {
+                    toast.error(res.error)
+                  } else {
+                    toast.success('수정 요청이 제출되었습니다.')
+                    setIsRequestModalOpen(false)
+                    fetchData()
+                  }
+                } catch(e) {
+                  toast.error('오류가 발생했습니다.')
+                } finally {
+                  setSubmitLoading(false)
+                }
+              }}
+            >
+              {submitLoading ? '제출 중...' : '요청 제출'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+
+  const managerView = isManager ? (
+    <div className="hidden lg:flex flex-col h-full bg-white rounded-xl border shadow-sm overflow-hidden">
       {/* Header / Controls */}
       <div className="flex items-center justify-between p-4 border-b bg-slate-50/50 shrink-0">
         <div className="flex items-center gap-4">
@@ -668,5 +898,12 @@ export function AttendanceClientPage({
       </Dialog>
 
     </div>
+  ) : null
+
+  return (
+    <>
+      {staffView}
+      {managerView}
+    </>
   )
 }

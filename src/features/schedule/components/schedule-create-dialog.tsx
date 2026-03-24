@@ -144,6 +144,7 @@ interface ScheduleCreateDialogProps {
     startTime: string
     endTime: string
     staffId: string
+    scheduleType?: 'regular' | 'substitute' | 'overtime' | 'off' | 'leave' | 'training' | 'etc'
   }
   setCreateForm: (form: any) => void
   staffList: any[]
@@ -311,20 +312,28 @@ export function ScheduleCreateDialog({
           </div>
           
           <div className="flex flex-col gap-2.5">
-            <label className="text-[12px] font-semibold text-[#1a1a1a]">근무 유형</label>
+            <label className="text-[12px] font-semibold text-[#1a1a1a]">스케줄 유형</label>
             <div className="flex gap-2 flex-wrap">
-              {['정규 근무', '대체 근무', '연장 근무', '교육/기타'].map((type) => (
+              {[
+                { id: 'regular', label: '정규 근무' },
+                { id: 'substitute', label: '대체 근무' },
+                { id: 'overtime', label: '연장 근무' },
+                { id: 'off', label: '휴무' },
+                { id: 'leave', label: '휴가/병가' },
+                { id: 'training', label: '교육' },
+                { id: 'etc', label: '기타' }
+              ].map((typeObj) => (
                 <button
-                  key={type}
+                  key={typeObj.id}
                   type="button"
                   className={`px-3 py-1.5 text-[11px] font-medium rounded-md border transition-colors ${
-                    createForm.title === type
+                    createForm.scheduleType === typeObj.id || (!createForm.scheduleType && typeObj.id === 'regular')
                       ? 'bg-[#1a1a1a] text-white border-[#1a1a1a] shadow-sm'
                       : 'bg-white text-[#6b6b6b] border-black/10 hover:bg-[#f3f2ef]'
                   }`}
-                  onClick={() => setCreateForm({...createForm, title: createForm.title === type ? '' : type})}
+                  onClick={() => setCreateForm({...createForm, scheduleType: typeObj.id, title: typeObj.label})}
                 >
-                  {type}
+                  {typeObj.label}
                 </button>
               ))}
             </div>
@@ -361,7 +370,8 @@ export function ScheduleCreateDialog({
               formData.append('date', createForm.date)
               formData.append('startTime', createForm.startTime)
               formData.append('endTime', createForm.endTime)
-              formData.append('title', createForm.title || '')
+              formData.append('title', createForm.title || '정규 근무')
+              formData.append('schedule_type', createForm.scheduleType || 'regular')
 
               const res = await createSchedule(storeId, formData)
               if (res.error) {
@@ -374,7 +384,8 @@ export function ScheduleCreateDialog({
                 id: `temp-${Date.now()}`,
                 start_time: startStr,
                 end_time: endStr,
-                title: createForm.title || '',
+                title: createForm.title || '정규 근무',
+                schedule_type: createForm.scheduleType || 'regular',
                 schedule_members: [{ member_id: createForm.staffId }],
                 task_assignments: []
               }
