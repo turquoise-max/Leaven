@@ -660,6 +660,119 @@ export async function updateTaskStatus(
 }
 
 // 캘린더용 이벤트 조회
+export async function createPersonalDashboardTask(input: {
+  store_id: string
+  title: string
+  description?: string
+  task_type: 'scheduled' | 'always'
+  start_time?: string | null // HH:mm format
+  end_time?: string | null // HH:mm format
+  assigned_date: string // YYYY-MM-DD
+  checklist?: { id: string, text: string, is_completed: boolean }[]
+}) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  // 1. 해당 사용자의 member_id 조회
+  const { data: member } = await supabase
+    .from('store_members')
+    .select('id')
+    .eq('store_id', input.store_id)
+    .eq('user_id', user.id)
+    .single()
+
+  if (!member) {
+    return { error: '직원 정보를 찾을 수 없습니다.' }
+  }
+
+  // 2. 당일 배정된 스케줄 ID 조회 (시간 범위 내 검색)
+  let scheduleId = null;
+  const startIso = toUTCISOString(input.assigned_date, '00:00')
+  const nextDate = getNextDateString(input.assigned_date)
+  const endIso = toUTCISOString(nextDate, '00:00')
+  
+  const { data: scheduleData } = await supabase
+      .from('schedules')
+      .select('id, schedule_members!inner(member_id)')
+      .eq('store_id', input.store_id)
+      .eq('schedule_members.member_id', member.id)
+      .gte('start_time', startIso)
+      .lt('start_time', endIso)
+      .limit(1)
+      .maybeSingle()
+
+  if (scheduleData) {
+      scheduleId = scheduleData.id
+  }
+
+  let taskStartTime = null;
+  let taskEndTime = null;
+
+  if (input.task_type === 'scheduled' && input.start_time) {
+    taskStartTime = toUTCISOString(input.assigned_date, input.start_time)
+    if (input.end_time) {
+      taskEndTime = toUTCISOString(input.assigned_date, input.end_time)
+    }
+  }
+
+  // 3. Task 생성
+  const { data: task, error: taskError } = await supabase
+    .from('tasks')
+    .insert({
+      store_id: input.store_id,
+      title: input.title,
+      description: input.description,
+      task_type: input.task_type,
+      start_time: taskStartTime,
+      end_time: taskEndTime,
+      assigned_role_ids: [],
+      checklist: input.checklist || [],
+      is_template: false,
+      status: 'todo'
+    })
+    .select()
+    .single()
+
+  if (taskError) {
+     console.error('Task creation error:', taskError)
+     return { error: '업무 생성 실패' }
+  }
+
+  // 4. Assignment 생성
+  let assignStartTime = null;
+  let assignEndTime = null;
+
+  if (input.task_type === 'scheduled' && input.start_time) {
+     assignStartTime = `${input.start_time}:00`
+     if (input.end_time) {
+         assignEndTime = `${input.end_time}:00`
+     }
+  }
+
+  const { error: assignError } = await supabase
+    .from('task_assignments')
+    .insert({
+      store_id: input.store_id,
+      task_id: task.id,
+      user_id: user.id,
+      assigned_date: input.assigned_date,
+      start_time: assignStartTime,
+      end_time: assignEndTime,
+      status: 'pending',
+      schedule_id: scheduleId
+    })
+
+  if (assignError) {
+     console.error('Task assignment error:', assignError)
+     return { error: '업무 할당 실패' }
+  }
+
+  revalidatePath('/dashboard/my-tasks')
+  return { success: true }
+}
+
+// 캘린더용 이벤트 조회
 export async function getCalendarEvents(storeId: string, start: string, end: string) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()

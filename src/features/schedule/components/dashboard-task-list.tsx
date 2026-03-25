@@ -16,24 +16,54 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { deleteTask } from '../task-actions'
+import { CreatePersonalTaskDialog } from './create-personal-task-dialog'
 
-// 업무 상태 도출 로직 (스케줄 관리 페이지와 동일)
+// 타임라인 내 시간 문자열("HH:mm")을 파싱하여 분(minute)으로 반환
+function parseTimeToMinutes(timeString: string): number {
+  let hourStr = '00'
+  let minStr = '00'
+
+  if (timeString.includes('T')) {
+    // "2024-03-24T09:00:00Z" 등 (서버에서 가져올 때 임시 가공된 형태 등 대비)
+    const timePart = timeString.split('T')[1]
+    if (timePart && timePart.length >= 5) {
+      hourStr = timePart.substring(0, 2)
+      minStr = timePart.substring(3, 5)
+    } else {
+      const d = new Date(timeString)
+      if (!isNaN(d.getTime())) {
+        hourStr = d.getHours().toString().padStart(2, '0')
+        minStr = d.getMinutes().toString().padStart(2, '0')
+      }
+    }
+  } else if (timeString.length >= 5) {
+    // "09:00:00" 형태
+    hourStr = timeString.substring(0, 2)
+    minStr = timeString.substring(3, 5)
+  }
+  
+  return Number(hourStr) * 60 + Number(minStr)
+}
+
+// 업무 상태 도출 로직 (스케줄 관리 페이지와 동일하되, 시간 텍스트 기반으로 정확히 비교)
 function getDerivedTaskStatus(task: Task, now: Date): 'todo' | 'in_progress' | 'pending' | 'done' {
   if (task.status === 'done') return 'done'
   if (!task.start_time) return 'todo'
+  if (task.task_type === 'always') return 'todo'
 
-  const taskDateObj = new Date(task.start_time)
-  if (isNaN(taskDateObj.getTime())) return 'todo'
+  const taskMins = parseTimeToMinutes(task.start_time)
+  const nowMins = now.getHours() * 60 + now.getMinutes()
+  
+  const diffMins = nowMins - taskMins
 
-  const startTimeMs = taskDateObj.getTime()
-  const nowMs = now.getTime()
-  const thirtyMinsMs = 30 * 60 * 1000
-
-  if (nowMs < startTimeMs) {
+  if (diffMins < 0) {
+    // 아직 시작 시간이 안 됨
     return 'todo'
-  } else if (nowMs >= startTimeMs && nowMs < startTimeMs + thirtyMinsMs) {
+  } else if (diffMins >= 0 && diffMins <= 30) {
+    // 시작 시간 ~ 30분 이내
     return 'in_progress'
   } else {
+    // 30분 초과
     return 'pending'
   }
 }
@@ -149,32 +179,10 @@ export function DashboardTaskList({ storeId, roleId }: DashboardTaskListProps) {
       if (!task.start_time || task.task_type === 'always') {
         anytime.push(task)
       } else {
-        // 시간 지정 업무 처리
-        // 날짜 파싱 오류(NaN) 방지를 위해 문자열 기반 추출을 우선으로 하되 정규식/안전 파싱 적용
-        let hourStr = '00'
-        let minStr = '00'
-        
-        if (task.start_time.includes('T')) {
-          // 예: "2024-03-24T09:00:00Z" 혹은 "2024-03-24T09:00:00+09:00"
-          const timePart = task.start_time.split('T')[1]
-          if (timePart && timePart.length >= 5) {
-            hourStr = timePart.substring(0, 2)
-            minStr = timePart.substring(3, 5)
-          } else {
-            // fallback
-            const d = new Date(task.start_time)
-            if (!isNaN(d.getTime())) {
-              hourStr = d.getHours().toString().padStart(2, '0')
-              minStr = d.getMinutes().toString().padStart(2, '0')
-            }
-          }
-        } else {
-          // 예: "09:00:00" (Date 파싱 시 무조건 Invalid Date 가 될 수 있으므로 문자열로 자름)
-          if (task.start_time.length >= 5) {
-            hourStr = task.start_time.substring(0, 2)
-            minStr = task.start_time.substring(3, 5)
-          }
-        }
+        // 시간 지정 업무 처리 (문자열 기반 파싱 공통 함수 사용)
+        const taskMins = parseTimeToMinutes(task.start_time)
+        const hourStr = Math.floor(taskMins / 60).toString().padStart(2, '0')
+        const minStr = (taskMins % 60).toString().padStart(2, '0')
         
         const key = `${hourStr}:${minStr}`
         if (!groups[key]) groups[key] = []
@@ -227,7 +235,8 @@ export function DashboardTaskList({ storeId, roleId }: DashboardTaskListProps) {
   }
 
   return (
-    <div className="flex flex-col h-full bg-white rounded-xl border border-black/10 shadow-sm overflow-hidden select-none">
+    <>
+      <div className="flex flex-col h-full bg-white rounded-xl border border-black/10 shadow-sm overflow-hidden select-none">
       <div className="p-4 border-b border-black/5 bg-[#fbfbfb] flex items-center justify-between shrink-0">
           <div className="flex items-center gap-4">
             <h2 className="text-[16px] font-semibold text-[#1a1a1a] flex items-center gap-2">
@@ -397,11 +406,15 @@ export function DashboardTaskList({ storeId, roleId }: DashboardTaskListProps) {
           </div>
       </ScrollArea>
 
-      {/* 
-        실제 서비스에서는 TaskCreateDialog 등 '개인 업무' 전용 모달 컴포넌트를 import하여 렌더링합니다.
-        일단 UI 흐름을 위해 열림 상태만 관리하고, 추후 전용 모달이 제작되면 여기에 연결합니다.
-      */}
-    </div>
+      </div>
+
+      <CreatePersonalTaskDialog 
+        storeId={storeId}
+        open={createModalOpen}
+        onOpenChange={setCreateModalOpen}
+        onSuccess={fetchTasks}
+      />
+    </>
   )
 }
 
