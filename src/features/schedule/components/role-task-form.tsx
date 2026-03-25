@@ -110,35 +110,21 @@ export function RoleTaskForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col h-full bg-background overflow-hidden">
-      <ScrollArea className="flex-1 p-5">
-        <div className="space-y-6">
+      <ScrollArea className="flex-1 p-8">
+        <div className="space-y-8">
           
-          {/* 업무명 & 중요도 (컴팩트 헤더) */}
-          <div className="flex gap-4 items-start">
-            <div className="flex-1 space-y-1.5">
-              <Label htmlFor="title" className="text-sm font-medium text-muted-foreground">업무명</Label>
-              <Input
-                id="title"
-                value={formData.title}
-                onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                placeholder="예: 오픈 준비, 매장 청소 등"
-                className="text-base font-medium"
-                autoFocus
-                required
-              />
-            </div>
-            <div className="shrink-0 space-y-1.5 flex flex-col items-center">
-              <Label htmlFor="is_critical" className="text-sm font-medium text-muted-foreground">중요</Label>
-              <div className="flex items-center gap-2 h-10 px-3 bg-muted/30 border rounded-md">
-                <Switch
-                  id="is_critical"
-                  checked={formData.is_critical}
-                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_critical: checked }))}
-                  className="data-[state=checked]:bg-destructive"
-                />
-                <Star className={`w-4 h-4 ${formData.is_critical ? 'text-destructive fill-destructive' : 'text-muted-foreground'}`} />
-              </div>
-            </div>
+          {/* 업무명 */}
+          <div className="space-y-3">
+            <Label htmlFor="title" className="text-[16px] font-bold text-foreground ml-1">어떤 업무인가요?</Label>
+            <Input
+              id="title"
+              value={formData.title}
+              onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+              placeholder="예: 커피 머신 전원 켜기, 홀 테이블 닦기"
+              className="h-14 text-lg font-semibold px-5 rounded-2xl border-2 focus-visible:ring-primary/20 transition-all shadow-sm"
+              autoFocus
+              required
+            />
           </div>
 
           {!hideRoleSelection ? (
@@ -200,14 +186,14 @@ export function RoleTaskForm({
           )}
 
           {/* 시간 설정 */}
-          <div className="space-y-2.5 bg-muted/10 p-4 rounded-lg border border-border/50">
-            <div className="flex items-center justify-between mb-2">
-              <Label className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
-                <Clock className="w-4 h-4" /> 업무 시간
+          <div className="space-y-4 bg-muted/30 p-6 rounded-2xl border-2 border-border/40 transition-all">
+            <div className="flex items-center justify-between">
+              <Label className="text-[15px] font-bold text-foreground flex items-center gap-2">
+                <Clock className="w-4 h-4 text-primary" /> 언제 해야 하나요?
               </Label>
               {!hideTaskType && (
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="is_always" className="text-xs cursor-pointer text-muted-foreground">종일(상시) 업무</Label>
+                <div className="flex items-center gap-3 bg-background/50 px-3 py-1.5 rounded-full border">
+                  <Label htmlFor="is_always" className="text-xs font-semibold cursor-pointer text-muted-foreground">하루 종일(상시)</Label>
                   <Switch 
                     id="is_always"
                     checked={isAlways}
@@ -221,16 +207,16 @@ export function RoleTaskForm({
             </div>
 
             {(!isAlways || hideTaskType) && (
-              <div className="flex items-center gap-3">
-                <div className="flex-1">
-                  <Label className="text-[11px] text-muted-foreground mb-1.5 block">기준 시각 (시작)</Label>
+              <div className="flex items-center gap-6 pt-2">
+                <div className="flex-1 space-y-2">
+                  <Label className="text-[12px] font-bold text-muted-foreground ml-1 block">시작 시간</Label>
                   <TimePicker value={formData.start_time} onChange={(val) => setFormData(prev => ({ ...prev, start_time: val }))} />
                 </div>
                 {!hideEndTime && (
                   <>
-                    <span className="text-muted-foreground/50 mt-6">~</span>
-                    <div className="flex-1">
-                      <Label className="text-[11px] text-muted-foreground mb-1.5 block">종료 시각</Label>
+                    <span className="text-muted-foreground/30 mt-8 font-light">~</span>
+                    <div className="flex-1 space-y-2">
+                      <Label className="text-[12px] font-bold text-muted-foreground ml-1 block">종료 시간</Label>
                       <TimePicker value={formData.end_time} onChange={(val) => setFormData(prev => ({ ...prev, end_time: val }))} />
                     </div>
                   </>
@@ -241,29 +227,29 @@ export function RoleTaskForm({
 
           {/* 설명 */}
           <div className="space-y-2.5 pb-8">
-            <Label className="text-sm font-medium text-muted-foreground">작업 설명 (선택)</Label>
+            <Label className="text-[15px] font-bold text-foreground ml-1">상세 내용 (선택)</Label>
             <Textarea
               value={formData.description}
               onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
               placeholder="예: 창고에서 여분 컵 미리 채워두기"
-              className="resize-none h-16 text-sm"
+              className="resize-none h-24 text-base px-4 py-3 rounded-xl border-2 transition-all focus-visible:ring-primary/20"
             />
           </div>
           
         </div>
       </ScrollArea>
 
-      <div className="p-4 border-t bg-background flex justify-between shrink-0">
+      <div className="p-6 border-t bg-background flex justify-between shrink-0 bg-gradient-to-t from-muted/20 to-transparent">
         {showDelete && onDelete ? (
-          <Button type="button" variant="ghost" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={onDelete}>
-            <Trash2 className="w-4 h-4 mr-2" /> 템플릿 삭제
+          <Button type="button" variant="ghost" className="h-11 px-5 text-destructive hover:text-destructive hover:bg-destructive/10 rounded-xl font-semibold" onClick={onDelete}>
+            <Trash2 className="w-4 h-4 mr-2" /> 삭제하기
           </Button>
         ) : <div />}
-        <div className="flex gap-2">
-          <Button type="button" variant="outline" onClick={onCancel}>취소</Button>
-          <Button type="submit" disabled={loading}>
+        <div className="flex gap-3">
+          <Button type="button" variant="outline" className="h-11 px-6 rounded-xl font-semibold border-2" onClick={onCancel}>취소</Button>
+          <Button type="submit" className="h-11 px-8 rounded-xl font-bold shadow-lg shadow-primary/20 transition-all active:scale-95" disabled={loading}>
             {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            {submitLabel}
+            {submitLabel === '저장' ? '업무 추가하기' : submitLabel}
           </Button>
         </div>
       </div>

@@ -135,7 +135,16 @@ export function StaffList({ initialData, storeId, canManage, inviteCode }: Staff
   const filteredStaffList = useMemo(() => {
     return staffList.filter(staff => {
       const name = (staff.name || staff.profile?.full_name || '').toLowerCase()
-      const matchesSearch = name.includes(searchQuery.toLowerCase())
+      const phone = (staff.phone || staff.profile?.phone || '').replace(/-/g, '')
+      const email = (staff.email || staff.profile?.email || '').toLowerCase()
+      
+      const query = searchQuery.toLowerCase().trim()
+      
+      // 검색 로직 (이름, 전화번호, 이메일)
+      const matchesSearch = 
+        name.includes(query) ||
+        phone.includes(query.replace(/-/g, '')) ||
+        email.includes(query)
       
       const roleId = staff.role_info?.id || staff.role
       const matchesRole = roleFilter === 'all' || roleId === roleFilter
@@ -348,30 +357,25 @@ export function StaffList({ initialData, storeId, canManage, inviteCode }: Staff
             </TabsTrigger>
           </TabsList>
 
-          {/* Mac OS Style Search/Filter Box tightly coupled with the Table */}
-          <div className="flex items-center bg-white rounded-lg border shadow-sm p-1 w-full md:w-[300px] transition-all focus-within:ring-2 focus-within:ring-primary/20 mb-3 md:mb-0">
-            <Search className="w-4 h-4 text-slate-400 ml-2 shrink-0" />
-            <input 
-              placeholder="이름 검색..." 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-transparent border-none focus:outline-none focus:ring-0 text-[13px] font-medium w-full px-2 h-7" 
-            />
-            <div className="h-4 w-px bg-border mx-1 shrink-0" />
-            <Select value={roleFilter} onValueChange={setRoleFilter}>
-              <SelectTrigger className="border-none shadow-none bg-transparent h-7 w-[100px] text-[12px] focus:ring-0 px-2 font-semibold text-slate-600 hover:text-slate-900">
-                <div className="flex items-center gap-1.5 truncate">
-                  <Filter className="w-3 h-3 text-slate-400 shrink-0" />
-                  <span className="truncate">{roleFilter === 'all' ? '전체 직무' : uniqueRoles.find(r => r.id === roleFilter)?.name || '필터'}</span>
-                </div>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all" className="font-medium text-xs">전체 직무</SelectItem>
-                {uniqueRoles.map(r => (
-                  <SelectItem key={r.id} value={r.id} className="font-medium text-xs">{r.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {/* Mac OS Style Search Box tightly coupled with the Table */}
+          <div className="flex items-center bg-white rounded-lg border shadow-sm p-0.5 w-full md:w-[260px] transition-all focus-within:ring-2 focus-within:ring-primary/20 mb-2 md:mb-2.5 self-center mr-1">
+            <Search className="w-3.5 h-3.5 text-slate-400 ml-2 shrink-0" />
+            <div className="relative flex-1 flex items-center">
+              <input 
+                placeholder="이름, 연락처, 이메일 검색..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="bg-transparent border-none focus:outline-none focus:ring-0 text-[12.5px] font-medium w-full px-2 h-6.5 pr-6" 
+              />
+              {searchQuery && (
+                <button 
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-1 p-0.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -415,17 +419,47 @@ export function StaffList({ initialData, storeId, canManage, inviteCode }: Staff
                     ))}
                     {list.length === 0 && (
                       <TableRow className="hover:bg-transparent">
-                        <TableCell colSpan={5} className="h-48 text-center text-muted-foreground">
-                          <div className="flex flex-col items-center justify-center gap-2">
-                            {tab === 'active' ? (
+                        <TableCell colSpan={5} className="h-64 text-center text-muted-foreground">
+                          <div className="flex flex-col items-center justify-center gap-4 py-8">
+                            {searchQuery ? (
                               <>
-                                <User className="w-8 h-8 opacity-20" />
-                                <p className="text-sm">현재 등록된 직원이 없습니다.</p>
+                                <div className="relative">
+                                  <Search className="w-12 h-12 opacity-10" />
+                                  <X className="w-6 h-6 absolute -bottom-1 -right-1 text-rose-500 opacity-40" />
+                                </div>
+                                <div className="space-y-1">
+                                  <p className="text-base font-semibold text-slate-600">검색 결과가 없습니다</p>
+                                  <p className="text-sm text-slate-400">"{searchQuery}"에 매칭되는 직원이 없습니다.</p>
+                                </div>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  onClick={() => setSearchQuery('')}
+                                  className="mt-2 h-8 text-xs font-semibold"
+                                >
+                                  검색 초기화
+                                </Button>
                               </>
                             ) : (
                               <>
-                                <Info className="w-8 h-8 opacity-20" />
-                                <p className="text-sm">퇴사자 기록이 없습니다.</p>
+                                {tab === 'active' ? (
+                                  <>
+                                    <div className="bg-slate-100 p-4 rounded-full">
+                                      <Users className="w-8 h-8 text-slate-400" />
+                                    </div>
+                                    <div className="space-y-1">
+                                      <p className="text-base font-semibold text-slate-600">등록된 직원이 없습니다</p>
+                                      <p className="text-sm text-slate-400">새로운 직원을 초대하거나 직접 등록해보세요.</p>
+                                    </div>
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className="bg-slate-100 p-4 rounded-full">
+                                      <Info className="w-8 h-8 text-slate-400" />
+                                    </div>
+                                    <p className="text-sm font-medium">퇴사자 기록이 없습니다.</p>
+                                  </>
+                                )}
                               </>
                             )}
                           </div>

@@ -98,7 +98,7 @@ export function ImageUpload({ currentImageUrl, onImageChange, storeName }: Image
             ) : (
               <Upload className="w-4 h-4 mr-2" />
             )}
-            이미지 변경
+            {previewUrl ? '이미지 교체' : '이미지 등록'}
           </Button>
           {previewUrl && (
             <Button

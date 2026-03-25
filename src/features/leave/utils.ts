@@ -74,8 +74,8 @@ export function calculateAnnualLeave(joinDateStr: string | null | undefined, tar
       const diffTime = Math.abs(endOfJoinYear.getTime() - joinDate.getTime())
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1 // 당일 포함
       
-      // 비례 연차 (보통 소수점 첫째자리까지 부여하나 여기선 반올림/올림 등 회사 내규 따름. 일단 소수점 첫째자리)
-      const proportionalLeaves = Math.round((15 * diffDays / 365) * 10) / 10
+      // 비례 연차 (근로자에게 유리하도록 소수점 첫째자리에서 올림 처리하여 정수로 부여)
+      const proportionalLeaves = Math.ceil((15 * diffDays / 365))
       
       // 1년차 추가 월차 (2년차의 입사월 전까지)
       const extraFirstYearLeaves = joinMonth

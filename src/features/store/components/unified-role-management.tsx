@@ -32,49 +32,49 @@ import {
 } from '@/components/ui/alert-dialog'
 
 const permissionTitles: Record<string, string> = {
-  'manage_store': '매장 설정 관리',
-  'manage_roles': '직급 및 권한 관리',
+  'manage_store': '매장 정보 수정',
+  'manage_roles': '직급 및 권한 설정',
   
-  'view_staff': '직원 명부 열람',
-  'manage_staff': '직원 관리',
-  'view_salary': '급여 정보 열람',
-  'manage_payroll': '급여 정산 관리',
+  'view_staff': '직원 명부 확인',
+  'manage_staff': '직원 등록 및 수정',
+  'view_salary': '급여/시급 확인',
+  'manage_payroll': '급여 정산 및 관리',
   
-  'view_schedule': '근무표 열람',
-  'manage_schedule': '근무표 관리',
-  'view_attendance': '출퇴근 현황 열람',
-  'manage_attendance': '근태 관리',
-  'view_leave': '휴가 현황 열람',
-  'manage_leave': '휴가 관리',
+  'view_schedule': '근무표 확인',
+  'manage_schedule': '근무표 짜기 및 수정',
+  'view_attendance': '출퇴근 현황 확인',
+  'manage_attendance': '출퇴근 기록 수정/승인',
+  'view_leave': '휴가 신청 현황 확인',
+  'manage_leave': '휴가 승인 및 관리',
   
-  'view_tasks': '업무 가이드 열람',
-  'manage_tasks': '업무 가이드 관리',
-  'view_sales': '매출 및 결제 조회',
-  'manage_inventory': '재고 관리',
-  'manage_menu': '메뉴 관리'
+  'view_tasks': '업무 순서 확인',
+  'manage_tasks': '업무 순서 만들기',
+  'view_sales': '매출 및 결제 확인',
+  'manage_inventory': '재고 채우기 및 관리',
+  'manage_menu': '메뉴/가격 관리'
 }
 
 const permissionDescriptions: Record<string, string> = {
-  'manage_store': '매장 정보 및 시스템 설정 변경',
-  'manage_roles': '직급 생성 및 역할별 권한 범위 설정',
+  'manage_store': '매장 이름, 전화번호 등 기본 정보를 바꿀 수 있습니다.',
+  'manage_roles': '새로운 직급을 만들거나, 직급별로 앱에서 할 수 있는 일을 정합니다.',
   
-  'view_staff': '직원 명부 및 연락처, 입/퇴사일 열람',
-  'manage_staff': '새 직원 초대, 정보 수정 및 퇴사 처리',
-  'view_salary': '다른 직원의 민감한 급여(시급) 정보 열람',
-  'manage_payroll': '직원별 급여 정산 및 명세서 발급 관리',
+  'view_staff': '우리 매장 직원들의 연락처와 들어온 날짜 등을 볼 수 있습니다.',
+  'manage_staff': '새 직원을 초대하거나, 직원 정보를 수정하고 그만둔 직원을 처리합니다.',
+  'view_salary': '다른 직원의 민감한 시급이나 급여 정보를 볼 수 있습니다.',
+  'manage_payroll': '직원들의 월급을 계산하고 명세서를 관리합니다.',
   
-  'view_schedule': '전체 직원의 주간/월간 근무표 열람',
-  'manage_schedule': '근무표 생성, 수정 및 오토 스케줄링 승인',
-  'view_attendance': '직원들의 실시간 출퇴근 현황 및 기록부 열람',
-  'manage_attendance': '지각/결근 관리 및 출퇴근 기록 수정 요청 승인',
-  'view_leave': '직원별 휴가/연차 사용 현황 캘린더 열람',
-  'manage_leave': '휴가 신청 승인/반려 및 잔여 연차 강제 수정',
+  'view_schedule': '전체 직원의 이번 주, 이번 달 근무표를 볼 수 있습니다.',
+  'manage_schedule': '근무표를 새로 만들거나, 자동으로 짜인 근무표를 승인합니다.',
+  'view_attendance': '지금 누가 출근했는지, 오늘 지각한 사람은 없는지 확인합니다.',
+  'manage_attendance': '잘못 찍힌 출퇴근 시간을 바로잡거나 지각/결근을 처리합니다.',
+  'view_leave': '누가 언제 휴가를 가는지 캘린더로 한눈에 확인합니다.',
+  'manage_leave': '직원의 휴가 신청을 승인/거절하거나 남은 연차를 조정합니다.',
   
-  'view_tasks': '매장의 모든 직무별 플레이북(업무) 조회',
-  'manage_tasks': '플레이북 템플릿(체크리스트) 생성 및 수정',
-  'view_sales': '매장 매출 분석 데이터 및 결제 내역 조회',
-  'manage_inventory': '재고 수량 변경 및 입출고 내역 등록',
-  'manage_menu': 'POS 메뉴 정보 수정 및 카테고리 관리'
+  'view_tasks': '우리 매장의 직급별 업무 순서를 확인할 수 있습니다.',
+  'manage_tasks': '출근해서 퇴근까지 해야 할 일들을 순서대로 만듭니다.',
+  'view_sales': '매장 매출 현황과 손님들이 결제한 내역을 확인합니다.',
+  'manage_inventory': '물건 재고가 얼마나 남았는지 확인하고 채워넣습니다.',
+  'manage_menu': '메뉴 이름을 바꾸거나 가격을 수정할 수 있습니다.'
 }
 
 interface UnifiedRoleManagementProps {
@@ -180,26 +180,26 @@ export function UnifiedRoleManagement({ storeId, roles, permissions, taskTemplat
   const PERMISSION_CATEGORIES = [
     {
       id: 'system',
-      title: '매장 및 시스템 권한',
-      desc: '매장의 최상위 설정과 직급 체계를 관리합니다.',
+      title: '매장 설정 및 직급 관리',
+      desc: '매장 정보와 직급별 권한을 설정합니다.',
       codes: ['manage_store', 'manage_roles']
     },
     {
       id: 'hr',
-      title: '인사 및 근로 권한',
-      desc: '직원들의 개인정보, 채용, 퇴사 및 급여를 관리합니다.',
+      title: '직원 및 급여 관리',
+      desc: '직원 정보와 월급 계산에 관한 권한입니다.',
       codes: ['view_staff', 'manage_staff', 'view_salary', 'manage_payroll']
     },
     {
       id: 'time',
-      title: '일정 및 근태 권한',
-      desc: '스케줄표 작성부터 출퇴근 기록, 휴가 승인까지 관리합니다.',
+      title: '근무 시간 및 휴가 관리',
+      desc: '근무표 작성, 출퇴근 기록, 휴가 승인에 관한 권한입니다.',
       codes: ['view_schedule', 'manage_schedule', 'view_attendance', 'manage_attendance', 'view_leave', 'manage_leave']
     },
     {
       id: 'ops',
-      title: '운영 및 업무 권한',
-      desc: '매출 데이터, 재고, 그리고 직무별 플레이북(업무)을 관리합니다.',
+      title: '매장 운영 및 업무 관리',
+      desc: '매출 확인, 재고 관리, 업무 순서 정하기에 관한 권한입니다.',
       codes: ['view_tasks', 'manage_tasks', 'view_sales', 'manage_inventory', 'manage_menu']
     }
   ]
@@ -472,12 +472,12 @@ export function UnifiedRoleManagement({ storeId, roles, permissions, taskTemplat
       <div className="w-full md:w-80 flex flex-col border-r bg-muted/10">
         <div className="p-4 flex flex-col gap-1 border-b bg-background">
           <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-lg">직급 / 역할 목록</h3>
+            <h3 className="font-semibold text-lg">우리 매장 직급 목록</h3>
             <Button size="icon" variant="ghost" onClick={handleCreateRole} disabled={loading} className="h-8 w-8 text-primary hover:bg-primary/10">
               <Plus className="h-5 w-5" />
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">매장의 직급 체계를 자유롭게 만들어 보세요.</p>
+          <p className="text-xs text-muted-foreground">사장님, 매니저, 알바 등 직급을 만들어보세요.</p>
         </div>
         <ScrollArea className="flex-1 p-4">
           <div className="space-y-1 relative">
@@ -495,19 +495,19 @@ export function UnifiedRoleManagement({ storeId, roles, permissions, taskTemplat
                 <h3 className="text-xl font-bold flex items-center gap-2">
                   {isOwner ? (
                     <>
-                      {editName} <Badge variant="secondary">최고 관리자</Badge>
+                      {editName} <Badge variant="secondary">매장 주인</Badge>
                     </>
                   ) : (
                     <>
                       <Badge variant="outline" className="border-primary/20 text-primary bg-primary/5">{editName}</Badge>
-                      권한 및 기본 업무 설정
+                      권한 및 업무 순서 설정
                     </>
                   )}
                 </h3>
                 <p className="text-[13px] text-muted-foreground">
                   {isOwner 
-                    ? "점주는 매장의 모든 권한을 가지며 기본 설정은 수정할 수 없습니다." 
-                    : "선택한 직급의 직원이 앱에서 어떤 메뉴를 볼 수 있는지, 어떤 권한을 가지는지 설정합니다."}
+                    ? "사장님은 매장의 모든 기능을 자유롭게 사용할 수 있습니다." 
+                    : "이 직급의 직원이 앱에서 어떤 메뉴를 볼 수 있는지, 어떤 일을 할 수 있는지 정해줍니다."}
                 </p>
               </div>
               {!isOwner && (
@@ -532,17 +532,19 @@ export function UnifiedRoleManagement({ storeId, roles, permissions, taskTemplat
                       value="permissions" 
                       className="group relative px-1 pb-3 pt-0 font-medium text-[14px] text-muted-foreground data-[state=active]:text-foreground data-[state=active]:font-bold data-[state=active]:shadow-none rounded-none bg-transparent hover:bg-transparent data-[state=active]:bg-transparent outline-none ring-0 focus:ring-0 focus-visible:ring-0 !shadow-none border-0"
                     >
-                      기본 정보 및 시스템 권한
+                      직급 및 권한 설정
                       <div className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-primary scale-x-0 origin-left transition-transform duration-200 group-data-[state=active]:scale-x-100 rounded-t-full" />
                     </TabsTrigger>
-                    <TabsTrigger 
-                      value="tasks" 
-                      className="group relative px-1 pb-3 pt-0 font-medium text-[14px] text-muted-foreground data-[state=active]:text-foreground data-[state=active]:font-bold data-[state=active]:shadow-none rounded-none bg-transparent hover:bg-transparent data-[state=active]:bg-transparent flex items-center gap-1.5 outline-none ring-0 focus:ring-0 focus-visible:ring-0 !shadow-none border-0"
-                    >
-                      <BookOpen className="w-4 h-4 opacity-70 group-data-[state=active]:opacity-100" />
-                      기본 업무 가이드
-                      <div className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-primary scale-x-0 origin-left transition-transform duration-200 group-data-[state=active]:scale-x-100 rounded-t-full" />
-                    </TabsTrigger>
+                    {!isOwner && (
+                      <TabsTrigger 
+                        value="tasks" 
+                        className="group relative px-1 pb-3 pt-0 font-medium text-[14px] text-muted-foreground data-[state=active]:text-foreground data-[state=active]:font-bold data-[state=active]:shadow-none rounded-none bg-transparent hover:bg-transparent data-[state=active]:bg-transparent flex items-center gap-1.5 outline-none ring-0 focus:ring-0 focus-visible:ring-0 !shadow-none border-0"
+                      >
+                        <BookOpen className="w-4 h-4 opacity-70 group-data-[state=active]:opacity-100" />
+                        업무 순서 가이드
+                        <div className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-primary scale-x-0 origin-left transition-transform duration-200 group-data-[state=active]:scale-x-100 rounded-t-full" />
+                      </TabsTrigger>
+                    )}
                   </TabsList>
                 </div>
 
@@ -603,10 +605,10 @@ export function UnifiedRoleManagement({ storeId, roles, permissions, taskTemplat
                   <div className="flex flex-col gap-5">
                     <div className="flex flex-col gap-1 border-b pb-4">
                       <div className="flex items-center justify-between">
-                        <Label className="text-lg font-semibold">메뉴 및 기능 접근 권한</Label>
-                        {isOwner && <span className="text-[11px] font-medium text-muted-foreground bg-muted px-2 py-1 rounded">점주 전용 (수정 불가)</span>}
+                        <Label className="text-lg font-semibold">메뉴 및 기능 권한</Label>
+                        {isOwner && <span className="text-[11px] font-medium text-muted-foreground bg-muted px-2 py-1 rounded">수정 불가</span>}
                       </div>
-                      <p className="text-[13px] text-muted-foreground">이 직급의 직원이 매장 관리 앱에서 접근할 수 있는 기능(보기/수정)을 제어합니다.</p>
+                      <p className="text-[13px] text-muted-foreground">이 직급의 직원이 앱에서 어떤 메뉴를 보고 어떤 일을 할 수 있을지 정합니다.</p>
                     </div>
                     
                     <div className="flex-1 pb-24">
@@ -712,10 +714,10 @@ export function UnifiedRoleManagement({ storeId, roles, permissions, taskTemplat
                         </div>
                         <div className="flex flex-col justify-center h-11">
                           <h3 className="text-lg font-bold text-foreground">
-                            직무 플레이북 (Role Playbook)
+                            업무 순서 가이드
                           </h3>
                           <p className="text-[13px] text-muted-foreground mt-0.5">
-                            <span className="font-semibold text-foreground/80">'{selectedRole.name}'</span> 포지션이 하루 동안 수행해야 할 시간대별 필수 여정을 설계합니다.
+                            <span className="font-semibold text-foreground/80">'{selectedRole.name}'</span> 직급이 출근해서 퇴근까지 순서대로 해야 할 일을 정해줍니다.
                           </p>
                         </div>
                       </div>

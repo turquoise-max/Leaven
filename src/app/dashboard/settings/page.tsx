@@ -82,89 +82,17 @@ export default async function StoreSettingsPage({ searchParams }: SettingsPagePr
     )
   }
 
-  const navItems = [
-    {
-      id: 'general',
-      title: '기본 설정',
-      description: '매장 정보 및 영업 시간',
-      icon: Settings,
-    },
-    {
-      id: 'roles',
-      title: '역할 및 권한',
-      description: '직원 그룹 및 접근 제어',
-      icon: Users,
-    },
-  ]
-
   return (
-    <div className="pb-10 pt-2">
-      <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">
-        {/* Left Sidebar Navigation */}
-        <aside className="lg:w-1/4 shrink-0">
-          <nav className="flex space-x-2 lg:flex-col lg:space-x-0 lg:space-y-1 overflow-x-auto pb-2 lg:pb-0 scrollbar-hide">
-            {navItems.map((item) => {
-              const Icon = item.icon
-              const isActive = currentTab === item.id
-              
-              return (
-                <Link
-                  key={item.id}
-                  href={`?tab=${item.id}`}
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors whitespace-nowrap lg:whitespace-normal",
-                    isActive
-                      ? "bg-primary/10 text-primary dark:bg-primary/20 hover:bg-primary/10"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  )}
-                >
-                  <Icon className={cn("w-4 h-4 shrink-0", isActive ? "text-primary" : "text-muted-foreground")} />
-                  <span>{item.title}</span>
-                </Link>
-              )
-            })}
-          </nav>
-        </aside>
+    <div className="pb-10 pt-2 max-w-5xl mx-auto">
+      <div className="mb-8 border-b pb-6">
+        <h1 className="text-3xl font-bold tracking-tight">매장 설정</h1>
+        <p className="text-muted-foreground mt-1">
+          매장의 기본 정보와 운영 정책을 통합 관리합니다.
+        </p>
+      </div>
 
-        {/* Right Content Area */}
-        <div className="flex-1 lg:max-w-4xl min-w-0">
-          {currentTab === 'general' && (
-            <StoreSettingsForm initialData={store} />
-          )}
-
-          {currentTab === 'roles' && (
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-2xl font-semibold tracking-tight">역할 및 권한</h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                  직원들의 역할을 분류하고 상세 권한을 제어합니다.
-                </p>
-              </div>
-              
-              <div className="w-full h-px bg-border/50 my-6" />
-
-              <Card className="flex flex-col items-center justify-center p-8 text-center bg-muted/30">
-                <CardContent className="flex flex-col items-center gap-4">
-                  <div className="rounded-full bg-primary/10 p-4">
-                    <Users className="w-8 h-8 text-primary" />
-                  </div>
-                  <div className="space-y-2 max-w-sm">
-                    <h3 className="text-xl font-semibold">역할 관리가 이동되었습니다</h3>
-                    <p className="text-sm text-muted-foreground">
-                      역할 설정, 시스템 권한, 그리고 역할별 기본 부여 업무를 하나의 통합된 페이지에서 관리할 수 있습니다.
-                    </p>
-                  </div>
-                  <Button asChild className="mt-4 gap-2">
-                    <Link href="/dashboard/roles">
-                      역할 및 기본 업무 관리 페이지로 이동
-                      <ArrowRight className="w-4 h-4" />
-                    </Link>
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-        </div>
+      <div className="min-w-0">
+        <StoreSettingsForm initialData={store} />
       </div>
     </div>
   )

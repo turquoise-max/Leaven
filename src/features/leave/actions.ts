@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { unstable_noStore as noStore } from 'next/cache'
 import { requirePermission } from '@/features/auth/permissions'
+import { toUTCISOString } from '@/lib/date-utils'
 
 export async function getLeaveBalances(storeId: string, year: number) {
   noStore()
@@ -54,7 +55,8 @@ export async function createLeaveRequest(
   startDate: string,
   endDate: string,
   requestedDays: number,
-  reason: string
+  reason: string,
+  attachmentUrl?: string
 ) {
   const supabase = await createClient()
   
@@ -68,6 +70,7 @@ export async function createLeaveRequest(
       end_date: endDate,
       requested_days: requestedDays,
       reason: reason,
+      attachment_url: attachmentUrl,
       status: 'pending'
     })
     .select()
@@ -117,8 +120,9 @@ export async function resolveLeaveRequest(requestId: string, storeId: string, st
 
   if (finalError) return { error: '요청 상태 변경 중 오류가 발생했습니다.' }
 
-  // If approved, deduct balance if it is an annual leave
-  if (status === 'approved' && request.leave_type === 'annual') {
+  // If approved, deduct balance if it is an annual leave (including half days)
+  const isAnnualType = ['annual', 'half_am', 'half_pm'].includes(request.leave_type)
+  if (status === 'approved' && isAnnualType) {
     const year = parseInt(request.start_date.substring(0, 4))
     
     // Check if balance exists
@@ -127,33 +131,36 @@ export async function resolveLeaveRequest(requestId: string, storeId: string, st
       .select('*')
       .eq('member_id', request.member_id)
       .eq('year', year)
-      .single()
+      .maybeSingle()
       
     if (balance) {
+      const newUsedDays = Number(balance.used_days || 0) + Number(request.requested_days)
       await supabase
         .from('leave_balances')
         .update({
-          used_days: Number(balance.used_days) + Number(request.requested_days)
+          used_days: newUsedDays,
+          updated_at: new Date().toISOString()
         })
         .eq('id', balance.id)
     } else {
-      // Create new balance record with just used_days
+      // Create new balance record
       await supabase
         .from('leave_balances')
         .insert({
           store_id: storeId,
           member_id: request.member_id,
           year: year,
-          used_days: request.requested_days,
-          total_days: 0 // Manager must set total days manually later
+          used_days: Number(request.requested_days),
+          total_days: null // Use auto-calc
         })
     }
   }
 
   // 승인 완료된 휴가를 기존 근무 스케줄의 `type`으로 덮어쓰기 로직
   if (status === 'approved') {
-    const startIso = new Date(`${request.start_date}T00:00:00Z`).toISOString()
-    const endIso = new Date(`${request.end_date}T23:59:59Z`).toISOString()
+    // 프로젝트 표준 유틸리티를 사용하여 KST 날짜를 정확한 UTC 범위로 변환
+    const startIso = toUTCISOString(request.start_date, '00:00')
+    const endIso = toUTCISOString(request.end_date, '23:59')
 
     // 1. 해당 날짜, 해당 직원이 포함된 스케줄 찾기
     const { data: existingSchedules } = await supabase
@@ -337,6 +344,36 @@ export async function updateLeaveBalance(storeId: string, memberId: string, year
     if (error) return { error: '새로운 연차 정보 생성 실패' }
   }
   
+  revalidatePath('/dashboard/leave')
+  return { success: true }
+}
+
+export async function resetAllLeaveBalances(storeId: string, year: number) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) return { error: '인증되지 않은 사용자입니다.' }
+
+  try {
+    await requirePermission(user.id, storeId, 'manage_schedule')
+  } catch {
+    return { error: '권한이 없습니다.' }
+  }
+
+  const { error } = await supabase
+    .from('leave_balances')
+    .update({ 
+      total_days: null, 
+      updated_at: new Date().toISOString() 
+    })
+    .eq('store_id', storeId)
+    .eq('year', year)
+
+  if (error) {
+    console.error('Error resetting leave balances:', error)
+    return { error: '연차 초기화 중 오류가 발생했습니다.' }
+  }
+
   revalidatePath('/dashboard/leave')
   return { success: true }
 }

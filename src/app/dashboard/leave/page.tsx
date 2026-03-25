@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { requirePermission } from '@/features/auth/permissions'
 import { cookies } from 'next/headers'
 import { getStoreRoles } from '@/features/store/actions'
+import { getStaffList } from '@/features/staff/actions'
 import { LeaveClientPage } from './leave-client'
 
 export default async function LeavePage() {
@@ -37,24 +38,11 @@ export default async function LeavePage() {
 
   const roles = await getStoreRoles(member.store_id)
   
-  // 직원 목록 조회
-  const { data: rawStaffList } = await supabase
-    .from('store_members')
-    .select(`
-      id,
-      user_id,
-      role,
-      name,
-      join_date,
-      role_info:store_roles(id, name, color, priority)
-    `)
-    .eq('store_id', member.store_id)
-    .neq('status', 'invited')
-
-  const staffList = rawStaffList?.map((staff: any) => ({
-    ...staff,
-    role_info: Array.isArray(staff.role_info) ? staff.role_info[0] : staff.role_info,
-  })) || []
+  // 직원 목록 조회 (getStaffList 액션을 사용하여 프로필 정보까지 한꺼번에 가져옴)
+  const allStaff = await getStaffList(member.store_id)
+  
+  // 가입 대기, 재직, 퇴사자 모두 포함 (단, 초대 중인 경우 및 점주 제외)
+  const staffList = allStaff.filter(s => s.status !== 'invited' && s.role !== 'owner')
 
   const storeObj = Array.isArray(member.store) ? member.store[0] : member.store
   const leaveCalcType = storeObj?.leave_calc_type || 'hire_date'
@@ -66,9 +54,6 @@ export default async function LeavePage() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-3xl font-bold tracking-tight">휴가 및 연차</h1>
-            <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[11px] font-bold text-primary transition-colors">
-              준비 중
-            </span>
           </div>
           <p className="text-muted-foreground mt-1">
             직원 휴가 신청을 관리하고 스케줄 누수를 방지합니다.

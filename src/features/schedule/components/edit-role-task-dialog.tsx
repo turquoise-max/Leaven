@@ -98,9 +98,10 @@ export function EditRoleTaskDialog({ storeId, task, open, onOpenChange, hideRole
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl h-[85vh] max-h-[800px] flex flex-col p-0 gap-0 overflow-hidden">
-        <DialogHeader className="p-6 pb-4 border-b">
-          <DialogTitle>플레이북 가이드 수정</DialogTitle>
+      <DialogContent className="sm:max-w-xl h-auto max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden rounded-2xl shadow-2xl border-none">
+        <DialogHeader className="p-8 pb-6 bg-gradient-to-r from-primary/5 to-transparent">
+          <DialogTitle className="text-2xl font-bold tracking-tight text-foreground">업무 가이드 수정</DialogTitle>
+          <p className="text-[14px] text-muted-foreground mt-1.5">선택한 업무의 내용을 수정하거나 삭제할 수 있습니다.</p>
         </DialogHeader>
         <div className="flex-1 overflow-hidden">
           <RoleTaskForm 

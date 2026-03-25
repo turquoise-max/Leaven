@@ -37,7 +37,6 @@ import { AlertTriangle, Search, MapPin, Save, RotateCcw, Plus, Trash2 } from 'lu
 import { ImageUpload } from './image-upload'
 import { OpeningHours } from './opening-hours'
 import { cn } from '@/lib/utils'
-import { StoreCodeDisplay } from '@/components/dashboard/store-code-display'
 
 const formatBusinessNumber = (value: string) => {
   const v = value.replace(/\D/g, '')
@@ -254,130 +253,125 @@ export function StoreSettingsForm({ initialData }: StoreSettingsFormProps) {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-16 pb-24">
+    <div className="max-w-4xl mx-auto space-y-12 pb-24">
       {/* SECTION: 매장 프로필 & 기본 정보 */}
-      <section>
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-2xl font-semibold tracking-tight">매장 기본 정보</h2>
-            <p className="text-sm text-muted-foreground mt-1">매장의 대표 이미지와 기본 정보를 설정합니다.</p>
-          </div>
-          {initialData.invite_code && (
-            <StoreCodeDisplay code={initialData.invite_code} />
-          )}
+      <section className="bg-card rounded-xl border shadow-sm overflow-hidden">
+        <div className="p-6 border-b bg-muted/30">
+          <h2 className="text-xl font-bold tracking-tight">매장 기본 정보</h2>
+          <p className="text-sm text-muted-foreground mt-1">매장의 대표 이미지와 기본 정보를 설정합니다.</p>
         </div>
         
-        <Separator className="mb-2" />
-
-        <div className="flex flex-col">
-          <div className="flex flex-col md:flex-row gap-6 py-6 border-b border-border/50">
-            <div className="w-full md:w-1/3 shrink-0 space-y-1">
-              <Label className="text-base font-medium">매장 이미지</Label>
-              <p className="text-sm text-muted-foreground">매장을 대표하는 사진을 업로드하세요.</p>
-            </div>
-            <div className="w-full md:w-2/3 max-w-xl">
-              <ImageUpload 
-                currentImageUrl={formData.image_url} 
-                onImageChange={(url) => setFormData(prev => ({ ...prev, image_url: url }))} 
-                storeName={formData.name} 
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-col md:flex-row gap-6 py-6 border-b border-border/50">
-            <div className="w-full md:w-1/3 shrink-0 space-y-1">
-              <Label className="text-base font-medium">사업장 직인(도장)</Label>
-              <p className="text-sm text-muted-foreground">근로계약서 발송 시 사업주 서명란에 자동 날인됩니다. (투명 배경 권장)</p>
-            </div>
-            <div className="w-full md:w-2/3 max-w-xl">
-              <ImageUpload 
-                currentImageUrl={formData.stamp_image_url} 
-                onImageChange={(url) => setFormData(prev => ({ ...prev, stamp_image_url: url }))} 
-                storeName={`${formData.name} 직인`} 
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-col md:flex-row gap-6 py-6 border-b border-border/50">
-            <div className="w-full md:w-1/3 shrink-0 space-y-1">
-              <Label htmlFor="name" className="text-base font-medium">상호명</Label>
-            </div>
-            <div className="w-full md:w-2/3 max-w-xl">
-              <Input
-                id="name"
-                name="name"
-                value={formData.name || ''}
-                onChange={handleInputChange}
-                placeholder="예: 맛있는 베이커리"
-                required
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-col md:flex-row gap-6 py-6 border-b border-border/50">
-            <div className="w-full md:w-1/3 shrink-0 space-y-1">
-              <Label htmlFor="owner_name" className="text-base font-medium">대표자명</Label>
-            </div>
-            <div className="w-full md:w-2/3 max-w-xl">
-              <Input
-                id="owner_name"
-                name="owner_name"
-                value={formData.owner_name}
-                onChange={handleInputChange}
-                placeholder="예: 홍길동"
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-col md:flex-row gap-6 py-6 border-b border-border/50">
-            <div className="w-full md:w-1/3 shrink-0 space-y-1">
-              <Label htmlFor="business_number" className="text-base font-medium">사업자등록번호</Label>
-            </div>
-            <div className="w-full md:w-2/3 max-w-xl">
-              <Input
-                id="business_number"
-                name="business_number"
-                value={formData.business_number}
-                onChange={handleInputChange}
-                placeholder="예) 123-45-12345"
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-col md:flex-row gap-6 py-6 border-b border-border/50">
-            <div className="w-full md:w-1/3 shrink-0 space-y-1">
-              <Label htmlFor="store_phone" className="text-base font-medium">매장 전화번호</Label>
-            </div>
-            <div className="w-full md:w-2/3 max-w-xl">
-              <Input
-                id="store_phone"
-                name="store_phone"
-                value={formData.store_phone}
-                onChange={handleInputChange}
-                placeholder="예) 02-1234-5678"
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-col md:flex-row gap-6 py-6">
-            <div className="w-full md:w-1/3 shrink-0 space-y-1">
-              <Label htmlFor="description" className="text-base font-medium">매장 소개</Label>
-              <p className="text-sm text-muted-foreground">고객이나 직원에게 보여질 매장에 대한 간단한 소개입니다.</p>
-            </div>
-            <div className="w-full md:w-2/3 max-w-xl">
-              <div className="relative">
-                <Textarea
-                  id="description"
-                  name="description"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  placeholder="매장에 대한 간단한 소개를 입력해주세요. (최대 200자)"
-                  className="resize-none pb-8"
-                  rows={6}
-                  maxLength={200}
+        <div className="p-6">
+          <div className="flex flex-col">
+            <div className="flex flex-col md:flex-row gap-6 pb-8 border-b border-border/50">
+              <div className="w-full md:w-1/3 shrink-0 space-y-1">
+                <Label className="text-base font-semibold">매장 이미지</Label>
+                <p className="text-sm text-muted-foreground">매장을 대표하는 사진을 업로드하세요.</p>
+              </div>
+              <div className="w-full md:w-2/3 max-w-xl">
+                <ImageUpload 
+                  currentImageUrl={formData.image_url} 
+                  onImageChange={(url) => setFormData(prev => ({ ...prev, image_url: url }))} 
+                  storeName={formData.name} 
                 />
-                <div className="absolute bottom-2 right-3 text-xs text-muted-foreground">
-                  {formData.description.length}/200자
+              </div>
+            </div>
+
+            <div className="flex flex-col md:flex-row gap-6 py-6 border-b border-border/50">
+              <div className="w-full md:w-1/3 shrink-0 space-y-1">
+                <Label className="text-base font-medium">사업장 직인(도장)</Label>
+                <p className="text-sm text-muted-foreground">근로계약서 발송 시 사업주 서명란에 자동 날인됩니다. (투명 배경 권장)</p>
+              </div>
+              <div className="w-full md:w-2/3 max-w-xl">
+                <ImageUpload 
+                  currentImageUrl={formData.stamp_image_url} 
+                  onImageChange={(url) => setFormData(prev => ({ ...prev, stamp_image_url: url }))} 
+                  storeName={`${formData.name} 직인`} 
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col md:flex-row gap-6 py-6 border-b border-border/50">
+              <div className="w-full md:w-1/3 shrink-0 space-y-1">
+                <Label htmlFor="name" className="text-base font-medium">상호명</Label>
+              </div>
+              <div className="w-full md:w-2/3 max-w-xl">
+                <Input
+                  id="name"
+                  name="name"
+                  value={formData.name || ''}
+                  onChange={handleInputChange}
+                  placeholder="예: 맛있는 베이커리"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col md:flex-row gap-6 py-6 border-b border-border/50">
+              <div className="w-full md:w-1/3 shrink-0 space-y-1">
+                <Label htmlFor="owner_name" className="text-base font-medium">대표자명</Label>
+              </div>
+              <div className="w-full md:w-2/3 max-w-xl">
+                <Input
+                  id="owner_name"
+                  name="owner_name"
+                  value={formData.owner_name}
+                  onChange={handleInputChange}
+                  placeholder="예: 홍길동"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col md:flex-row gap-6 py-6 border-b border-border/50">
+              <div className="w-full md:w-1/3 shrink-0 space-y-1">
+                <Label htmlFor="business_number" className="text-base font-medium">사업자등록번호</Label>
+              </div>
+              <div className="w-full md:w-2/3 max-w-xl">
+                <Input
+                  id="business_number"
+                  name="business_number"
+                  value={formData.business_number}
+                  onChange={handleInputChange}
+                  placeholder="예) 123-45-12345"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col md:flex-row gap-6 py-6 border-b border-border/50">
+              <div className="w-full md:w-1/3 shrink-0 space-y-1">
+                <Label htmlFor="store_phone" className="text-base font-medium">매장 전화번호</Label>
+              </div>
+              <div className="w-full md:w-2/3 max-w-xl">
+                <Input
+                  id="store_phone"
+                  name="store_phone"
+                  value={formData.store_phone}
+                  onChange={handleInputChange}
+                  placeholder="예) 02-1234-5678"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col md:flex-row gap-6 py-6">
+              <div className="w-full md:w-1/3 shrink-0 space-y-1">
+                <Label htmlFor="description" className="text-base font-medium">매장 소개</Label>
+                <p className="text-sm text-muted-foreground">고객이나 직원에게 보여질 매장에 대한 간단한 소개입니다.</p>
+              </div>
+              <div className="w-full md:w-2/3 max-w-xl">
+                <div className="relative">
+                  <Textarea
+                    id="description"
+                    name="description"
+                    value={formData.description}
+                    onChange={handleInputChange}
+                    placeholder="매장에 대한 간단한 소개를 입력해주세요. (최대 200자)"
+                    className="resize-none pb-8"
+                    rows={6}
+                    maxLength={200}
+                  />
+                  <div className="absolute bottom-2 right-3 text-xs text-muted-foreground">
+                    {formData.description.length}/200자
+                  </div>
                 </div>
               </div>
             </div>
@@ -386,15 +380,13 @@ export function StoreSettingsForm({ initialData }: StoreSettingsFormProps) {
       </section>
 
       {/* SECTION: 매장 위치 */}
-      <section>
-        <div className="mb-6">
-          <h2 className="text-2xl font-semibold tracking-tight">매장 위치</h2>
+      <section className="bg-card rounded-xl border shadow-sm overflow-hidden">
+        <div className="p-6 border-b bg-muted/30">
+          <h2 className="text-xl font-bold tracking-tight">매장 위치</h2>
           <p className="text-sm text-muted-foreground mt-1">지도에 표시될 주소를 입력해주세요.</p>
         </div>
-        
-        <Separator className="mb-2" />
 
-        <div className="flex flex-col">
+        <div className="p-6 flex flex-col">
           <div className="flex flex-col md:flex-row gap-6 py-6 border-b border-border/50">
             <div className="w-full md:w-1/3 shrink-0 space-y-1">
               <Label htmlFor="zip_code" className="text-base font-medium">주소 검색</Label>
@@ -460,15 +452,13 @@ export function StoreSettingsForm({ initialData }: StoreSettingsFormProps) {
       </section>
 
       {/* SECTION: 매장 기본 급여/정산 설정 */}
-      <section>
-        <div className="mb-6">
-          <h2 className="text-2xl font-semibold tracking-tight">매장 기본 급여/정산 설정</h2>
+      <section className="bg-card rounded-xl border shadow-sm overflow-hidden">
+        <div className="p-6 border-b bg-muted/30">
+          <h2 className="text-xl font-bold tracking-tight">매장 기본 급여/정산 설정</h2>
           <p className="text-sm text-muted-foreground mt-1">우리 매장의 가장 기본적인 급여 산정 기간과 지급일을 설정해 주세요. <br className="hidden sm:block"/>(개인별/고용형태별 상세 설정은 직원 관리 메뉴에서 개별 변경할 수 있습니다.)</p>
         </div>
-        
-        <Separator className="mb-2" />
 
-        <div className="flex flex-col">
+        <div className="p-6 flex flex-col">
           <div className="flex flex-col md:flex-row gap-6 py-6 border-b border-border/50">
             <div className="w-full md:w-1/3 shrink-0 space-y-1">
               <Label className="text-base font-medium">정산 기간 (급여 산정 기준일)</Label>
@@ -826,15 +816,13 @@ export function StoreSettingsForm({ initialData }: StoreSettingsFormProps) {
       </section>
 
       {/* SECTION: 휴가 및 연차 설정 */}
-      <section>
-        <div className="mb-6">
-          <h2 className="text-2xl font-semibold tracking-tight">휴가 및 연차 설정</h2>
+      <section className="bg-card rounded-xl border shadow-sm overflow-hidden">
+        <div className="p-6 border-b bg-muted/30">
+          <h2 className="text-xl font-bold tracking-tight">휴가 및 연차 설정</h2>
           <p className="text-sm text-muted-foreground mt-1">우리 매장의 직원 연차 부여 기준을 설정합니다.</p>
         </div>
-        
-        <Separator className="mb-2" />
 
-        <div className="flex flex-col">
+        <div className="p-6 flex flex-col">
           <div className="flex flex-col md:flex-row gap-6 py-6 border-b border-border/50">
             <div className="w-full md:w-1/3 shrink-0 space-y-1">
               <Label className="text-base font-medium">연차 발생 기준</Label>
@@ -864,15 +852,13 @@ export function StoreSettingsForm({ initialData }: StoreSettingsFormProps) {
       </section>
 
       {/* SECTION: 영업 시간 */}
-      <section>
-        <div className="mb-6">
-          <h2 className="text-2xl font-semibold tracking-tight">영업 시간</h2>
+      <section className="bg-card rounded-xl border shadow-sm overflow-hidden">
+        <div className="p-6 border-b bg-muted/30">
+          <h2 className="text-xl font-bold tracking-tight">영업 시간</h2>
           <p className="text-sm text-muted-foreground mt-1">요일별 영업 시간을 설정해주세요. 스케줄링의 기준이 됩니다.</p>
         </div>
-        
-        <Separator className="mb-6" />
 
-        <div className="max-w-3xl">
+        <div className="p-6 max-w-3xl">
           <OpeningHours 
             initialData={formData.opening_hours} 
             onChange={(newHours) => setFormData(prev => ({ ...prev, opening_hours: newHours }))} 

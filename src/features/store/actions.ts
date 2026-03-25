@@ -40,6 +40,7 @@ export async function updateStore(formData: FormData) {
   const addressDetail = formData.get('address_detail') as string
   const imageUrl = formData.get('image_url') as string
   const stampImageUrl = formData.get('stamp_image_url') as string
+  const leaveCalcType = formData.get('leave_calc_type') as string
   
   const wageStartDay = formData.get('wage_start_day') ? parseInt(formData.get('wage_start_day') as string, 10) : 1
   const wageEndDay = formData.get('wage_end_day') ? parseInt(formData.get('wage_end_day') as string, 10) : 0
@@ -83,6 +84,7 @@ export async function updateStore(formData: FormData) {
       wage_end_day: wageEndDay,
       pay_day: payDay,
       wage_exceptions: wageExceptions,
+      leave_calc_type: leaveCalcType,
       updated_at: new Date().toISOString(),
     })
     .eq('id', storeId)
@@ -176,7 +178,7 @@ export async function getStoreSettings(storeId: string) {
   
   const { data, error } = await supabase
     .from('stores')
-    .select('wage_start_day, wage_end_day, pay_day, wage_exceptions')
+    .select('wage_start_day, wage_end_day, pay_day, wage_exceptions, leave_calc_type')
     .eq('id', storeId)
     .single()
     

@@ -152,8 +152,8 @@ export function MonthlyCalendarView({
                       
                       // 타이틀 동적 결정
                       let displayTitle = sch.title || '근무'
-                      if (isLeave && !displayTitle.includes('휴가') && !displayTitle.includes('병가')) {
-                        displayTitle = displayTitle === '휴가' ? '휴가' : `[휴가] ${displayTitle}`
+                      if (isLeave) {
+                        displayTitle = '휴가'
                       } else if (isTraining && !displayTitle.includes('[교육]')) {
                         displayTitle = displayTitle === '교육' ? '교육' : `[교육] ${displayTitle}`
                       } else if (isEtc && !displayTitle.includes('[기타]')) {
@@ -173,7 +173,7 @@ export function MonthlyCalendarView({
                             color: '#1a1a1a',
                             borderLeft: `2.5px solid ${scheduleColor}`
                           }}
-                          title={`${safeName} - ${displayTitle}`}
+                          title={`${safeName} - ${displayTitle}${isLeave && sch.memo ? ` (${sch.memo})` : ''}`}
                         >
                           <span className="font-semibold" style={{ color: scheduleColor }}>{safeName}</span> 
                           {!isLeave && (

@@ -9,19 +9,21 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Umbrella, Calendar, FileText, Settings, Search, Download, Plus, Check, X } from 'lucide-react'
-import { getLeaveBalances, getLeaveRequests, resolveLeaveRequest, createLeaveRequest, updateLeaveBalance, cancelLeaveRequest } from '@/features/leave/actions'
+import { Umbrella, Calendar, FileText, Settings, Search, Download, Plus, Check, X, RotateCcw } from 'lucide-react'
+import { getLeaveBalances, getLeaveRequests, resolveLeaveRequest, createLeaveRequest, updateLeaveBalance, cancelLeaveRequest, resetAllLeaveBalances } from '@/features/leave/actions'
 import { toast } from 'sonner'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
+import { LeaveAttachmentUpload } from '@/features/leave/components/leave-attachment-upload'
 import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import interactionPlugin from '@fullcalendar/interaction'
 
 import { calculateAnnualLeave } from '@/features/leave/utils'
+import { differenceInMonths, differenceInYears, differenceInDays, parseISO } from 'date-fns'
 
 interface LeaveClientPageProps {
   storeId: string
@@ -41,6 +43,7 @@ export function LeaveClientPage({
   leaveCalcType
 }: LeaveClientPageProps) {
   const [activeTab, setActiveTab] = useState('calendar')
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [balances, setBalances] = useState<any[]>([])
   const [requests, setRequests] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -53,16 +56,16 @@ export function LeaveClientPage({
     startDate: format(new Date(), 'yyyy-MM-dd'), 
     endDate: format(new Date(), 'yyyy-MM-dd'), 
     requestedDays: 1, 
-    reason: '' 
+    reason: '',
+    attachmentUrl: ''
   })
   const [submitLoading, setSubmitLoading] = useState(false)
 
   const fetchData = async () => {
     setLoading(true)
     try {
-      const year = new Date().getFullYear()
       const [balRes, reqRes] = await Promise.all([
-        getLeaveBalances(storeId, year),
+        getLeaveBalances(storeId, selectedYear),
         getLeaveRequests(storeId)
       ])
       setBalances(balRes || [])
@@ -77,7 +80,7 @@ export function LeaveClientPage({
 
   useEffect(() => {
     fetchData()
-  }, [storeId])
+  }, [storeId, selectedYear])
 
   const pendingCount = requests.filter(r => r.status === 'pending').length
 
@@ -91,13 +94,29 @@ export function LeaveClientPage({
     return null
   }
 
+  const getServicePeriodLabel = (hiredAt: string | null) => {
+    if (!hiredAt) return '-'
+    const start = new Date(hiredAt)
+    const today = new Date()
+    
+    const years = differenceInYears(today, start)
+    const months = differenceInMonths(today, start) % 12
+    
+    if (years === 0) return `${months}개월`
+    if (months === 0) return `${years}년`
+    return `${years}년 ${months}개월`
+  }
+
   const currentYear = new Date().getFullYear()
   const myStaff = staffList.find(s => s.user_id === currentUserId)
 
   const myRequests = requests.filter(r => r.member?.user_id === currentUserId)
   const myBalance = balances.find(b => b.member_id === myStaff?.id)
   
-  const calcTotal = myStaff?.join_date ? calculateAnnualLeave(myStaff.join_date, currentYear, leaveCalcType) : 0
+  const rawHireDate = myStaff?.hired_at || myStaff?.join_date
+  const formattedHireDate = rawHireDate ? new Date(rawHireDate).toISOString().split('T')[0] : null
+  
+  const calcTotal = formattedHireDate ? calculateAnnualLeave(formattedHireDate, currentYear, leaveCalcType) : 0
   const total = myBalance?.total_days !== undefined && myBalance?.total_days !== null ? myBalance.total_days : calcTotal
   const used = myBalance?.used_days || 0
   const remain = total - used
@@ -171,10 +190,23 @@ export function LeaveClientPage({
                   </div>
 
                   <div className="flex flex-col gap-2">
-                    <span className="text-xs font-semibold text-muted-foreground">사유</span>
+                    <span className="text-xs font-semibold text-muted-foreground">사유 및 증빙 자료</span>
                     <div className="text-sm bg-muted/30 p-3 rounded-md border border-dashed border-black/10 whitespace-pre-wrap">
                       {req.reason}
                     </div>
+                    {req.attachment_url && (
+                      <a 
+                        href={req.attachment_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="mt-2 flex items-center gap-2 p-3 rounded-lg border bg-white hover:bg-slate-50 transition-colors w-fit"
+                      >
+                        <div className="bg-primary/10 p-1.5 rounded text-primary">
+                          <FileText className="w-4 h-4" />
+                        </div>
+                        <span className="text-xs font-bold text-slate-700">제출한 증빙 서류 확인</span>
+                      </a>
+                    )}
                   </div>
                 </div>
               )
@@ -220,9 +252,6 @@ export function LeaveClientPage({
                 <Settings className="w-4 h-4 mr-2" />
                 잔여 연차 관리
               </div>
-              <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold text-primary group-data-[state=active]:bg-primary/20 transition-colors">
-                준비 중
-              </span>
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary scale-x-0 origin-left transition-transform duration-200 group-data-[state=active]:scale-x-100" />
             </TabsTrigger>
           </TabsList>
@@ -349,7 +378,8 @@ export function LeaveClientPage({
                           if (res.error) toast.error(res.error)
                           else {
                             toast.success(status === 'approved' ? '승인되었습니다.' : '반려되었습니다.')
-                            setRequests(prev => prev.map(r => r.id === req.id ? { ...r, status } : r))
+                            // 승인 시 전체 데이터 리프레시 (잔여 연차 테이블 갱신을 위함)
+                            fetchData()
                           }
                         } catch (e) {
                           toast.error('오류가 발생했습니다.')
@@ -390,10 +420,23 @@ export function LeaveClientPage({
                           </div>
 
                           <div className="flex flex-col gap-2">
-                            <span className="text-xs font-semibold text-muted-foreground">사유</span>
+                            <span className="text-xs font-semibold text-muted-foreground">사유 및 증빙 자료</span>
                             <div className="text-sm bg-muted/30 p-3 rounded-md border border-dashed border-black/10 whitespace-pre-wrap">
                               {req.reason}
                             </div>
+                            {req.attachment_url && (
+                              <a 
+                                href={req.attachment_url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="mt-2 flex items-center gap-2 p-3 rounded-lg border bg-white hover:bg-slate-50 transition-colors w-fit"
+                              >
+                                <div className="bg-primary/10 p-1.5 rounded text-primary">
+                                  <FileText className="w-4 h-4" />
+                                </div>
+                                <span className="text-xs font-bold text-slate-700">첨부된 증빙 서류 확인하기</span>
+                              </a>
+                            )}
                           </div>
 
                           {req.status === 'pending' && isManager && (
@@ -449,18 +492,52 @@ export function LeaveClientPage({
           <TabsContent value="balances" className="m-0 mt-0 h-full flex flex-col outline-none">
             <div className="bg-white rounded-lg border shadow-sm overflow-hidden flex-1 flex flex-col">
               <div className="p-4 border-b flex items-center justify-between">
-                <div className="flex flex-col">
-                  <h3 className="font-semibold text-base">직원별 잔여 연차 관리 ({currentYear}년)</h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    연차 발생 기준: <span className="font-semibold text-foreground">{leaveCalcType === 'hire_date' ? '입사일 기준' : '회계연도 기준'}</span> (매장 설정에서 변경 가능)
-                  </p>
+                <div className="flex items-center gap-4">
+                  <div className="flex flex-col">
+                    <h3 className="font-semibold text-base">직원별 잔여 연차 관리</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      연차 발생 기준: <span className="font-semibold text-foreground">{leaveCalcType === 'hire_date' ? '입사일 기준' : '회계연도 기준'}</span>
+                    </p>
+                  </div>
+                  
+                  <Select value={String(selectedYear)} onValueChange={(v) => setSelectedYear(Number(v))}>
+                    <SelectTrigger className="w-[100px] h-9 font-bold bg-slate-50">
+                      <SelectValue placeholder="연도 선택" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - 2 + i)).map(y => (
+                        <SelectItem key={y} value={String(y)}>{y}년</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
+                {isManager && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-8 text-xs gap-1.5 text-muted-foreground hover:text-primary"
+                    onClick={async () => {
+                      if (!window.confirm(`${selectedYear}년의 모든 직원의 연차를 시스템 자동 계산 방식으로 복구하시겠습니까?\n수동으로 수정했던 내역이 모두 초기화됩니다.`)) return
+                      
+                      const res = await resetAllLeaveBalances(storeId, selectedYear)
+                      if (res.error) toast.error(res.error)
+                      else {
+                        toast.success('모든 데이터가 자동 계산 방식으로 복구되었습니다.')
+                        fetchData()
+                      }
+                    }}
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    전체 자동 계산으로 복구
+                  </Button>
+                )}
               </div>
               <div className="flex-1 overflow-auto">
                 <table className="w-full text-sm text-left">
                   <thead className="bg-muted/50 text-muted-foreground sticky top-0 z-10">
                     <tr>
                       <th className="px-4 py-3 font-semibold border-b">이름 (역할)</th>
+                      <th className="px-4 py-3 font-semibold border-b text-center">근속 기간</th>
                       <th className="px-4 py-3 font-semibold border-b text-center">총 발생 연차</th>
                       <th className="px-4 py-3 font-semibold border-b text-center">사용 연차</th>
                       <th className="px-4 py-3 font-semibold border-b text-center">잔여 연차</th>
@@ -474,13 +551,17 @@ export function LeaveClientPage({
                       const balance = balances.find(b => b.member_id === staff.id)
                       const isOverridden = balance?.total_days !== undefined && balance?.total_days !== null
                       
+                      const rawCurrentHireDate = staff.hired_at || staff.join_date
+                      const formattedCurrentHireDate = rawCurrentHireDate ? new Date(rawCurrentHireDate).toISOString().split('T')[0] : null
+                      
                       // Auto calculate total
-                      const calcTotal = staff.join_date ? calculateAnnualLeave(staff.join_date, currentYear, leaveCalcType) : 0
+                      const calcTotal = formattedCurrentHireDate ? calculateAnnualLeave(formattedCurrentHireDate, selectedYear, leaveCalcType) : 0
                       
                       // Final total (override if exists)
                       const total = isOverridden ? balance.total_days : calcTotal
                       const used = balance?.used_days || 0
                       const remain = total - used
+                      const hasJoinDate = !!formattedCurrentHireDate
 
                       return (
                         <tr key={staff.id} className="hover:bg-muted/20 transition-colors">
@@ -490,7 +571,9 @@ export function LeaveClientPage({
                                 <span className="font-medium">{staff.name || staff.profile?.full_name}</span>
                                 <Badge variant="outline" className="text-[10px]">{roleInfo?.name || '직원'}</Badge>
                               </div>
-                              <span className="text-[11px] text-muted-foreground">입사일: {staff.join_date || '미등록'}</span>
+                              <span className={cn("text-[11px]", !hasJoinDate ? "text-red-500 font-medium" : "text-muted-foreground")}>
+                                {!hasJoinDate ? "입사일 미등록 (계산 불가)" : `입사일: ${formattedCurrentHireDate}`}
+                              </span>
                             </div>
                           </td>
                           
@@ -499,14 +582,18 @@ export function LeaveClientPage({
                               <td className="px-4 py-3 text-center text-muted-foreground/50 font-medium">-</td>
                               <td className="px-4 py-3 text-center text-muted-foreground/50 font-medium">-</td>
                               <td className="px-4 py-3 text-center text-muted-foreground/50 font-medium">-</td>
+                              <td className="px-4 py-3 text-center text-muted-foreground/50 font-medium">-</td>
                               <td className="px-4 py-3 text-right"></td>
                             </>
                           ) : (
                             <>
+                              <td className="px-4 py-3 text-center text-muted-foreground font-medium">
+                                {getServicePeriodLabel(formattedCurrentHireDate)}
+                              </td>
                               <td className="px-4 py-3 text-center font-semibold">
                                 <div className="flex items-center justify-center gap-1.5">
-                                  {total}일
-                                  {!isOverridden && (
+                                  {hasJoinDate || isOverridden ? `${total}일` : "-"}
+                                  {hasJoinDate && !isOverridden && (
                                     <Badge variant="secondary" className="text-[9px] px-1 py-0 bg-blue-50 text-blue-600 border-blue-200">자동</Badge>
                                   )}
                                   {isOverridden && (
@@ -514,16 +601,28 @@ export function LeaveClientPage({
                                   )}
                                 </div>
                               </td>
-                              <td className="px-4 py-3 text-center text-muted-foreground">{used}일</td>
+                              <td className="px-4 py-3 text-center text-muted-foreground">
+                                {used > 0 ? `${used}일` : "0일"}
+                              </td>
                               <td className="px-4 py-3 text-center">
-                                <Badge variant="secondary" className={cn(remain < 0 ? "bg-red-100 text-red-700" : "bg-primary/10 text-primary")}>
-                                  {remain}일
-                                </Badge>
+                                {hasJoinDate || isOverridden ? (
+                                  <Badge 
+                                    variant="secondary" 
+                                    className={cn(
+                                      "font-bold px-3 py-1",
+                                      remain < 0 ? "bg-red-500 text-white hover:bg-red-600" : 
+                                      remain === 0 ? "bg-orange-100 text-orange-700" :
+                                      "bg-primary/10 text-primary border border-primary/20"
+                                    )}
+                                  >
+                                    {remain}일
+                                  </Badge>
+                                ) : "-"}
                               </td>
                               <td className="px-4 py-3 text-right">
                                 {isManager && (
                                   <Button variant="ghost" size="sm" className="h-7 text-[11px] text-muted-foreground hover:text-primary" onClick={async () => {
-                                    const newTotal = prompt(`${staff.name || staff.profile?.full_name}님의 올해 총 발생 연차 일수를 수정합니다.\n자동 계산으로 되돌리려면 빈칸으로 두고 확인을 누르세요.`, isOverridden ? String(total) : '')
+                                    const newTotal = prompt(`${staff.name || staff.profile?.full_name}님의 ${selectedYear}년 총 발생 연차 일수를 수정합니다.\n자동 계산으로 되돌리려면 빈칸으로 두고 확인을 누르세요.`, isOverridden ? String(total) : '')
                                     
                                     if (newTotal !== null) {
                                       const parsedVal = newTotal === '' ? null : Number(newTotal)
@@ -532,7 +631,7 @@ export function LeaveClientPage({
                                         return
                                       }
                                       
-                                      const res = await updateLeaveBalance(storeId, staff.id, currentYear, parsedVal as any)
+                                      const res = await updateLeaveBalance(storeId, staff.id, selectedYear, parsedVal as any)
                                       if (res.error) toast.error(res.error)
                                       else {
                                         toast.success('잔여 연차가 업데이트되었습니다.')
@@ -615,7 +714,15 @@ export function LeaveClientPage({
                 placeholder="휴가 사유를 작성해주세요."
                 value={requestDraft.reason}
                 onChange={(e) => setRequestDraft(prev => ({...prev, reason: e.target.value}))}
-                className="h-24 resize-none"
+                className="h-20 resize-none"
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label className="text-sm font-medium">증빙 자료 (선택)</Label>
+              <LeaveAttachmentUpload 
+                storeId={storeId} 
+                onUpload={(url) => setRequestDraft(prev => ({...prev, attachmentUrl: url || ''}))} 
               />
             </div>
           </div>
@@ -627,8 +734,26 @@ export function LeaveClientPage({
               onClick={async () => {
                 setSubmitLoading(true)
                 try {
-                  const days = requestDraft.leaveType.includes('half') ? 0.5 : 1 // Simplified calc
-                  const res = await createLeaveRequest(storeId, requestDraft.memberId, requestDraft.leaveType, requestDraft.startDate, requestDraft.endDate, days, requestDraft.reason)
+                  // 일수 계산 로직 고도화: 시작일과 종료일 포함 (differenceInDays + 1)
+                  let days = 1
+                  if (requestDraft.leaveType.includes('half')) {
+                    days = 0.5
+                  } else {
+                    const start = parseISO(requestDraft.startDate)
+                    const end = parseISO(requestDraft.endDate)
+                    days = differenceInDays(end, start) + 1
+                  }
+
+                  const res = await createLeaveRequest(
+                    storeId, 
+                    requestDraft.memberId, 
+                    requestDraft.leaveType, 
+                    requestDraft.startDate, 
+                    requestDraft.endDate, 
+                    days, 
+                    requestDraft.reason,
+                    requestDraft.attachmentUrl
+                  )
                   if (res.error) toast.error(res.error)
                   else {
                     toast.success('신청 완료되었습니다.')

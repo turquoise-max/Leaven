@@ -142,8 +142,8 @@ export function StaffScheduleMatrix({
                                 
                                 // 타이틀 동적 결정
                                 let displayTitle = sch.title || '근무'
-                                if (isLeave && !displayTitle.includes('휴가') && !displayTitle.includes('병가')) {
-                                  displayTitle = displayTitle === '휴가' ? '휴가' : `[휴가] ${displayTitle}`
+                                if (isLeave) {
+                                  displayTitle = '휴가' // 휴가일 경우 문구를 '휴가'로 통일
                                 } else if (isTraining && !displayTitle.includes('[교육]')) {
                                   displayTitle = displayTitle === '교육' ? '교육' : `[교육] ${displayTitle}`
                                 } else if (isEtc && !displayTitle.includes('[기타]')) {
@@ -177,11 +177,6 @@ export function StaffScheduleMatrix({
                                         <div className={cn("truncate text-[#1a1a1a]", isLeave && "font-bold text-[12px] tracking-wide")} style={isLeave ? { color: scheduleColor } : {}}>
                                           {displayTitle}
                                         </div>
-                                        {isLeave && sch.memo && (
-                                          <div className="text-[9px] mt-0.5 opacity-60 truncate max-w-full px-1">
-                                            {sch.memo}
-                                          </div>
-                                        )}
                                       </div>
                                     </TooltipTrigger>
                                     {!isLeave ? (

@@ -96,7 +96,7 @@ export function Sidebar({ user, role, isCollapsed = false, className, permission
           isUpcoming: false
         }] : []),
         ...(role === 'owner' ? [{
-          title: '역할 및 기본 업무',
+          title: '직급 및 업무 가이드',
           href: '/dashboard/roles',
           icon: Settings,
           isUpcoming: false
