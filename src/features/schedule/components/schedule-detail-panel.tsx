@@ -6,9 +6,10 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Switch } from '@/components/ui/switch'
+import { TimePicker } from '@/components/ui/time-picker'
 import { toast } from 'sonner'
 import { updateSchedule, deleteSchedule } from '@/features/schedule/actions'
-import { createTask, assignTask, deleteTask, updateTaskAssignment, toggleTaskCheckitem, getTaskTemplates } from '@/features/schedule/task-actions'
+import { createTask, assignTask, deleteTask, updateTaskAssignment, toggleTaskCheckitem } from '@/features/schedule/task-actions'
 import { useRouter } from 'next/navigation'
 import { Pencil, Trash2 } from 'lucide-react'
 import { toKSTISOString } from '@/lib/date-utils'
@@ -92,34 +93,6 @@ export function ScheduleDetailPanel({
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null)
   const [editTaskDraft, setEditTaskDraft] = useState({ title: '', hasTime: false, startTime: '' })
   const [editChecklists, setEditChecklists] = useState<{ id: string, text: string, is_completed: boolean }[]>([])
-
-  // Role templates state
-  const [roleTemplates, setRoleTemplates] = useState<any[]>([])
-  const [loadingRoleTemplates, setLoadingRoleTemplates] = useState(false)
-
-  useEffect(() => {
-    if (selectedSchedule?.roleId && storeId) {
-      setLoadingRoleTemplates(true)
-      getTaskTemplates(storeId).then(templates => {
-        const filteredAndSorted = templates
-          .filter(t => 
-            (t.assigned_role_ids?.includes(selectedSchedule.roleId) || t.assigned_role_ids?.includes('all')) &&
-            t.task_type !== 'always' && t.start_time
-          )
-          .sort((a, b) => {
-            // 시간 추출 시 toKSTISOString을 사용하여 올바른 로컬 시간(KST)으로 변환 후 비교
-            const timeA = toKSTISOString(a.start_time!).substring(11, 16)
-            const timeB = toKSTISOString(b.start_time!).substring(11, 16)
-            return timeA.localeCompare(timeB)
-          })
-        setRoleTemplates(filteredAndSorted)
-      }).finally(() => {
-        setLoadingRoleTemplates(false)
-      })
-    } else {
-      setRoleTemplates([])
-    }
-  }, [selectedSchedule?.roleId, storeId])
 
   // Checklist handler helpers
   const handleChecklistChange = (index: number, value: string, isEdit: boolean) => {
@@ -324,20 +297,16 @@ export function ScheduleDetailPanel({
             <div className="flex gap-2">
               <div className="flex flex-col gap-1.5 flex-1">
                 <label className="text-[10px] font-medium text-muted-foreground">시작 시간</label>
-                <Input 
-                  type="time" 
-                  className="h-8 text-[11px] px-2" 
+                <TimePicker 
                   value={selectedSchedule.editStartTime} 
-                  onChange={(e) => handleFieldChange('editStartTime', e.target.value)} 
+                  onChange={(val) => handleFieldChange('editStartTime', val)} 
                 />
               </div>
               <div className="flex flex-col gap-1.5 flex-1">
                 <label className="text-[10px] font-medium text-muted-foreground">종료 시간</label>
-                <Input 
-                  type="time" 
-                  className="h-8 text-[11px] px-2" 
+                <TimePicker 
                   value={selectedSchedule.editEndTime} 
-                  onChange={(e) => handleFieldChange('editEndTime', e.target.value)} 
+                  onChange={(val) => handleFieldChange('editEndTime', val)} 
                 />
               </div>
             </div>
@@ -413,7 +382,10 @@ export function ScheduleDetailPanel({
                     <div className="flex flex-col gap-1.5 bg-white p-2 rounded border border-black/5">
                       <label className="text-[9px] text-muted-foreground">업무 시작 시간 (선택)</label>
                       <div className="flex items-center gap-2">
-                        <Input type="time" className="h-7 text-[10px]" value={editTaskDraft.startTime} onChange={(e) => setEditTaskDraft(prev => ({...prev, startTime: e.target.value}))}/>
+                        <TimePicker 
+                          value={editTaskDraft.startTime} 
+                          onChange={(val) => setEditTaskDraft(prev => ({...prev, startTime: val}))}
+                        />
                       </div>
                     </div>
                   )}
@@ -642,51 +614,6 @@ export function ScheduleDetailPanel({
 
           return (
             <>
-              {/* 2. 역할별 업무 가이드 (기본 토글: 닫힘) */}
-              <details className="group">
-                <summary className="text-[13px] font-semibold text-[#1a1a1a] cursor-pointer flex justify-between items-center select-none outline-none hover:bg-muted/30 py-1.5 px-1 rounded-sm transition-colors">
-                  <div className="flex items-center gap-1.5">
-                    <span>{selectedSchedule.displayRole} 업무 가이드</span>
-                    <span className="text-[9px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium">조회 전용</span>
-                  </div>
-                  <span className="text-[10px] text-muted-foreground transition-transform duration-200 group-open:rotate-180">▼</span>
-                </summary>
-                <div className="mt-2 flex flex-col gap-2 pl-2 pr-1">
-                  {loadingRoleTemplates ? (
-                    <div className="text-[10px] text-muted-foreground bg-muted/30 p-2.5 rounded border border-dashed text-center animate-pulse">
-                      불러오는 중...
-                    </div>
-                  ) : roleTemplates.length > 0 ? (
-                    <div className="flex flex-col gap-1.5">
-                      {roleTemplates.map((template: any) => (
-                        <div key={template.id} className="p-2.5 bg-[#fcfcfc] border border-black/10 rounded-md shadow-sm">
-                          <div className="flex items-start gap-2">
-                            <div className="w-1.5 h-1.5 rounded-full bg-primary/40 mt-1.5 shrink-0" />
-                            <div className="flex flex-col flex-1 leading-tight mt-0.5 gap-1">
-                              <span className="text-[12px] font-medium text-[#1a1a1a]">{template.title}</span>
-                              {template.description && (
-                                <span className="text-[11px] text-muted-foreground">{template.description}</span>
-                              )}
-                            </div>
-                            {template.start_time && template.task_type !== 'always' && (
-                              <div className="text-[9px] px-1.5 py-0.5 rounded font-medium flex-shrink-0 bg-muted/50 text-muted-foreground border border-black/5 whitespace-nowrap">
-                                🕒 {toKSTISOString(template.start_time).substring(11, 16)}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-[10px] text-muted-foreground bg-muted/30 p-2.5 rounded border border-dashed text-center">
-                      이 역할에 지정된 업무 가이드가 없습니다.
-                    </div>
-                  )}
-                </div>
-              </details>
-
-              <div className="w-full h-px bg-black/10 my-1" />
-
               {/* 3. 개인별 업무(체크리스트) 관리 */}
               <div className="flex flex-col gap-3 mt-2">
                 <div className="flex items-center justify-between px-1">
@@ -762,7 +689,10 @@ export function ScheduleDetailPanel({
                   <div className="flex flex-col gap-1.5 bg-white p-2 rounded border border-black/5">
                     <label className="text-[9px] text-muted-foreground">업무 시작 시간 (선택)</label>
                     <div className="flex items-center gap-2">
-                      <Input type="time" className="h-7 text-[10px]" value={newTaskDraft.startTime} onChange={(e) => setNewTaskDraft(prev => ({...prev, startTime: e.target.value}))}/>
+                      <TimePicker 
+                        value={newTaskDraft.startTime} 
+                        onChange={(val) => setNewTaskDraft(prev => ({...prev, startTime: val}))}
+                      />
                     </div>
                   </div>
                 )}

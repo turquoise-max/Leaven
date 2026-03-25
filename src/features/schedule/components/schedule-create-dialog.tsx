@@ -233,50 +233,96 @@ export function ScheduleCreateDialog({
         </DialogHeader>
         
         <div className="p-5 flex flex-col gap-6">
-          {/* 고정 정보 영역 (직원명 & 날짜) */}
-          <div className="flex bg-[#f3f2ef] rounded-lg p-3 border border-black/5 items-center gap-4">
-            <div className="flex-1">
-              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1 block">대상 직원</label>
-              {createForm.staffId ? (
-                <div className="text-[14px] font-semibold text-[#1a1a1a]">
-                  {staffList.find(s => s.id === createForm.staffId)?.name || '알 수 없음'}
-                </div>
-              ) : (
-                <Select value={createForm.staffId} onValueChange={(val) => setCreateForm({...createForm, staffId: val})}>
-                  <SelectTrigger className="text-[12px] h-7 bg-white">
-                    <SelectValue placeholder="직원 선택" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {staffList.map(s => <SelectItem key={s.id} value={s.id} className="text-[12px]">{s.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              )}
+          <div className="grid grid-cols-2 gap-3">
+            {/* 고정 정보 영역 (직원명 & 날짜) */}
+            <div className="flex bg-[#f3f2ef] rounded-lg p-3 border border-black/5 items-center gap-4 col-span-2">
+              <div className="flex-1">
+                <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1 block">대상 직원</label>
+                {createForm.staffId ? (
+                  <div className="text-[14px] font-semibold text-[#1a1a1a]">
+                    {staffList.find(s => s.id === createForm.staffId)?.name || '알 수 없음'}
+                  </div>
+                ) : (
+                  <Select value={createForm.staffId} onValueChange={(val) => setCreateForm({...createForm, staffId: val})}>
+                    <SelectTrigger className="text-[12px] h-7 bg-white">
+                      <SelectValue placeholder="직원 선택" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {staffList.map(s => <SelectItem key={s.id} value={s.id} className="text-[12px]">{s.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+              <div className="w-px h-8 bg-black/10" />
+              <div className="flex-1">
+                <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1 block">날짜</label>
+                {createForm.date ? (
+                  <div className="text-[14px] font-semibold text-[#1a1a1a]">
+                    {createForm.date}
+                  </div>
+                ) : (
+                  <Input 
+                    type="date" 
+                    className="text-[12px] h-7 bg-white px-2 py-0" 
+                    value={createForm.date} 
+                    onChange={(e) => setCreateForm({...createForm, date: e.target.value})} 
+                  />
+                )}
+              </div>
             </div>
-            <div className="w-px h-8 bg-black/10" />
-            <div className="flex-1">
-              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1 block">날짜</label>
-              {createForm.date ? (
-                <div className="text-[14px] font-semibold text-[#1a1a1a]">
-                  {createForm.date}
-                </div>
-              ) : (
-                <Input 
-                  type="date" 
-                  className="text-[12px] h-7 bg-white px-2 py-0" 
-                  value={createForm.date} 
-                  onChange={(e) => setCreateForm({...createForm, date: e.target.value})} 
-                />
-              )}
+
+            {/* 스케줄 유형 선택 */}
+            <div className="flex flex-col gap-1.5 col-span-2">
+              <label className="text-[12px] font-semibold text-[#1a1a1a]">스케줄 유형</label>
+              <Select 
+                value={createForm.scheduleType || 'regular'} 
+                onValueChange={(val) => {
+                  const typeLabelMap: Record<string, string> = {
+                    'regular': '근무',
+                    'leave': '휴가',
+                    'training': '교육',
+                    'etc': '기타'
+                  }
+                  setCreateForm({
+                    ...createForm,
+                    scheduleType: val,
+                    title: typeLabelMap[val] || '근무'
+                  })
+                }}
+              >
+                <SelectTrigger className="h-9 text-[13px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="regular" className="text-[13px]">근무</SelectItem>
+                  <SelectItem value="leave" className="text-[13px]">휴가</SelectItem>
+                  <SelectItem value="training" className="text-[13px]">교육</SelectItem>
+                  <SelectItem value="etc" className="text-[13px]">기타</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 시간 입력 영역 */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[12px] font-semibold text-[#1a1a1a]">시작 시간</label>
+              <TimePicker 
+                value={createForm.startTime} 
+                onChange={(val) => setCreateForm({...createForm, startTime: val})}
+                className="w-full"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[12px] font-semibold text-[#1a1a1a]">종료 시간</label>
+              <TimePicker 
+                value={createForm.endTime} 
+                onChange={(val) => setCreateForm({...createForm, endTime: val})}
+                className="w-full"
+              />
             </div>
           </div>
 
           {/* 시간 선택 슬라이더 */}
-          <div className="flex flex-col gap-2">
-            <div className="flex justify-between items-center mb-2">
-              <label className="text-[13px] font-bold text-[#1a1a1a]">근무 시간 선택</label>
-              <div className="text-[12px] font-medium text-[#1a1a1a] bg-black/5 px-2 py-1 rounded-md">
-                {createForm.startTime} ~ {createForm.endTime}
-              </div>
+          <div className="flex flex-col gap-2 mt-2">
+            <div className="flex justify-between items-center mb-1">
+              <label className="text-[12px] font-medium text-muted-foreground italic">시간 슬라이더 (드래그하여 조정 가능)</label>
             </div>
             
             <TimeSlider 
@@ -287,56 +333,11 @@ export function ScheduleCreateDialog({
             />
             
             {isOverlapping && (
-              <div className="text-[11px] font-medium text-red-500 bg-red-50 px-2 py-1.5 rounded border border-red-100 mt-2 flex items-center gap-1.5">
+              <div className="text-[11px] font-medium text-red-500 bg-red-50 px-2 py-1.5 rounded border border-red-100 mt-4 flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
                 선택한 시간대에 이미 기존 스케줄이 존재합니다. 시간을 조정해주세요.
               </div>
             )}
-            
-            <div className="flex justify-between mt-6 px-1">
-              <div className="flex items-center gap-2">
-                <TimePicker 
-                  value={createForm.startTime} 
-                  onChange={(val) => setCreateForm({...createForm, startTime: val})}
-                  className="w-[120px]"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <TimePicker 
-                  value={createForm.endTime} 
-                  onChange={(val) => setCreateForm({...createForm, endTime: val})}
-                  className="w-[120px]"
-                />
-              </div>
-            </div>
-          </div>
-          
-          <div className="flex flex-col gap-2.5">
-            <label className="text-[12px] font-semibold text-[#1a1a1a]">스케줄 유형</label>
-            <div className="flex gap-2 flex-wrap">
-              {[
-                { id: 'regular', label: '정규 근무' },
-                { id: 'substitute', label: '대체 근무' },
-                { id: 'overtime', label: '연장 근무' },
-                { id: 'off', label: '휴무' },
-                { id: 'leave', label: '휴가/병가' },
-                { id: 'training', label: '교육' },
-                { id: 'etc', label: '기타' }
-              ].map((typeObj) => (
-                <button
-                  key={typeObj.id}
-                  type="button"
-                  className={`px-3 py-1.5 text-[11px] font-medium rounded-md border transition-colors ${
-                    createForm.scheduleType === typeObj.id || (!createForm.scheduleType && typeObj.id === 'regular')
-                      ? 'bg-[#1a1a1a] text-white border-[#1a1a1a] shadow-sm'
-                      : 'bg-white text-[#6b6b6b] border-black/10 hover:bg-[#f3f2ef]'
-                  }`}
-                  onClick={() => setCreateForm({...createForm, scheduleType: typeObj.id, title: typeObj.label})}
-                >
-                  {typeObj.label}
-                </button>
-              ))}
-            </div>
           </div>
         </div>
         
@@ -370,7 +371,7 @@ export function ScheduleCreateDialog({
               formData.append('date', createForm.date)
               formData.append('startTime', createForm.startTime)
               formData.append('endTime', createForm.endTime)
-              formData.append('title', createForm.title || '정규 근무')
+              formData.append('title', createForm.title || '근무')
               formData.append('schedule_type', createForm.scheduleType || 'regular')
 
               const res = await createSchedule(storeId, formData)
@@ -384,7 +385,7 @@ export function ScheduleCreateDialog({
                 id: `temp-${Date.now()}`,
                 start_time: startStr,
                 end_time: endStr,
-                title: createForm.title || '정규 근무',
+                title: createForm.title || '근무',
                 schedule_type: createForm.scheduleType || 'regular',
                 schedule_members: [{ member_id: createForm.staffId }],
                 task_assignments: []
