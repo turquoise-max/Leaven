@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { addMinutesToTime, getCurrentISOString, toUTCISOString, getNextDateString } from '@/lib/date-utils'
+import { addMinutesToTime, getCurrentISOString, toUTCISOString, getNextDateString } from '@/shared/lib/date-utils'
 import { requirePermission, hasPermission, getStoreMemberRole } from '@/features/auth/permissions'
 
 export interface ChecklistItem {

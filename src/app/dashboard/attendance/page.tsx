@@ -4,7 +4,7 @@ import { requirePermission } from '@/features/auth/permissions'
 import { getStoreRoles } from '@/features/store/actions'
 import { cookies } from 'next/headers'
 import { AttendanceClientPage } from '@/features/attendance/components/attendance-client'
-import { getTodayDateString } from '@/lib/date-utils'
+import { getTodayDateString } from '@/shared/lib/date-utils'
 
 export default async function AttendancePage() {
   const supabase = await createClient()

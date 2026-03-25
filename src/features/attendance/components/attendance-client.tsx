@@ -13,7 +13,7 @@ import { Activity, Clock, FileClock, CheckSquare, Search, Download, PlayCircle, 
 import { getDailyAttendanceOverview, clockIn, clockOut, startBreak, endBreak, getAttendanceRequests, resolveAttendanceRequest, createAttendanceRequest, AttendanceRecord } from '@/features/attendance/actions'
 import { toast } from 'sonner'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { getDiffInMinutes, toKSTISOString, toUTCISOString } from '@/lib/date-utils'
+import { getDiffInMinutes, toKSTISOString, toUTCISOString } from '@/shared/lib/date-utils'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { CalendarDays } from 'lucide-react'
 import { cn } from '@/lib/utils'

@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { unstable_noStore as noStore } from 'next/cache'
-import { getCurrentISOString } from '@/lib/date-utils'
+import { getCurrentISOString } from '@/shared/lib/date-utils'
 import { requirePermission } from '@/features/auth/permissions'
 
 export interface AttendanceRecord {

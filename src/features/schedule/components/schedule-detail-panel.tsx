@@ -12,7 +12,7 @@ import { updateSchedule, deleteSchedule } from '@/features/schedule/actions'
 import { createTask, assignTask, deleteTask, updateTaskAssignment, toggleTaskCheckitem } from '@/features/schedule/task-actions'
 import { useRouter } from 'next/navigation'
 import { Pencil, Trash2 } from 'lucide-react'
-import { toKSTISOString } from '@/lib/date-utils'
+import { toKSTISOString } from '@/shared/lib/date-utils'
 
 function hexToRgba(hex: string, alpha: number) {
   if (!hex) return `rgba(0,0,0,${alpha})`

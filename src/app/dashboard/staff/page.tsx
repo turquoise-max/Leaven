@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { hasPermission } from '@/features/auth/permissions'
 import { StaffList } from '@/features/staff/components/staff-list'
 import { cookies } from 'next/headers'
-import { StoreCodeDisplay } from '@/components/dashboard/store-code-display'
+import { StoreCodeDisplay } from '@/features/store/components/store-code-display'
 import { getStaffList } from '@/features/staff/actions'
 
 export const dynamic = 'force-dynamic'

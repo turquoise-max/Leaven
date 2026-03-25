@@ -11,7 +11,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { updateTaskStatus } from '@/features/schedule/task-actions'
 import { updateScheduleTime } from '@/features/schedule/actions'
 import { toast } from 'sonner'
-import { toUTCISOString, getDiffInMinutes, addMinutesToTime } from '@/lib/date-utils'
+import { toUTCISOString, getDiffInMinutes, addMinutesToTime } from '@/shared/lib/date-utils'
 import { ScheduleDetailPanel, STATUS_INFO } from './schedule-detail-panel'
 import { ScheduleCreateDialog } from './schedule-create-dialog'
 import { UnifiedAutoScheduleDialog } from './unified-auto-schedule-dialog'

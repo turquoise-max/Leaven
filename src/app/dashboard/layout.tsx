@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { DashboardClientLayout } from '@/components/dashboard/dashboard-layout'
+import { DashboardClientLayout } from '@/shared/components/layout/dashboard-layout'
 import { cookies } from 'next/headers'
 import { getUserStores } from '@/features/store/actions'
 import { hasPermission } from '@/features/auth/permissions'

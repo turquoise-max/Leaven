@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { sendContract } from '@/lib/modusign/client'
-import { STANDARD_LABELS, FIXED_TERM_LABELS } from '@/lib/modusign/labels'
+import { sendContract } from '@/features/contract/lib/client'
+import { STANDARD_LABELS, FIXED_TERM_LABELS } from '@/features/contract/lib/labels'
 
 export async function POST(req: Request) {
   try {

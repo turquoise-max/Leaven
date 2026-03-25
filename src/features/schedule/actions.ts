@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/features/auth/permissions'
-import { toUTCISOString, getCurrentISOString, getNextDateString, getDiffInMinutes, addMinutesToTime } from '@/lib/date-utils'
+import { toUTCISOString, getCurrentISOString, getNextDateString, getDiffInMinutes, addMinutesToTime } from '@/shared/lib/date-utils'
 
 // 스케줄 조회 (기간)
 export async function getSchedules(storeId: string, startDate: string, endDate: string) {

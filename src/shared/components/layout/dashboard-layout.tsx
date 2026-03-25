@@ -6,16 +6,16 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from '@/components/ui/resizable'
-import { Sidebar } from '@/components/dashboard/sidebar'
-import { StaffSidebar } from '@/components/dashboard/staff-sidebar'
-import { Header } from '@/components/dashboard/header'
+import { Sidebar } from '@/shared/components/layout/sidebar'
+import { StaffSidebar } from '@/features/staff/components/staff-sidebar'
+import { Header } from '@/shared/components/layout/header'
 import { cn } from '@/lib/utils'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { PlusIcon, Home } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { setCurrentStore } from '@/features/store/actions'
-import { MobileBottomNav } from '@/components/dashboard/mobile-bottom-nav'
+import { MobileBottomNav } from '@/shared/components/layout/mobile-bottom-nav'
 
 interface DashboardLayoutProps {
   children: React.ReactNode

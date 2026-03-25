@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { unstable_noStore as noStore } from 'next/cache'
 import { requirePermission } from '@/features/auth/permissions'
-import { toUTCISOString } from '@/lib/date-utils'
+import { toUTCISOString } from '@/shared/lib/date-utils'
 
 export async function getLeaveBalances(storeId: string, year: number) {
   noStore()

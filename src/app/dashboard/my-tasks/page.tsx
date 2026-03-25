@@ -4,7 +4,7 @@ import { cookies } from 'next/headers'
 import { DashboardTaskList } from '@/features/schedule/components/dashboard-task-list'
 import { getStoreAnnouncements } from '@/features/store/announcement-actions'
 import { StaffAnnouncementList } from '@/features/store/components/staff-announcement-list'
-import { getTodayDateString } from '@/lib/date-utils'
+import { getTodayDateString } from '@/shared/lib/date-utils'
 
 export const dynamic = 'force-dynamic'
 

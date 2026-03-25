@@ -10,7 +10,7 @@ import {
 import { RoleTaskForm, RoleTaskFormData } from './role-task-form'
 import { updateTask, deleteTask } from '../task-actions'
 import { toast } from 'sonner'
-import { getTodayDateString, toUTCISOString, toKSTISOString } from '@/lib/date-utils'
+import { getTodayDateString, toUTCISOString, toKSTISOString } from '@/shared/lib/date-utils'
 
 interface EditRoleTaskDialogProps {
   storeId: string
