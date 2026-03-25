@@ -21,6 +21,7 @@ interface StaffScheduleMatrixProps {
   roles: any[]
   activeRoleIds: string[]
   getStaffRoleInfo: (staff: any) => any
+  approvedLeaves?: any[]
   onCellClick: (staff: any, date: Date) => void
   onScheduleClick: (sch: any, staff: any) => void
 }
@@ -33,6 +34,7 @@ export function StaffScheduleMatrix({
   roles,
   activeRoleIds,
   getStaffRoleInfo,
+  approvedLeaves = [],
   onCellClick,
   onScheduleClick
 }: StaffScheduleMatrixProps) {
@@ -133,22 +135,32 @@ export function StaffScheduleMatrix({
                                 const start = new Date(sch.start_time)
                                 const end = new Date(sch.end_time)
                                 
-                                const isLeave = sch.schedule_type === 'leave'
-                                const isTraining = sch.schedule_type === 'training'
-                                const isEtc = sch.schedule_type === 'etc'
+                                // [기획자 핵심 로직] SSOT 기반 휴가 실시간 렌더링
+                                const isActuallyOnLeave = approvedLeaves.some((leave: any) => {
+                                  // leave_requests의 start_date, end_date는 "YYYY-MM-DD" 문자열임
+                                  // sch.start_time은 UTC ISO 문자열임. 비교를 위해 날짜만 추출
+                                  const schDateOnly = format(new Date(sch.start_time), 'yyyy-MM-dd');
+                                  return leave.member_id === staff.id && 
+                                         schDateOnly >= leave.start_date && 
+                                         schDateOnly <= leave.end_date;
+                                });
+
+                                const currentType = isActuallyOnLeave ? 'leave' : sch.schedule_type;
+                                const isTraining = currentType === 'training'
+                                const isEtc = currentType === 'etc'
+                                const isLeave = currentType === 'leave'
                                 
                                 // 색상 동적 결정: 휴가는 무조건 회색, 나머지는 본래 색상(또는 직급 색상)
                                 const scheduleColor = isLeave ? '#64748b' : (sch.color || roleColor)
                                 
-                                // 타이틀 동적 결정
-                                let displayTitle = sch.title || '근무'
-                                if (isLeave) {
-                                  displayTitle = '휴가' // 휴가일 경우 문구를 '휴가'로 통일
-                                } else if (isTraining && !displayTitle.includes('[교육]')) {
-                                  displayTitle = displayTitle === '교육' ? '교육' : `[교육] ${displayTitle}`
-                                } else if (isEtc && !displayTitle.includes('[기타]')) {
-                                  displayTitle = displayTitle === '기타' ? '기타' : `[기타] ${displayTitle}`
+                                // 타이틀 동적 결정: 휴가 기록이 있으면 강제로 '휴가' 표시
+                                const typeLabelMap: Record<string, string> = {
+                                  'regular': '근무',
+                                  'leave': '휴가',
+                                  'training': '교육',
+                                  'etc': '기타'
                                 }
+                                const displayTitle = typeLabelMap[currentType] || sch.title || '근무'
 
                                 return (
                                   <TooltipProvider key={sch.id} delayDuration={300}>

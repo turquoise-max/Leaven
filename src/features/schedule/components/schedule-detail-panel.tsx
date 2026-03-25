@@ -61,6 +61,7 @@ interface ScheduleDetailPanelProps {
   setLocalSchedules: React.Dispatch<React.SetStateAction<any[]>>
   handleTaskToggle: (taskId: string, currentStatus: string) => Promise<void>
   now: Date
+  approvedLeaves?: any[]
 }
 
 export const STATUS_INFO: Record<string, { label: string, color: string, bg: string, border: string }> = {
@@ -77,7 +78,8 @@ export function ScheduleDetailPanel({
   staffList,
   setLocalSchedules,
   handleTaskToggle,
-  now
+  now,
+  approvedLeaves = []
 }: ScheduleDetailPanelProps) {
   const router = useRouter()
   const [isTaskFormOpen, setIsTaskFormOpen] = useState(false)
@@ -268,7 +270,37 @@ export function ScheduleDetailPanel({
               <label className="text-[10px] font-medium text-muted-foreground">스케줄 유형</label>
               <Select 
                 value={selectedSchedule.scheduleType || selectedSchedule.schedule_type || 'regular'} 
+                disabled={(() => {
+                  const schDateOnly = selectedSchedule.editDate;
+                  const staffId = selectedSchedule.editStaffId || selectedSchedule.schedule_members?.[0]?.member_id;
+                  return approvedLeaves.some((leave: any) => {
+                    return (leave.member_id === staffId) && 
+                           (schDateOnly >= leave.start_date) && 
+                           (schDateOnly <= leave.end_date);
+                  });
+                })()}
                 onValueChange={(val) => {
+                  // [기획자 가드 로직] 휴가 중인 경우 유형 변경 제한 (Select의 disabled 속성으로 1차 차단됨)
+                  const isActuallyOnLeave = approvedLeaves.some((leave: any) => {
+                    const schDateOnly = selectedSchedule.editDate;
+                    const staffId = selectedSchedule.editStaffId || selectedSchedule.schedule_members?.[0]?.member_id;
+                    
+                    // staffId와 leave.member_id가 일치하고 날짜가 범위 내에 있는지 정밀 체크
+                    return (leave.member_id === staffId) && 
+                           (schDateOnly >= leave.start_date) && 
+                           (schDateOnly <= leave.end_date);
+                  });
+
+                  if (isActuallyOnLeave && val !== 'leave') {
+                    toast.error('변경할 수 없습니다.', {
+                      description: '해당 날짜에 승인된 휴가 일정이 존재합니다. 휴가를 먼저 취소해주세요.',
+                      duration: 4000,
+                    });
+                    // Select 값을 강제로 고정하기 위해 상태 재입력
+                    setSelectedSchedule((prev: any) => ({ ...prev }));
+                    return;
+                  }
+
                   const typeLabelMap: Record<string, string> = {
                     'regular': '근무',
                     'leave': '휴가',
@@ -292,6 +324,25 @@ export function ScheduleDetailPanel({
               </Select>
             </div>
           </div>
+          
+          {(() => {
+            const schDateOnly = selectedSchedule.editDate;
+            const staffId = selectedSchedule.editStaffId || selectedSchedule.schedule_members?.[0]?.member_id;
+            const isActuallyOnLeave = approvedLeaves.some((leave: any) => {
+              return (leave.member_id === staffId) && 
+                     (schDateOnly >= leave.start_date) && 
+                     (schDateOnly <= leave.end_date);
+            });
+            
+            if (isActuallyOnLeave) {
+              return (
+                <div className="text-[10px] text-orange-600 bg-orange-50 px-2 py-1.5 rounded border border-orange-100 mt-[-4px]">
+                  해당 날짜에 승인된 휴가 일정이 존재하여 스케줄 유형을 변경할 수 없습니다.
+                </div>
+              );
+            }
+            return null;
+          })()}
 
           {(selectedSchedule.scheduleType || selectedSchedule.schedule_type) !== 'leave' && (
             <div className="flex gap-2">

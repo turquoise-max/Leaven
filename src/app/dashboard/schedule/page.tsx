@@ -86,7 +86,14 @@ export default async function UnifiedSchedulePage() {
     `)
     .eq('store_id', member.store_id)
 
-  const mySchedules = (schedules || []).filter((sch: any) => 
+  // 승인된 휴가 데이터 조회
+  const { data: approvedLeaves } = await supabase
+    .from('leave_requests')
+    .select('id, member_id, start_date, end_date, leave_type, reason')
+    .eq('store_id', member.store_id)
+    .eq('status', 'approved')
+
+  const mySchedules = (schedules || []).filter((sch: any) =>
     sch.schedule_members?.some((sm: any) => sm.member_id === member.id)
   )
 
@@ -148,12 +155,13 @@ export default async function UnifiedSchedulePage() {
       </div>
 
       {/* Main 2-Column Layout Component */}
-      <UnifiedCalendar 
-        storeId={member.store_id} 
-        roles={roles || []} 
-        staffList={staffList} 
-        schedules={schedules || []} 
+      <UnifiedCalendar
+        storeId={member.store_id}
+        roles={roles || []}
+        staffList={staffList}
+        schedules={schedules || []}
         storeOpeningHours={Array.isArray(member.store) ? member.store[0]?.opening_hours : (member.store as any)?.opening_hours}
+        approvedLeaves={approvedLeaves || []}
       />
     </div>
   ) : null

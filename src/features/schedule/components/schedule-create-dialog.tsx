@@ -283,10 +283,11 @@ export function ScheduleCreateDialog({
                     'training': '교육',
                     'etc': '기타'
                   }
+                  const label = typeLabelMap[val] || '근무'
                   setCreateForm({
                     ...createForm,
                     scheduleType: val,
-                    title: typeLabelMap[val] || '근무'
+                    title: label
                   })
                 }}
               >
@@ -338,6 +339,16 @@ export function ScheduleCreateDialog({
                 선택한 시간대에 이미 기존 스케줄이 존재합니다. 시간을 조정해주세요.
               </div>
             )}
+
+            {/* 휴가 기간 경고 추가 */}
+            {createForm.staffId && createForm.date && localSchedules.some(s => s.approved_leaves?.some((l: any) => 
+              l.member_id === createForm.staffId && createForm.date >= l.start_date && createForm.date <= l.end_date
+            )) && (
+              <div className="text-[11px] font-medium text-amber-600 bg-amber-50 px-2 py-1.5 rounded border border-amber-100 mt-2 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                해당 직원은 해당 날짜에 휴가 승인 기록이 있습니다. 유형이 자동으로 '휴가'로 설정될 수 있습니다.
+              </div>
+            )}
           </div>
         </div>
         
@@ -365,6 +376,18 @@ export function ScheduleCreateDialog({
                 return
               }
 
+              // [기획자 가드 로직] 생성 시에도 휴가 여부 최종 확인
+              const isActuallyOnLeave = localSchedules.some(s => s.approved_leaves?.some((l: any) => 
+                l.member_id === createForm.staffId && createForm.date >= l.start_date && createForm.date <= l.end_date
+              ));
+
+              if (isActuallyOnLeave && (createForm.scheduleType || 'regular') !== 'leave') {
+                toast.error('스케줄을 생성할 수 없습니다.', {
+                  description: '해당 직원은 해당 날짜에 휴가 승인 기록이 있습니다. 유형을 휴가로 선택해주세요.'
+                });
+                return;
+              }
+
               // API Call
               const formData = new FormData()
               formData.append('userIds', JSON.stringify([createForm.staffId]))
@@ -381,11 +404,19 @@ export function ScheduleCreateDialog({
               }
 
               // Optimistic UI Update
+              const typeLabelMap: Record<string, string> = {
+                'regular': '근무',
+                'leave': '휴가',
+                'training': '교육',
+                'etc': '기타'
+              }
+              const displayTitle = typeLabelMap[createForm.scheduleType || 'regular'] || createForm.title || '근무'
+              
               const newSchedule = {
                 id: `temp-${Date.now()}`,
                 start_time: startStr,
                 end_time: endStr,
-                title: createForm.title || '근무',
+                title: displayTitle,
                 schedule_type: createForm.scheduleType || 'regular',
                 schedule_members: [{ member_id: createForm.staffId }],
                 task_assignments: []

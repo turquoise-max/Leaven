@@ -5,11 +5,12 @@ import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/features/auth/permissions'
 import { toUTCISOString, getCurrentISOString, getNextDateString, getDiffInMinutes, addMinutesToTime } from '@/shared/lib/date-utils'
 
-// 스케줄 조회 (기간)
+// 스케줄 조회 (기간) 및 해당 기간의 승인된 휴가 정보 함께 반환
 export async function getSchedules(storeId: string, startDate: string, endDate: string) {
   const supabase = await createClient()
 
-  const { data: schedules, error } = await supabase
+  // 1. 스케줄 기본 정보 조회
+  const { data: schedules, error: scheduleError } = await supabase
     .from('schedules')
     .select(`
       id,
@@ -23,18 +24,42 @@ export async function getSchedules(storeId: string, startDate: string, endDate: 
       schedule_members (
         member_id,
         member:store_members (name, user_id, profile:profiles(full_name, avatar_url))
+      ),
+      task_assignments(
+        id,
+        start_time,
+        end_time,
+        task:tasks(id, title, description, status, checklist)
       )
     `)
     .eq('store_id', storeId)
     .gte('start_time', startDate)
     .lte('end_time', endDate)
 
-  if (error) {
-    console.error('Error fetching schedules:', error)
+  if (scheduleError) {
+    console.error('Error fetching schedules:', scheduleError)
     return []
   }
 
-  return schedules
+  // 2. 해당 기간의 승인된 휴가 정보 조회 (SSOT)
+  const { data: leaves, error: leaveError } = await supabase
+    .from('leave_requests')
+    .select('member_id, start_date, end_date, leave_type, reason')
+    .eq('store_id', storeId)
+    .eq('status', 'approved')
+    .gte('end_date', startDate.split('T')[0])
+    .lte('start_date', endDate.split('T')[0])
+
+  if (leaveError) {
+    console.error('Error fetching leaves:', leaveError)
+    return schedules
+  }
+
+  // 스케줄 객체에 관련 휴가 정보를 붙여서 반환
+  return schedules.map((sch: any) => ({
+    ...sch,
+    approved_leaves: leaves // 프론트엔드에서 필터링하여 사용
+  }))
 }
 
 // 스케줄 생성 (다중 인원, 반복 지원)

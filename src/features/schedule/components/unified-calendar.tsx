@@ -71,9 +71,10 @@ interface UnifiedCalendarProps {
   staffList?: any[]
   schedules?: any[]
   storeOpeningHours?: any
+  approvedLeaves?: any[]
 }
 
-export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = [], storeOpeningHours }: UnifiedCalendarProps) {
+export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = [], storeOpeningHours, approvedLeaves = [] }: UnifiedCalendarProps) {
   const [viewMode, setViewMode] = useState<'matrix' | 'calendar'>('matrix')
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null)
   
@@ -110,7 +111,8 @@ export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = []
     date: format(new Date(), 'yyyy-MM-dd'),
     startTime: '09:00',
     endTime: '18:00',
-    staffId: ''
+    staffId: '',
+    scheduleType: 'regular' as 'regular' | 'leave' | 'training' | 'etc'
   })
   
   // 검색창 포커스 상태
@@ -280,7 +282,8 @@ export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = []
               date: dateStr,
               startTime: displayStartStr,
               endTime: displayEndStr,
-              staffId: staffId || ''
+              staffId: staffId || '',
+              scheduleType: 'regular'
             })
             setIsCreateModalOpen(true)
           }
@@ -725,13 +728,15 @@ export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = []
               roles={roles}
               activeRoleIds={activeRoleIds}
               getStaffRoleInfo={getStaffRoleInfo}
+              approvedLeaves={approvedLeaves}
               onCellClick={(staff, date) => {
                 setCreateForm({
-                  title: '정규 근무',
+                  title: '근무',
                   date: format(date, 'yyyy-MM-dd'),
                   startTime: '09:00',
                   endTime: '18:00',
-                  staffId: staff.id
+                  staffId: staff.id,
+                  scheduleType: 'regular'
                 })
                 setIsCreateModalOpen(true)
               }}
@@ -747,13 +752,15 @@ export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = []
               roles={roles}
               activeRoleIds={activeRoleIds}
               getStaffRoleInfo={getStaffRoleInfo}
+              approvedLeaves={approvedLeaves}
               onDateClick={(date) => {
                 setCreateForm({
-                  title: '정규 근무',
+                  title: '근무',
                   date: format(date, 'yyyy-MM-dd'),
                   startTime: '09:00',
                   endTime: '18:00',
-                  staffId: ''
+                  staffId: '',
+                  scheduleType: 'regular'
                 })
                 setIsCreateModalOpen(true)
               }}
@@ -775,6 +782,7 @@ export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = []
               setLocalSchedules={setLocalSchedules}
               handleTaskToggle={handleTaskToggle}
               now={now}
+              approvedLeaves={approvedLeaves}
             />
           </div>
         )}

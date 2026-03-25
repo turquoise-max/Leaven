@@ -156,54 +156,12 @@ export async function resolveLeaveRequest(requestId: string, storeId: string, st
     }
   }
 
-  // 승인 완료된 휴가를 기존 근무 스케줄의 `type`으로 덮어쓰기 로직
+  // [기획자 핵심 로직] 물리적 동기화 최소화 및 렌더링 기반 동기화로 전환
+  // 스케줄 테이블의 데이터를 직접 수정하는 대신, revalidate를 통해 최신 휴가 SSOT를 반영하게 합니다.
+  
   if (status === 'approved') {
-    // 프로젝트 표준 유틸리티를 사용하여 KST 날짜를 정확한 UTC 범위로 변환
-    const startIso = toUTCISOString(request.start_date, '00:00')
-    const endIso = toUTCISOString(request.end_date, '23:59')
-
-    // 1. 해당 날짜, 해당 직원이 포함된 스케줄 찾기
-    const { data: existingSchedules } = await supabase
-      .from('schedules')
-      .select('id, schedule_members!inner(member_id)')
-      .eq('store_id', storeId)
-      .eq('schedule_members.member_id', request.member_id)
-      .gte('start_time', startIso)
-      .lt('start_time', endIso)
-
-    if (existingSchedules && existingSchedules.length > 0) {
-      // 2-1. 기존 스케줄이 있다면 본래 데이터(color, title 등)는 건드리지 않고 오직 schedule_type만 'leave'로 변경
-      const scheduleIds = existingSchedules.map(s => s.id)
-      await supabase
-        .from('schedules')
-        .update({
-          schedule_type: 'leave',
-          memo: `[휴가 사유] ${request.reason || '없음'}`
-        })
-        .in('id', scheduleIds)
-    } else {
-      // 2-2. 기존 스케줄이 없다면 빈 스케줄을 만들고 schedule_type을 'leave'로 설정
-      const { data: schData, error: schError } = await supabase
-        .from('schedules')
-        .insert({
-          store_id: storeId,
-          title: '근무', // 프론트엔드가 알아서 휴가로 렌더링함
-          memo: `[휴가 사유] ${request.reason || '없음'}`,
-          start_time: startIso,
-          end_time: endIso,
-          color: null,
-          schedule_type: 'leave'
-        })
-        .select()
-        .single()
-        
-      if (schData && !schError) {
-        await supabase.from('schedule_members').insert({
-          schedule_id: schData.id,
-          member_id: request.member_id
-        })
-      }
-    }
+    // 필요한 경우 스케줄 테이블에 명시적 'leave' 마킹을 할 수 있으나, 
+    // 이제 렌더링 시점에 leave_requests를 대조하므로 필수는 아닙니다.
   }
 
   revalidatePath('/dashboard/leave')
@@ -211,7 +169,6 @@ export async function resolveLeaveRequest(requestId: string, storeId: string, st
   return { success: true }
 }
 
-// 새로운 액션 추가: 이미 승인 완료된 휴가를 취소/원복(Rollback)하는 기능
 export async function cancelLeaveRequest(requestId: string, storeId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -233,13 +190,11 @@ export async function cancelLeaveRequest(requestId: string, storeId: string) {
 
   if (reqError || !request) return { error: '요청 정보를 찾을 수 없습니다.' }
 
-  if (request.status !== 'approved') return { error: '승인 완료된 휴가만 취소할 수 있습니다.' }
-
-  // 2. Update status to 'cancelled'
+  // 2. Update status to 'rejected' (승인 취소 = 반려 처리하여 SSOT에서 제거)
   const { error: finalError } = await supabase
     .from('leave_requests')
     .update({
-      status: 'cancelled', // 커스텀 상태 추가 (또는 rejected 활용)
+      status: 'rejected',
       reviewed_by: user.id,
       reviewed_at: new Date().toISOString()
     })
@@ -247,10 +202,10 @@ export async function cancelLeaveRequest(requestId: string, storeId: string) {
 
   if (finalError) return { error: '승인 취소 중 오류가 발생했습니다.' }
 
-  // 3. Rollback 연차 차감 (만약 '연차(annual)' 였다면 썼던 연차 일수만큼 다시 돌려줌)
-  if (request.leave_type === 'annual') {
+  // 3. Rollback 연차 차감
+  const isAnnualType = ['annual', 'half_am', 'half_pm'].includes(request.leave_type)
+  if (isAnnualType) {
     const year = parseInt(request.start_date.substring(0, 4))
-    
     const { data: balance } = await supabase
       .from('leave_balances')
       .select('*')
@@ -262,38 +217,15 @@ export async function cancelLeaveRequest(requestId: string, storeId: string) {
       await supabase
         .from('leave_balances')
         .update({
-          // 썼던 일수만큼 다시 빼서 원상복구
           used_days: Math.max(0, Number(balance.used_days) - Number(request.requested_days))
         })
         .eq('id', balance.id)
     }
   }
 
-  // 4. 스케줄을 다시 정규 근무(regular)로 원복
-  const startIso = new Date(`${request.start_date}T00:00:00Z`).toISOString()
-  const endIso = new Date(`${request.end_date}T23:59:59Z`).toISOString()
-
-  // 휴가 취소 시 해당 직원의 해당 날짜에 'leave' 타입으로 변경되었던 스케줄 찾기
-  const { data: existingSchedules } = await supabase
-    .from('schedules')
-    .select('id, schedule_members!inner(member_id)')
-    .eq('store_id', storeId)
-    .eq('schedule_type', 'leave') // 휴가로 바뀐 것들만
-    .eq('schedule_members.member_id', request.member_id)
-    .gte('start_time', startIso)
-    .lt('start_time', endIso)
-
-  if (existingSchedules && existingSchedules.length > 0) {
-    const scheduleIds = existingSchedules.map(s => s.id)
-    // 다시 일반 정규 근무로 변경 (프론트 렌더링 로직에 의해 원래의 색상과 타이틀이 복구된 것처럼 보임)
-    await supabase
-      .from('schedules')
-      .update({
-        schedule_type: 'regular',
-        memo: null // 휴가 사유 메모 초기화
-      })
-      .in('id', scheduleIds)
-  }
+  // [기획자 핵심 로직] 스케줄 테이블을 직접 수정하지 않고 Path Revalidation만 수행
+  // 화면 렌더링 시점에 leave_requests의 'approved' 상태가 사라졌으므로, 
+  // 스케줄은 자동으로 원래 유형(regular 등)으로 표시됩니다.
 
   revalidatePath('/dashboard/leave')
   revalidatePath('/dashboard/schedule')

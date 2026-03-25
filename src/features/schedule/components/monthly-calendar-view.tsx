@@ -19,6 +19,7 @@ interface MonthlyCalendarViewProps {
   roles: any[]
   activeRoleIds: string[]
   getStaffRoleInfo: (staff: any) => any
+  approvedLeaves?: any[]
   onDateClick: (date: Date) => void
   onScheduleClick: (sch: any, staff: any) => void
 }
@@ -30,6 +31,7 @@ export function MonthlyCalendarView({
   roles,
   activeRoleIds,
   getStaffRoleInfo,
+  approvedLeaves = [],
   onDateClick,
   onScheduleClick
 }: MonthlyCalendarViewProps) {
@@ -142,22 +144,40 @@ export function MonthlyCalendarView({
                       const roleInfo = staff ? getStaffRoleInfo(staff) : null
                       const roleColor = roleInfo?.color || '#534AB7'
                       const safeName = staff?.name || '직원'
+
+                      // [기획자 핵심 로직] SSOT 기반 휴가 실시간 렌더링
+                      const isActuallyOnLeave = approvedLeaves.some((leave: any) => {
+                        const schDateOnly = format(new Date(sch.start_time), 'yyyy-MM-dd');
+                        return leave.member_id === staffId && 
+                               schDateOnly >= leave.start_date && 
+                               schDateOnly <= leave.end_date;
+                      });
+
+                      const currentType = isActuallyOnLeave ? 'leave' : sch.schedule_type;
                       
-                      const isLeave = sch.schedule_type === 'leave'
-                      const isTraining = sch.schedule_type === 'training'
-                      const isEtc = sch.schedule_type === 'etc'
+                      const isLeave = currentType === 'leave'
+                      const isTraining = currentType === 'training'
+                      const isEtc = currentType === 'etc'
                       
                       // 색상 동적 결정: 휴가는 무조건 회색, 나머지는 본래 색상(또는 직급 색상)
                       const scheduleColor = isLeave ? '#64748b' : (sch.color || roleColor)
                       
                       // 타이틀 동적 결정
-                      let displayTitle = sch.title || '근무'
-                      if (isLeave) {
-                        displayTitle = '휴가'
-                      } else if (isTraining && !displayTitle.includes('[교육]')) {
-                        displayTitle = displayTitle === '교육' ? '교육' : `[교육] ${displayTitle}`
-                      } else if (isEtc && !displayTitle.includes('[기타]')) {
-                        displayTitle = displayTitle === '기타' ? '기타' : `[기타] ${displayTitle}`
+                      const typeLabelMap: Record<string, string> = {
+                        'regular': '근무',
+                        'leave': '휴가',
+                        'training': '교육',
+                        'etc': '기타'
+                      }
+                      
+                      let displayTitle = isActuallyOnLeave ? '휴가' : (sch.title || '근무')
+                      
+                      if (!isActuallyOnLeave) {
+                        if (isTraining && !displayTitle.includes('[교육]')) {
+                          displayTitle = displayTitle === '교육' ? '교육' : `[교육] ${displayTitle}`
+                        } else if (isEtc && !displayTitle.includes('[기타]')) {
+                          displayTitle = displayTitle === '기타' ? '기타' : `[기타] ${displayTitle}`
+                        }
                       }
 
                       return (
