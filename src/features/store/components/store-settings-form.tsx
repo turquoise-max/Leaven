@@ -80,6 +80,7 @@ interface StoreSettingsFormProps {
     wage_end_day?: number
     pay_day?: number
     wage_exceptions?: any
+    leave_calc_type?: string
   }
 }
 
@@ -127,6 +128,7 @@ export function StoreSettingsForm({ initialData }: StoreSettingsFormProps) {
       pay_month: initialData.wage_exceptions?.pay_month || 'next',
       holiday_rule: initialData.wage_exceptions?.holiday_rule || 'prev',
       is_pay_day_last: isPayDayLast,
+      leave_calc_type: initialData.leave_calc_type || 'hire_date',
     }
   }, [initialData])
 
@@ -219,6 +221,7 @@ export function StoreSettingsForm({ initialData }: StoreSettingsFormProps) {
       holiday_rule: formData.holiday_rule
     }
     submitData.append('wage_exceptions', JSON.stringify(finalExceptions))
+    submitData.append('leave_calc_type', formData.leave_calc_type)
 
     const result = await updateStore(submitData)
     
@@ -818,6 +821,44 @@ export function StoreSettingsForm({ initialData }: StoreSettingsFormProps) {
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
+          </div>
+        </div>
+      </section>
+
+      {/* SECTION: 휴가 및 연차 설정 */}
+      <section>
+        <div className="mb-6">
+          <h2 className="text-2xl font-semibold tracking-tight">휴가 및 연차 설정</h2>
+          <p className="text-sm text-muted-foreground mt-1">우리 매장의 직원 연차 부여 기준을 설정합니다.</p>
+        </div>
+        
+        <Separator className="mb-2" />
+
+        <div className="flex flex-col">
+          <div className="flex flex-col md:flex-row gap-6 py-6 border-b border-border/50">
+            <div className="w-full md:w-1/3 shrink-0 space-y-1">
+              <Label className="text-base font-medium">연차 발생 기준</Label>
+              <p className="text-sm text-muted-foreground">근로기준법에 기반한 자동 연차 계산 시 활용됩니다.</p>
+            </div>
+            <div className="w-full md:w-2/3 max-w-xl space-y-4">
+              <RadioGroup 
+                value={formData.leave_calc_type} 
+                onValueChange={(val) => setFormData(prev => ({ ...prev, leave_calc_type: val }))}
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="hire_date" id="leave-hire" />
+                  <Label htmlFor="leave-hire" className="font-normal cursor-pointer">입사일 기준 (추천)</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="fiscal_year" id="leave-fiscal" />
+                  <Label htmlFor="leave-fiscal" className="font-normal cursor-pointer">회계연도 기준 (매년 1월 1일 일괄 갱신)</Label>
+                </div>
+              </RadioGroup>
+              <p className="text-xs text-muted-foreground mt-2">
+                * 입사일 기준: 직원의 입사일을 기준으로 매월/매년 연차가 자동 발생합니다.<br/>
+                * 회계연도 기준: 1월 1일에 일괄 부여되며, 1년 미만자는 입사일부터 연말까지 비례 계산됩니다.
+              </p>
+            </div>
           </div>
         </div>
       </section>

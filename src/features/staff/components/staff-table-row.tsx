@@ -224,72 +224,84 @@ export function StaffTableRow({
 
       {/* 3. 근로 조건 및 스케줄 (텍스트 + 알약 디자인) */}
       <TableCell className="align-middle py-3 px-4">
-        <div className="flex flex-col gap-1.5 justify-center">
-          
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-xs font-semibold text-slate-600">{getEmploymentText(staff)}</span>
-            <span className="text-muted-foreground/30 text-xs">|</span>
-            {canManage && staff.base_wage ? (
-              <span className="text-[13px] font-bold tracking-tight text-foreground/90">
-                {wageText} {staff.base_wage.toLocaleString()}원
-                {(staff.wage_type === 'hourly' || staff.wage_type === 'daily') && expectedPay && (
-                  <span className="text-[11px] font-normal text-muted-foreground ml-1">
-                    (약 {expectedPay.toLocaleString()}원)
-                  </span>
-                )}
-              </span>
-            ) : (
-              <span className="text-[12px] text-muted-foreground">급여 미설정</span>
-            )}
+        {staff.role === 'owner' ? (
+          <div className="flex items-center justify-center text-muted-foreground/50 font-medium w-full">
+            -
           </div>
+        ) : (
+          <div className="flex flex-col gap-1.5 justify-center">
+            
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-xs font-semibold text-slate-600">{getEmploymentText(staff)}</span>
+              <span className="text-muted-foreground/30 text-xs">|</span>
+              {canManage && staff.base_wage ? (
+                <span className="text-[13px] font-bold tracking-tight text-foreground/90">
+                  {wageText} {staff.base_wage.toLocaleString()}원
+                  {(staff.wage_type === 'hourly' || staff.wage_type === 'daily') && expectedPay && (
+                    <span className="text-[11px] font-normal text-muted-foreground ml-1">
+                      (약 {expectedPay.toLocaleString()}원)
+                    </span>
+                  )}
+                </span>
+              ) : (
+                <span className="text-[12px] text-muted-foreground">급여 미설정</span>
+              )}
+            </div>
 
-          <div className="flex items-start gap-1.5">
-            <CalendarDays className="w-3 h-3 text-muted-foreground/70 mt-0.5 shrink-0" />
-            {staff.work_schedules && staff.work_schedules.length > 0 ? (
-              <div className="flex flex-col gap-0.5 text-[11px] font-medium text-slate-500 leading-snug break-keep">
-                {getDetailedScheduleText(staff.work_schedules).map((line, i) => (
-                  <span key={i}>{line}</span>
-                ))}
-              </div>
-            ) : (
-              <span className="text-[11px] text-muted-foreground/50">{staff.work_hours || '스케줄 미등록'}</span>
-            )}
+            <div className="flex items-start gap-1.5">
+              <CalendarDays className="w-3 h-3 text-muted-foreground/70 mt-0.5 shrink-0" />
+              {staff.work_schedules && staff.work_schedules.length > 0 ? (
+                <div className="flex flex-col gap-0.5 text-[11px] font-medium text-slate-500 leading-snug break-keep">
+                  {getDetailedScheduleText(staff.work_schedules).map((line, i) => (
+                    <span key={i}>{line}</span>
+                  ))}
+                </div>
+              ) : (
+                <span className="text-[11px] text-muted-foreground/50">{staff.work_hours || '스케줄 미등록'}</span>
+              )}
+            </div>
+            
           </div>
-          
-        </div>
+        )}
       </TableCell>
 
       {/* 4. 근로계약서 상태 뱃지 (미니멀리즘) */}
       {showContract !== false && (
         <TableCell className="w-[120px] align-middle text-center py-3 px-4">
-          <div className="flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
-            {staff.contract_status === 'signed' ? (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="h-6 text-[11px] bg-slate-50 text-slate-700 hover:bg-slate-100 hover:text-slate-900 border-slate-200 px-2 font-medium shadow-none"
-                onClick={() => {
-                  if (staff.contract_file_url) {
-                    window.open(staff.contract_file_url, '_blank')
-                  } else {
-                    toast.info('문서 열람 기능은 준비 중입니다.')
-                  }
-                }}
-                title="문서 열람"
-              >
-                <FileText className="w-3 h-3 mr-1" />
-                체결 완료
-              </Button>
-            ) : staff.contract_status === 'pending_staff' || staff.contract_status === 'sent' ? (
-              <Badge variant="outline" className="bg-amber-50/50 text-amber-700 border-amber-200/50 font-medium px-2 py-0.5 shadow-none" title={staff.contract_status === 'pending_staff' ? '직원이 서명할 차례입니다.' : '점주님의 서명이 필요합니다.'}>
-                서명 대기
-              </Badge>
-            ) : (
-              <Badge variant="outline" className="bg-slate-50 text-slate-500 border-slate-200/50 font-medium px-2 py-0.5 shadow-none" title="근로계약서가 아직 전송되지 않았습니다.">
-                미작성
-              </Badge>
-            )}
-          </div>
+          {staff.role === 'owner' ? (
+            <div className="flex items-center justify-center text-muted-foreground/50 font-medium">
+              -
+            </div>
+          ) : (
+            <div className="flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+              {staff.contract_status === 'signed' ? (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-6 text-[11px] bg-slate-50 text-slate-700 hover:bg-slate-100 hover:text-slate-900 border-slate-200 px-2 font-medium shadow-none"
+                  onClick={() => {
+                    if (staff.contract_file_url) {
+                      window.open(staff.contract_file_url, '_blank')
+                    } else {
+                      toast.info('문서 열람 기능은 준비 중입니다.')
+                    }
+                  }}
+                  title="문서 열람"
+                >
+                  <FileText className="w-3 h-3 mr-1" />
+                  체결 완료
+                </Button>
+              ) : staff.contract_status === 'pending_staff' || staff.contract_status === 'sent' ? (
+                <Badge variant="outline" className="bg-amber-50/50 text-amber-700 border-amber-200/50 font-medium px-2 py-0.5 shadow-none" title={staff.contract_status === 'pending_staff' ? '직원이 서명할 차례입니다.' : '점주님의 서명이 필요합니다.'}>
+                  서명 대기
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="bg-slate-50 text-slate-500 border-slate-200/50 font-medium px-2 py-0.5 shadow-none" title="근로계약서가 아직 전송되지 않았습니다.">
+                  미작성
+                </Badge>
+              )}
+            </div>
+          )}
         </TableCell>
       )}
 

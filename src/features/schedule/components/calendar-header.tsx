@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { format, addDays, startOfWeek } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { Search, Sparkles, Plus, CalendarPlus, ChevronDown, Trash2 } from 'lucide-react'
+import { Search, Sparkles, Trash2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 
 interface CalendarHeaderProps {
   searchQuery: string
@@ -25,7 +24,6 @@ interface CalendarHeaderProps {
   activeRoleIds: string[]
   toggleRole: (roleId: string) => void
   
-  onAddSchedule: () => void
   onAutoSchedule: () => void
   onBulkDelete: () => void
 }
@@ -50,7 +48,6 @@ export function CalendarHeader({
   activeRoleIds,
   toggleRole,
   
-  onAddSchedule,
   onAutoSchedule,
   onBulkDelete
 }: CalendarHeaderProps) {
@@ -194,30 +191,13 @@ export function CalendarHeader({
 
         {/* 액션 버튼 */}
         <div className="flex items-stretch shadow-sm rounded-md ml-1">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="bg-[#1a1a1a] text-white text-[11px] font-medium px-3 py-1.5 rounded-l-md hover:bg-black/80 flex items-center gap-1.5 transition-colors outline-none border-r border-white/20">
-                <Plus className="w-3.5 h-3.5" /> 스케줄 추가 <ChevronDown className="w-3.5 h-3.5 opacity-70" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[180px]">
-              <DropdownMenuItem 
-                className="flex items-center gap-2 cursor-pointer text-[12px] py-2"
-                onClick={onAddSchedule}
-              >
-                <CalendarPlus className="w-4 h-4 text-muted-foreground" />
-                단일 스케줄 직접 추가
-              </DropdownMenuItem>
-              <DropdownMenuItem 
-                className="flex items-center gap-2 cursor-pointer text-[12px] py-2"
-                onClick={onAutoSchedule}
-              >
-                <Sparkles className="w-4 h-4 text-yellow-500 fill-yellow-500/20" />
-                스케줄 자동 생성
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          
+          <button 
+            className="bg-[#1a1a1a] text-white text-[11px] font-medium px-3 py-1.5 rounded-l-md hover:bg-black/80 flex items-center gap-1.5 transition-colors outline-none border-r border-white/20"
+            onClick={onAutoSchedule}
+            title="스케줄 자동 생성"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500/20" /> 스케줄 자동 생성
+          </button>
           <button 
             className="bg-[#1a1a1a] text-white/70 px-2.5 py-1.5 rounded-r-md hover:bg-destructive hover:text-white flex items-center transition-colors outline-none"
             onClick={onBulkDelete}

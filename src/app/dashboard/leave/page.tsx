@@ -14,7 +14,7 @@ export default async function LeavePage() {
   // Get user's store
   const { data: members } = await supabase
     .from('store_members')
-    .select('store_id, role, status')
+    .select('store_id, role, status, store:stores(leave_calc_type)')
     .eq('user_id', user.id)
 
   const cookieStore = await cookies()
@@ -45,6 +45,7 @@ export default async function LeavePage() {
       user_id,
       role,
       name,
+      join_date,
       role_info:store_roles(id, name, color, priority)
     `)
     .eq('store_id', member.store_id)
@@ -55,13 +56,21 @@ export default async function LeavePage() {
     role_info: Array.isArray(staff.role_info) ? staff.role_info[0] : staff.role_info,
   })) || []
 
+  const storeObj = Array.isArray(member.store) ? member.store[0] : member.store
+  const leaveCalcType = storeObj?.leave_calc_type || 'hire_date'
+
   return (
     <div className="h-[calc(100vh-100px)] flex flex-col space-y-4">
       {/* Header Area */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">휴가 및 연차</h1>
-          <p className="text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <h1 className="text-3xl font-bold tracking-tight">휴가 및 연차</h1>
+            <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[11px] font-bold text-primary transition-colors">
+              준비 중
+            </span>
+          </div>
+          <p className="text-muted-foreground mt-1">
             직원 휴가 신청을 관리하고 스케줄 누수를 방지합니다.
           </p>
         </div>
@@ -74,6 +83,7 @@ export default async function LeavePage() {
           staffList={staffList} 
           isManager={isManager}
           currentUserId={user.id}
+          leaveCalcType={leaveCalcType}
         />
       </div>
     </div>

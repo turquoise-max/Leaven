@@ -274,6 +274,7 @@ export async function updateSchedule(storeId: string, scheduleId: string, formDa
   const memo = formData.get('memo') as string
   const title = formData.get('title') as string
   const color = formData.get('color') as string
+  const scheduleType = formData.get('schedule_type') as string
 
   // KST 입력 -> UTC 변환
   const startDateTime = toUTCISOString(date, startTimeStr)
@@ -293,6 +294,7 @@ export async function updateSchedule(storeId: string, scheduleId: string, formDa
       memo: memo || null,
       title: title || null,
       color: color || null,
+      schedule_type: scheduleType || 'regular',
       updated_at: new Date().toISOString(),
     })
     .eq('id', scheduleId)

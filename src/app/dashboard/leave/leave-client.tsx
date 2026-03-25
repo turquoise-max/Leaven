@@ -21,12 +21,15 @@ import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import interactionPlugin from '@fullcalendar/interaction'
 
+import { calculateAnnualLeave } from '@/features/leave/utils'
+
 interface LeaveClientPageProps {
   storeId: string
   roles: any[]
   staffList: any[]
   isManager: boolean
   currentUserId: string
+  leaveCalcType: 'hire_date' | 'fiscal_year'
 }
 
 export function LeaveClientPage({
@@ -34,7 +37,8 @@ export function LeaveClientPage({
   roles,
   staffList,
   isManager,
-  currentUserId
+  currentUserId,
+  leaveCalcType
 }: LeaveClientPageProps) {
   const [activeTab, setActiveTab] = useState('calendar')
   const [balances, setBalances] = useState<any[]>([])
@@ -87,11 +91,14 @@ export function LeaveClientPage({
     return null
   }
 
+  const currentYear = new Date().getFullYear()
   const myStaff = staffList.find(s => s.user_id === currentUserId)
 
   const myRequests = requests.filter(r => r.member?.user_id === currentUserId)
   const myBalance = balances.find(b => b.member_id === myStaff?.id)
-  const total = myBalance?.total_days || 0
+  
+  const calcTotal = myStaff?.join_date ? calculateAnnualLeave(myStaff.join_date, currentYear, leaveCalcType) : 0
+  const total = myBalance?.total_days !== undefined && myBalance?.total_days !== null ? myBalance.total_days : calcTotal
   const used = myBalance?.used_days || 0
   const remain = total - used
 
@@ -100,7 +107,12 @@ export function LeaveClientPage({
       <div className="p-6 border-b bg-slate-50 flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold">나의 휴가/연차 현황</h2>
-          <p className="text-sm text-muted-foreground mt-1">올해 남은 연차와 신청 내역을 확인하세요.</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            올해 남은 연차와 신청 내역을 확인하세요.
+            <span className="ml-2 text-xs bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full font-medium">
+              {leaveCalcType === 'hire_date' ? '입사일 기준' : '회계연도 기준'}
+            </span>
+          </p>
         </div>
         <Button className="gap-2 shadow-sm" onClick={() => setIsRequestModalOpen(true)}>
           <Plus className="w-4 h-4" /> 휴가 신청
@@ -202,10 +214,15 @@ export function LeaveClientPage({
             </TabsTrigger>
             <TabsTrigger 
               value="balances" 
-              className="relative rounded-none px-1 pb-3 pt-2 text-base font-semibold text-muted-foreground hover:text-foreground data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none outline-none focus-visible:outline-none !shadow-none bg-transparent group"
+              className="relative rounded-none px-1 pb-3 pt-2 text-base font-semibold text-muted-foreground hover:text-foreground data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none outline-none focus-visible:outline-none !shadow-none bg-transparent group flex items-center gap-2"
             >
-              <Settings className="w-4 h-4 mr-2" />
-              잔여 연차 관리
+              <div className="flex items-center">
+                <Settings className="w-4 h-4 mr-2" />
+                잔여 연차 관리
+              </div>
+              <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold text-primary group-data-[state=active]:bg-primary/20 transition-colors">
+                준비 중
+              </span>
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary scale-x-0 origin-left transition-transform duration-200 group-data-[state=active]:scale-x-100" />
             </TabsTrigger>
           </TabsList>
@@ -432,7 +449,12 @@ export function LeaveClientPage({
           <TabsContent value="balances" className="m-0 mt-0 h-full flex flex-col outline-none">
             <div className="bg-white rounded-lg border shadow-sm overflow-hidden flex-1 flex flex-col">
               <div className="p-4 border-b flex items-center justify-between">
-                <h3 className="font-semibold text-base">직원별 잔여 연차 관리 ({new Date().getFullYear()}년)</h3>
+                <div className="flex flex-col">
+                  <h3 className="font-semibold text-base">직원별 잔여 연차 관리 ({currentYear}년)</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    연차 발생 기준: <span className="font-semibold text-foreground">{leaveCalcType === 'hire_date' ? '입사일 기준' : '회계연도 기준'}</span> (매장 설정에서 변경 가능)
+                  </p>
+                </div>
               </div>
               <div className="flex-1 overflow-auto">
                 <table className="w-full text-sm text-left">
@@ -447,45 +469,83 @@ export function LeaveClientPage({
                   </thead>
                   <tbody className="divide-y">
                     {staffList.map(staff => {
+                      const isOwner = staff.role === 'owner'
                       const roleInfo = getStaffRoleInfo(staff)
                       const balance = balances.find(b => b.member_id === staff.id)
-                      const total = balance?.total_days || 0
+                      const isOverridden = balance?.total_days !== undefined && balance?.total_days !== null
+                      
+                      // Auto calculate total
+                      const calcTotal = staff.join_date ? calculateAnnualLeave(staff.join_date, currentYear, leaveCalcType) : 0
+                      
+                      // Final total (override if exists)
+                      const total = isOverridden ? balance.total_days : calcTotal
                       const used = balance?.used_days || 0
                       const remain = total - used
 
                       return (
                         <tr key={staff.id} className="hover:bg-muted/20 transition-colors">
                           <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">{staff.name || staff.profile?.full_name}</span>
-                              <Badge variant="outline" className="text-[10px]">{roleInfo?.name || '직원'}</Badge>
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">{staff.name || staff.profile?.full_name}</span>
+                                <Badge variant="outline" className="text-[10px]">{roleInfo?.name || '직원'}</Badge>
+                              </div>
+                              <span className="text-[11px] text-muted-foreground">입사일: {staff.join_date || '미등록'}</span>
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-center font-semibold">{total}일</td>
-                          <td className="px-4 py-3 text-center text-muted-foreground">{used}일</td>
-                          <td className="px-4 py-3 text-center">
-                            <Badge variant="secondary" className={cn(remain < 0 ? "bg-red-100 text-red-700" : "bg-primary/10 text-primary")}>
-                              {remain}일
-                            </Badge>
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            {isManager && (
-                              <Button variant="ghost" size="sm" className="h-7 text-[11px] text-muted-foreground" onClick={async () => {
-                                const newTotal = prompt(`${staff.name || staff.profile?.full_name}님의 올해 총 발생 연차 일수를 입력하세요:`, String(total))
-                                if (newTotal !== null && !isNaN(Number(newTotal))) {
-                                  const year = new Date().getFullYear()
-                                  const res = await updateLeaveBalance(storeId, staff.id, year, Number(newTotal))
-                                  if (res.error) toast.error(res.error)
-                                  else {
-                                    toast.success('잔여 연차가 수정되었습니다.')
-                                    fetchData()
-                                  }
-                                }
-                              }}>
-                                수정
-                              </Button>
-                            )}
-                          </td>
+                          
+                          {isOwner ? (
+                            <>
+                              <td className="px-4 py-3 text-center text-muted-foreground/50 font-medium">-</td>
+                              <td className="px-4 py-3 text-center text-muted-foreground/50 font-medium">-</td>
+                              <td className="px-4 py-3 text-center text-muted-foreground/50 font-medium">-</td>
+                              <td className="px-4 py-3 text-right"></td>
+                            </>
+                          ) : (
+                            <>
+                              <td className="px-4 py-3 text-center font-semibold">
+                                <div className="flex items-center justify-center gap-1.5">
+                                  {total}일
+                                  {!isOverridden && (
+                                    <Badge variant="secondary" className="text-[9px] px-1 py-0 bg-blue-50 text-blue-600 border-blue-200">자동</Badge>
+                                  )}
+                                  {isOverridden && (
+                                    <Badge variant="secondary" className="text-[9px] px-1 py-0 bg-amber-50 text-amber-600 border-amber-200">수동</Badge>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 text-center text-muted-foreground">{used}일</td>
+                              <td className="px-4 py-3 text-center">
+                                <Badge variant="secondary" className={cn(remain < 0 ? "bg-red-100 text-red-700" : "bg-primary/10 text-primary")}>
+                                  {remain}일
+                                </Badge>
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                {isManager && (
+                                  <Button variant="ghost" size="sm" className="h-7 text-[11px] text-muted-foreground hover:text-primary" onClick={async () => {
+                                    const newTotal = prompt(`${staff.name || staff.profile?.full_name}님의 올해 총 발생 연차 일수를 수정합니다.\n자동 계산으로 되돌리려면 빈칸으로 두고 확인을 누르세요.`, isOverridden ? String(total) : '')
+                                    
+                                    if (newTotal !== null) {
+                                      const parsedVal = newTotal === '' ? null : Number(newTotal)
+                                      if (parsedVal !== null && isNaN(parsedVal)) {
+                                        toast.error('유효한 숫자를 입력하세요.')
+                                        return
+                                      }
+                                      
+                                      const res = await updateLeaveBalance(storeId, staff.id, currentYear, parsedVal as any)
+                                      if (res.error) toast.error(res.error)
+                                      else {
+                                        toast.success('잔여 연차가 업데이트되었습니다.')
+                                        fetchData()
+                                      }
+                                    }
+                                  }}>
+                                    수정
+                                  </Button>
+                                )}
+                              </td>
+                            </>
+                          )}
                         </tr>
                       )
                     })}

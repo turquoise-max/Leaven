@@ -72,6 +72,7 @@ export default async function UnifiedSchedulePage() {
       memo,
       title,
       color,
+      schedule_type,
       schedule_members (
         member_id,
         member:store_members (name, user_id)

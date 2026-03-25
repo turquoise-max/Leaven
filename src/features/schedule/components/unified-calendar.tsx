@@ -545,7 +545,8 @@ export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = []
       editStaffId: sch.schedule_members?.[0]?.member_id || staffData?.id,
       editDate: format(start, 'yyyy-MM-dd'),
       editStartTime: format(start, 'HH:mm'),
-      editEndTime: format(end, 'HH:mm')
+      editEndTime: format(end, 'HH:mm'),
+      scheduleType: sch.schedule_type || 'regular'
     })
     setIsModalOpen(true)
     setTooltipData(null) // 모달 열릴 때 툴팁 닫기
@@ -705,16 +706,6 @@ export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = []
         roles={roles}
         activeRoleIds={activeRoleIds}
         toggleRole={toggleRole}
-        onAddSchedule={() => {
-          setCreateForm({
-            title: '정규 근무',
-            date: format(new Date(), 'yyyy-MM-dd'),
-            startTime: '09:00',
-            endTime: '18:00',
-            staffId: ''
-          })
-          setIsCreateModalOpen(true)
-        }}
         onAutoSchedule={() => setIsAutoScheduleModalOpen(true)}
         onBulkDelete={() => setIsBulkDeleteModalOpen(true)}
       />

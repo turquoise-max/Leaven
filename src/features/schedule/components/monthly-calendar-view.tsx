@@ -47,8 +47,9 @@ export function MonthlyCalendarView({
 
   const weekDays = ['일', '월', '화', '수', '목', '금', '토']
 
+  // 특정 날짜 스케줄 찾기 (시작 시간 오름차순 정렬)
   const getSchedulesForDate = (date: Date) => {
-    return localSchedules.filter(sch => {
+    const schedules = localSchedules.filter(sch => {
       if (!sch.start_time) return false
       const parsedDate = new Date(sch.start_time)
       if (isNaN(parsedDate.getTime())) return false
@@ -65,6 +66,8 @@ export function MonthlyCalendarView({
 
       return true
     })
+
+    return schedules.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
   }
 
   // 달력을 주 단위로 분할
@@ -138,11 +141,24 @@ export function MonthlyCalendarView({
                       const staff = staffList.find(s => s.id === staffId)
                       const roleInfo = staff ? getStaffRoleInfo(staff) : null
                       const roleColor = roleInfo?.color || '#534AB7'
-                      const title = sch.title || '근무'
                       const safeName = staff?.name || '직원'
                       
-                      // 스케줄 자체 색상(휴가용 회색 등)이 있으면 그것을 최우선 적용
-                      const scheduleColor = sch.color || roleColor
+                      const isLeave = sch.schedule_type === 'leave'
+                      const isTraining = sch.schedule_type === 'training'
+                      const isEtc = sch.schedule_type === 'etc'
+                      
+                      // 색상 동적 결정: 휴가는 무조건 회색, 나머지는 본래 색상(또는 직급 색상)
+                      const scheduleColor = isLeave ? '#64748b' : (sch.color || roleColor)
+                      
+                      // 타이틀 동적 결정
+                      let displayTitle = sch.title || '근무'
+                      if (isLeave && !displayTitle.includes('휴가') && !displayTitle.includes('병가')) {
+                        displayTitle = displayTitle === '휴가' ? '휴가' : `[휴가] ${displayTitle}`
+                      } else if (isTraining && !displayTitle.includes('[교육]')) {
+                        displayTitle = displayTitle === '교육' ? '교육' : `[교육] ${displayTitle}`
+                      } else if (isEtc && !displayTitle.includes('[기타]')) {
+                        displayTitle = displayTitle === '기타' ? '기타' : `[기타] ${displayTitle}`
+                      }
 
                       return (
                         <div
@@ -157,14 +173,14 @@ export function MonthlyCalendarView({
                             color: '#1a1a1a',
                             borderLeft: `2.5px solid ${scheduleColor}`
                           }}
-                          title={`${safeName} - ${title}`}
+                          title={`${safeName} - ${displayTitle}`}
                         >
                           <span className="font-semibold" style={{ color: scheduleColor }}>{safeName}</span> 
-                          {!title.includes('[') && (
-                            <span className="opacity-80 ml-0.5">{format(new Date(sch.start_time), 'HH:mm')}</span>
+                          {!isLeave && (
+                            <span className="opacity-80 ml-1 text-[9px]">{format(new Date(sch.start_time), 'HH:mm')}-{format(new Date(sch.end_time), 'HH:mm')}</span>
                           )}
-                          {title.includes('[') && (
-                            <span className="opacity-80 ml-1 font-medium">{title}</span>
+                          {isLeave && (
+                            <span className="opacity-80 ml-1 font-medium">{displayTitle}</span>
                           )}
                         </div>
                       )

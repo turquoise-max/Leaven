@@ -38,9 +38,9 @@ export function StaffScheduleMatrix({
 }: StaffScheduleMatrixProps) {
   const dates = Array.from({ length: daysCount }, (_, i) => addDays(startDate, i))
 
-  // 특정 직원의 특정 날짜 스케줄 찾기
+  // 특정 직원의 특정 날짜 스케줄 찾기 (시작 시간 오름차순 정렬)
   const getSchedulesForStaffAndDate = (staffId: string, date: Date) => {
-    return localSchedules.filter(sch => {
+    const schedules = localSchedules.filter(sch => {
       if (!sch.start_time) return false
       const parsedDate = new Date(sch.start_time)
       if (isNaN(parsedDate.getTime())) return false
@@ -49,6 +49,8 @@ export function StaffScheduleMatrix({
       const hasMember = sch.schedule_members?.some((sm: any) => sm.member_id === staffId)
       return hasMember
     })
+    
+    return schedules.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
   }
 
   // 필터링된 직원 목록
@@ -128,17 +130,29 @@ export function StaffScheduleMatrix({
                           <div className="flex flex-col h-full min-h-[60px]">
                             <div className="flex flex-col gap-1.5">
                               {daySchedules.map(sch => {
-                              const title = sch.title || '근무'
-                              const start = new Date(sch.start_time)
-                              const end = new Date(sch.end_time)
-                              
-                              // 스케줄 자체에 지정된 색상이 있으면 그것을 최우선으로 사용하고 (휴가 등), 없으면 직급 색상을 사용
-                              const scheduleColor = sch.color || roleColor
-                              const isLeave = sch.schedule_type === 'leave'
+                                const start = new Date(sch.start_time)
+                                const end = new Date(sch.end_time)
+                                
+                                const isLeave = sch.schedule_type === 'leave'
+                                const isTraining = sch.schedule_type === 'training'
+                                const isEtc = sch.schedule_type === 'etc'
+                                
+                                // 색상 동적 결정: 휴가는 무조건 회색, 나머지는 본래 색상(또는 직급 색상)
+                                const scheduleColor = isLeave ? '#64748b' : (sch.color || roleColor)
+                                
+                                // 타이틀 동적 결정
+                                let displayTitle = sch.title || '근무'
+                                if (isLeave && !displayTitle.includes('휴가') && !displayTitle.includes('병가')) {
+                                  displayTitle = displayTitle === '휴가' ? '휴가' : `[휴가] ${displayTitle}`
+                                } else if (isTraining && !displayTitle.includes('[교육]')) {
+                                  displayTitle = displayTitle === '교육' ? '교육' : `[교육] ${displayTitle}`
+                                } else if (isEtc && !displayTitle.includes('[기타]')) {
+                                  displayTitle = displayTitle === '기타' ? '기타' : `[기타] ${displayTitle}`
+                                }
 
-                              return (
-                                <TooltipProvider key={sch.id} delayDuration={300}>
-                                  <Tooltip>
+                                return (
+                                  <TooltipProvider key={sch.id} delayDuration={300}>
+                                    <Tooltip>
                                     <TooltipTrigger asChild>
                                       <div 
                                         onClick={(e) => {
@@ -161,7 +175,7 @@ export function StaffScheduleMatrix({
                                           </div>
                                         )}
                                         <div className={cn("truncate text-[#1a1a1a]", isLeave && "font-bold text-[12px] tracking-wide")} style={isLeave ? { color: scheduleColor } : {}}>
-                                          {title}
+                                          {displayTitle}
                                         </div>
                                         {isLeave && sch.memo && (
                                           <div className="text-[9px] mt-0.5 opacity-60 truncate max-w-full px-1">
@@ -200,10 +214,10 @@ export function StaffScheduleMatrix({
                                       </TooltipContent>
                                     ) : (
                                       <TooltipContent side="top" className="p-3 max-w-[250px] bg-white border border-black/10 shadow-lg text-[#1a1a1a]">
-                                        <div className="font-bold text-[12px] mb-1">{title}</div>
+                                        <div className="font-bold text-[12px] mb-1">{displayTitle}</div>
                                         {sch.memo && <div className="text-[11px] text-muted-foreground">{sch.memo}</div>}
-                                      </TooltipContent>
-                                    )}
+                                        </TooltipContent>
+                                      )}
                                     </Tooltip>
                                   </TooltipProvider>
                                 )

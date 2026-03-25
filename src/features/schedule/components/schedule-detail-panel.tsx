@@ -178,11 +178,11 @@ export function ScheduleDetailPanel({
     }
   }, [])
 
-  const handleFieldChange = (field: string, value: any) => {
+  const handleFieldsChange = (updates: Record<string, any>) => {
     if (!selectedSchedule) return
 
     // 1. Optimistic update for panel
-    const newSchedule = { ...selectedSchedule, [field]: value }
+    const newSchedule = { ...selectedSchedule, ...updates }
     setSelectedSchedule(newSchedule)
 
     // 2. Optimistic update for main calendar (localSchedules)
@@ -196,7 +196,10 @@ export function ScheduleDetailPanel({
           ...s,
           start_time: new Date(`${newSchedule.editDate}T${newSchedule.editStartTime}:00`).toISOString(),
           end_time: endDateTime.toISOString(),
-          schedule_members: [{ member_id: newSchedule.editStaffId }]
+          schedule_members: [{ member_id: newSchedule.editStaffId }],
+          schedule_type: newSchedule.scheduleType || newSchedule.schedule_type,
+          title: newSchedule.title,
+          color: newSchedule.color
         }
       }
       return s
@@ -212,9 +215,9 @@ export function ScheduleDetailPanel({
       formData.append('date', newSchedule.editDate)
       formData.append('startTime', newSchedule.editStartTime)
       formData.append('endTime', newSchedule.editEndTime)
-      formData.append('title', newSchedule.title || '정규 근무')
+      formData.append('title', newSchedule.title || '근무')
       formData.append('color', newSchedule.color || '')
-      formData.append('schedule_type', newSchedule.scheduleType || 'regular')
+      formData.append('schedule_type', newSchedule.scheduleType || newSchedule.schedule_type || 'regular')
       
       const res = await updateSchedule(storeId, newSchedule.id, formData)
       if (res.error) {
@@ -226,6 +229,10 @@ export function ScheduleDetailPanel({
       setSaveStatus('saved')
       setTimeout(() => setSaveStatus('idle'), 2000)
     }, 500)
+  }
+
+  const handleFieldChange = (field: string, value: any) => {
+    handleFieldsChange({ [field]: value })
   }
 
   if (!selectedSchedule) {
@@ -248,7 +255,10 @@ export function ScheduleDetailPanel({
         <div className="flex items-center gap-2">
           <div 
             className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0"
-            style={{ backgroundColor: hexToRgba(selectedSchedule.roleColor, 0.15), color: selectedSchedule.roleColor }}
+            style={{ 
+              backgroundColor: hexToRgba((selectedSchedule.scheduleType || selectedSchedule.schedule_type) === 'leave' ? '#64748b' : selectedSchedule.roleColor, 0.15), 
+              color: (selectedSchedule.scheduleType || selectedSchedule.schedule_type) === 'leave' ? '#64748b' : selectedSchedule.roleColor 
+            }}
           >
             {(selectedSchedule.displayName || '직').substring(0, 1)}
           </div>
@@ -284,29 +294,25 @@ export function ScheduleDetailPanel({
             <div className="flex flex-col gap-1.5 flex-1">
               <label className="text-[10px] font-medium text-muted-foreground">스케줄 유형</label>
               <Select 
-                value={selectedSchedule.scheduleType || 'regular'} 
+                value={selectedSchedule.scheduleType || selectedSchedule.schedule_type || 'regular'} 
                 onValueChange={(val) => {
-                  handleFieldChange('scheduleType', val)
-                  // 유형에 따라 타이틀도 연동 변경
                   const typeLabelMap: Record<string, string> = {
-                    'regular': '정규 근무',
-                    'substitute': '대체 근무',
-                    'overtime': '연장 근무',
-                    'off': '휴무',
-                    'leave': '휴가/병가',
+                    'regular': '근무',
+                    'leave': '휴가',
                     'training': '교육',
                     'etc': '기타'
                   }
-                  handleFieldChange('title', typeLabelMap[val] || '정규 근무')
+                  handleFieldsChange({
+                    schedule_type: val,
+                    scheduleType: val,
+                    title: typeLabelMap[val] || '근무'
+                  })
                 }}
               >
                 <SelectTrigger className="h-8 text-[11px] px-2"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="regular" className="text-[11px]">정규 근무</SelectItem>
-                  <SelectItem value="substitute" className="text-[11px]">대체 근무</SelectItem>
-                  <SelectItem value="overtime" className="text-[11px]">연장 근무</SelectItem>
-                  <SelectItem value="off" className="text-[11px]">휴무</SelectItem>
-                  <SelectItem value="leave" className="text-[11px]">휴가/병가</SelectItem>
+                  <SelectItem value="regular" className="text-[11px]">근무</SelectItem>
+                  <SelectItem value="leave" className="text-[11px]">휴가</SelectItem>
                   <SelectItem value="training" className="text-[11px]">교육</SelectItem>
                   <SelectItem value="etc" className="text-[11px]">기타</SelectItem>
                 </SelectContent>
@@ -314,26 +320,28 @@ export function ScheduleDetailPanel({
             </div>
           </div>
 
-          <div className="flex gap-2">
-            <div className="flex flex-col gap-1.5 flex-1">
-              <label className="text-[10px] font-medium text-muted-foreground">시작 시간</label>
-              <Input 
-                type="time" 
-                className="h-8 text-[11px] px-2" 
-                value={selectedSchedule.editStartTime} 
-                onChange={(e) => handleFieldChange('editStartTime', e.target.value)} 
-              />
+          {(selectedSchedule.scheduleType || selectedSchedule.schedule_type) !== 'leave' && (
+            <div className="flex gap-2">
+              <div className="flex flex-col gap-1.5 flex-1">
+                <label className="text-[10px] font-medium text-muted-foreground">시작 시간</label>
+                <Input 
+                  type="time" 
+                  className="h-8 text-[11px] px-2" 
+                  value={selectedSchedule.editStartTime} 
+                  onChange={(e) => handleFieldChange('editStartTime', e.target.value)} 
+                />
+              </div>
+              <div className="flex flex-col gap-1.5 flex-1">
+                <label className="text-[10px] font-medium text-muted-foreground">종료 시간</label>
+                <Input 
+                  type="time" 
+                  className="h-8 text-[11px] px-2" 
+                  value={selectedSchedule.editEndTime} 
+                  onChange={(e) => handleFieldChange('editEndTime', e.target.value)} 
+                />
+              </div>
             </div>
-            <div className="flex flex-col gap-1.5 flex-1">
-              <label className="text-[10px] font-medium text-muted-foreground">종료 시간</label>
-              <Input 
-                type="time" 
-                className="h-8 text-[11px] px-2" 
-                value={selectedSchedule.editEndTime} 
-                onChange={(e) => handleFieldChange('editEndTime', e.target.value)} 
-              />
-            </div>
-          </div>
+          )}
         </div>
 
         <div className="w-full h-px bg-black/10 my-3" />

@@ -164,42 +164,27 @@ export async function resolveLeaveRequest(requestId: string, storeId: string, st
       .gte('start_time', startIso)
       .lt('start_time', endIso)
 
-    let title = '[휴가]'
-    const color = '#64748b' // 휴가/병가는 무조건 회색으로 통일
-
-    if (request.leave_type === 'sick') {
-      title = '[병가]'
-    } else if (request.leave_type === 'annual') {
-      title = '[연차]'
-    } else if (request.leave_type === 'unpaid') {
-      title = '[무급휴가]'
-    } else if (request.leave_type.includes('half')) {
-      title = '[반차]'
-    }
-
     if (existingSchedules && existingSchedules.length > 0) {
-      // 2-1. 기존 스케줄이 있다면 해당 스케줄들을 업데이트 (유형, 색상, 타이틀)
+      // 2-1. 기존 스케줄이 있다면 본래 데이터(color, title 등)는 건드리지 않고 오직 schedule_type만 'leave'로 변경
       const scheduleIds = existingSchedules.map(s => s.id)
       await supabase
         .from('schedules')
         .update({
           schedule_type: 'leave',
-          color: color,
-          title: title,
-          memo: `[사유] ${request.reason || '없음'}`,
+          memo: `[휴가 사유] ${request.reason || '없음'}`
         })
         .in('id', scheduleIds)
     } else {
-      // 2-2. 기존 스케줄이 없다면 아예 새 휴가 스케줄을 Insert
+      // 2-2. 기존 스케줄이 없다면 빈 스케줄을 만들고 schedule_type을 'leave'로 설정
       const { data: schData, error: schError } = await supabase
         .from('schedules')
         .insert({
           store_id: storeId,
-          title: title,
-          memo: `[사유] ${request.reason || '없음'}`,
+          title: '근무', // 프론트엔드가 알아서 휴가로 렌더링함
+          memo: `[휴가 사유] ${request.reason || '없음'}`,
           start_time: startIso,
           end_time: endIso,
-          color: color,
+          color: null,
           schedule_type: 'leave'
         })
         .select()
@@ -293,15 +278,12 @@ export async function cancelLeaveRequest(requestId: string, storeId: string) {
 
   if (existingSchedules && existingSchedules.length > 0) {
     const scheduleIds = existingSchedules.map(s => s.id)
-    // 다시 일반 정규 근무로 변경
-    // (완전한 복원을 위해서는 이전 타이틀/색상을 기억해야 하지만, 일단 기본 포맷인 '정규 근무'와 null 컬러(직급색상 사용)로 복구)
+    // 다시 일반 정규 근무로 변경 (프론트 렌더링 로직에 의해 원래의 색상과 타이틀이 복구된 것처럼 보임)
     await supabase
       .from('schedules')
       .update({
         schedule_type: 'regular',
-        title: '정규 근무',
-        color: null, // null로 두면 프론트에서 Role 색상을 fallback으로 씁니다
-        memo: null
+        memo: null // 휴가 사유 메모 초기화
       })
       .in('id', scheduleIds)
   }
