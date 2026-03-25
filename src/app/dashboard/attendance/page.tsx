@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { requirePermission } from '@/features/auth/permissions'
 import { getStoreRoles } from '@/features/store/actions'
 import { cookies } from 'next/headers'
-import { AttendanceClientPage } from './attendance-client'
+import { AttendanceClientPage } from '@/features/attendance/components/attendance-client'
 import { getTodayDateString } from '@/lib/date-utils'
 
 export default async function AttendancePage() {

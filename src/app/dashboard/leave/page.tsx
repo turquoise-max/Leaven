@@ -4,7 +4,7 @@ import { requirePermission } from '@/features/auth/permissions'
 import { cookies } from 'next/headers'
 import { getStoreRoles } from '@/features/store/actions'
 import { getStaffList } from '@/features/staff/actions'
-import { LeaveClientPage } from './leave-client'
+import { LeaveClientPage } from '@/features/leave/components/leave-client'
 
 export default async function LeavePage() {
   const supabase = await createClient()

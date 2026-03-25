@@ -1,8 +1,8 @@
 import { redirect } from 'next/navigation'
 import { getInvitationStatus } from '@/features/onboarding/actions'
-import { PendingApproval } from './components/pending-approval'
-import { RoleSelection } from './components/role-selection'
-import { InvitationOverlay } from './components/invitation-overlay'
+import { PendingApproval } from '@/features/onboarding/components/pending-approval'
+import { RoleSelection } from '@/features/onboarding/components/role-selection'
+import { InvitationOverlay } from '@/features/onboarding/components/invitation-overlay'
 
 export default async function OnboardingPage() {
   const { status, store, role } = await getInvitationStatus()
