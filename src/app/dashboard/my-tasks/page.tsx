@@ -5,6 +5,7 @@ import { DashboardTaskList } from '@/features/schedule/components/dashboard-task
 import { getStoreAnnouncements } from '@/features/store/announcement-actions'
 import { StaffAnnouncementList } from '@/features/store/components/staff-announcement-list'
 import { getTodayDateString } from '@/shared/lib/date-utils'
+import { MyTasksClientWrapper } from '@/features/schedule/components/my-tasks-client-wrapper'
 
 export const dynamic = 'force-dynamic'
 
@@ -38,24 +39,13 @@ export default async function MyTasksPage() {
   const announcements = await getStoreAnnouncements(store.id)
 
   return (
-    <div className="flex flex-col gap-6 h-full max-w-3xl mx-auto w-full pt-4">
-      <div className="px-2">
-        <h1 className="text-2xl font-bold tracking-tight">오늘의 할 일</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          {store?.name}에서 오늘 나에게 배정된 업무입니다.
-        </p>
-      </div>
-
-      {announcements && announcements.length > 0 && (
-        <div className="px-2">
-          <StaffAnnouncementList announcements={announcements} />
-        </div>
-      )}
-
-      <div className="flex-1 min-h-0 flex flex-col overflow-hidden w-full relative">
-        {/* 전체화면 하단: 오늘의 타임라인 (시간 지정/미지정 업무) */}
-        <DashboardTaskList storeId={store.id} roleId={activeMember.role_id} />
-      </div>
-    </div>
+    <MyTasksClientWrapper 
+      storeId={store.id} 
+      roleId={activeMember.role_id}
+      storeName={store?.name || ''}
+      currentUserId={user.id}
+      myStaffId={activeMember.id}
+      announcements={announcements || []}
+    />
   )
 }

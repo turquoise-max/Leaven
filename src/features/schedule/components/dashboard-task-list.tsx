@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
-import { Clock, CheckCircle2, User, Users, Calendar, Plus, Trash2 } from 'lucide-react'
+import { Clock, CheckCircle2, User, Users, Calendar, Plus, Trash2, StopCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
@@ -68,12 +68,16 @@ function getDerivedTaskStatus(task: Task, now: Date): 'todo' | 'in_progress' | '
   }
 }
 
+import { TaskAttendanceWidget } from '@/features/attendance/components/task-attendance-widget'
+
 interface DashboardTaskListProps {
   storeId: string
   roleId: string | null
+  attendanceStatus?: 'none' | 'working' | 'completed'
+  currentUserId?: string
 }
 
-export function DashboardTaskList({ storeId, roleId }: DashboardTaskListProps) {
+export function DashboardTaskList({ storeId, roleId, attendanceStatus, currentUserId }: DashboardTaskListProps) {
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [createForm, setCreateForm] = useState({
     title: '',
@@ -403,6 +407,7 @@ export function DashboardTaskList({ storeId, roleId }: DashboardTaskListProps) {
               )}
 
             </div>
+            
           </div>
       </ScrollArea>
 
