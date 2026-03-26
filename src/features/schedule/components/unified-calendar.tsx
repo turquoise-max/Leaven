@@ -72,9 +72,20 @@ interface UnifiedCalendarProps {
   schedules?: any[]
   storeOpeningHours?: any
   approvedLeaves?: any[]
+  isManager?: boolean
+  currentUserId?: string
 }
 
-export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = [], storeOpeningHours, approvedLeaves = [] }: UnifiedCalendarProps) {
+export function UnifiedCalendar({ 
+  storeId, 
+  roles, 
+  staffList = [], 
+  schedules = [], 
+  storeOpeningHours, 
+  approvedLeaves = [],
+  isManager = true,
+  currentUserId
+}: UnifiedCalendarProps) {
   const [viewMode, setViewMode] = useState<'matrix' | 'calendar'>('matrix')
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null)
   
@@ -166,8 +177,20 @@ export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = []
   }
 
   useEffect(() => {
-    setLocalSchedules(schedules || [])
-  }, [schedules])
+    if (!isManager && currentUserId) {
+      // 관리자가 아니면 본인의 스케줄만 필터링
+      const myStaffId = staffList.find(s => s.user_id === currentUserId)?.id
+      if (myStaffId) {
+        setLocalSchedules((schedules || []).filter(sch => 
+          sch.schedule_members?.some((sm: any) => sm.member_id === myStaffId)
+        ))
+      } else {
+        setLocalSchedules([])
+      }
+    } else {
+      setLocalSchedules(schedules || [])
+    }
+  }, [schedules, isManager, currentUserId, staffList])
 
   // 중복 스케줄 검사 유틸리티
   const checkOverlap = (staffId: string, newStart: Date, newEnd: Date, excludeScheduleId?: string) => {
@@ -606,6 +629,12 @@ export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = []
   const filteredStaff = useMemo(() => {
     let filtered = staffList
 
+    // 관리자가 아니면 본인만 보이도록 필터링
+    if (!isManager && currentUserId) {
+      filtered = filtered.filter(s => s.user_id === currentUserId)
+      return filtered
+    }
+
     // 2. 이름 검색 필터링
     if (searchQuery.trim()) {
       filtered = filtered.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -711,6 +740,7 @@ export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = []
         toggleRole={toggleRole}
         onAutoSchedule={() => setIsAutoScheduleModalOpen(true)}
         onBulkDelete={() => setIsBulkDeleteModalOpen(true)}
+        isManager={isManager}
       />
 
       {/* Main Layout (Matrix or Calendar) */}
@@ -730,6 +760,7 @@ export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = []
               getStaffRoleInfo={getStaffRoleInfo}
               approvedLeaves={approvedLeaves}
               onCellClick={(staff, date) => {
+                if (!isManager) return;
                 setCreateForm({
                   title: '근무',
                   date: format(date, 'yyyy-MM-dd'),
@@ -754,6 +785,7 @@ export function UnifiedCalendar({ storeId, roles, staffList = [], schedules = []
               getStaffRoleInfo={getStaffRoleInfo}
               approvedLeaves={approvedLeaves}
               onDateClick={(date) => {
+                if (!isManager) return;
                 setCreateForm({
                   title: '근무',
                   date: format(date, 'yyyy-MM-dd'),

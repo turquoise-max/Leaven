@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import Script from 'next/script'
 import { Card } from '@/components/ui/card'
 
 interface StoreLocationMapProps {
@@ -20,62 +21,19 @@ export function StoreLocationMap({ latitude, longitude, radius }: StoreLocationM
   const mapInstance = useRef<any>(null)
   const circleInstance = useRef<any>(null)
   const markerInstance = useRef<any>(null)
+  const [isSdkLoaded, setIsSdkLoaded] = useState(false)
 
-  useEffect(() => {
-    const apiKey = process.env.NEXT_PUBLIC_KAKAO_MAP_API_KEY;
-    console.log('[StoreLocationMap] Checking API Key:', apiKey ? 'Present (Starts with ' + apiKey.substring(0, 4) + ')' : 'Missing');
+  const apiKey = process.env.NEXT_PUBLIC_KAKAO_MAP_API_KEY;
+  const isKeyMissing = !apiKey || apiKey === 'YOUR_KAKAO_MAP_API_KEY';
 
-    if (!apiKey || apiKey === 'YOUR_KAKAO_MAP_API_KEY') {
+  const initMap = () => {
+    if (!mapRef.current || !window.kakao || !window.kakao.maps) {
+      console.error('[StoreLocationMap] Kakao SDK or map container not ready');
       return;
     }
-
-    // 이미 스크립트가 로드되어 있는지 확인
-    if (window.kakao && window.kakao.maps) {
-      console.log('[StoreLocationMap] Kakao SDK already exists, initializing...');
-      initMap();
-      return;
-    }
-
-    const scriptId = 'kakao-maps-sdk';
-    let script = document.getElementById(scriptId) as HTMLScriptElement;
-
-    if (!script) {
-      console.log('[StoreLocationMap] Creating new SDK script tag');
-      script = document.createElement('script');
-      script.id = scriptId;
-      // Use explicit https protocol to avoid protocol-relative URL issues
-      script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${apiKey}&libraries=services`;
-      script.async = true;
-      document.head.appendChild(script);
-    }
-
-    const onLoad = () => {
-      console.log('[StoreLocationMap] SDK Script loaded successfully');
-      // Wait a bit for kakao maps to be fully ready in global scope
-      const interval = setInterval(() => {
-        if (window.kakao && window.kakao.maps && window.kakao.maps.LatLng) {
-          console.log('[StoreLocationMap] Kakao maps ready, initializing...');
-          clearInterval(interval);
-          initMap();
-        }
-      }, 100);
-    };
-
-    const onError = (e: any) => {
-      console.error('[StoreLocationMap] SDK Script load failed:', e);
-    };
-
-    script.addEventListener('load', onLoad);
-    script.addEventListener('error', onError);
-    return () => {
-      script.removeEventListener('load', onLoad);
-      script.removeEventListener('error', onError);
-    };
-
-    function initMap() {
-      if (!mapRef.current || !window.kakao || !window.kakao.maps) return;
-      
-      console.log('[StoreLocationMap] Initializing map instance');
+    
+    console.log('[StoreLocationMap] Initializing map instance');
+    try {
       const options = {
         center: new window.kakao.maps.LatLng(latitude || 37.5665, longitude || 126.9780),
         level: 4,
@@ -86,8 +44,22 @@ export function StoreLocationMap({ latitude, longitude, radius }: StoreLocationM
       if (latitude && longitude) {
         updateMap(latitude, longitude, radius);
       }
+    } catch (err) {
+      console.error('[StoreLocationMap] Failed to initialize map:', err);
     }
-  }, []);
+  }
+
+  useEffect(() => {
+    if (isSdkLoaded && !mapInstance.current && latitude !== null && longitude !== null) {
+      console.log('[StoreLocationMap] SDK loaded and coordinates present, initializing map');
+      const timer = setTimeout(() => {
+        if (window.kakao && window.kakao.maps) {
+          initMap();
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isSdkLoaded, latitude, longitude]);
 
   const updateMap = (lat: number, lng: number, rad: number) => {
     if (!mapInstance.current) return
@@ -130,10 +102,33 @@ export function StoreLocationMap({ latitude, longitude, radius }: StoreLocationM
     }
   }, [latitude, longitude, radius])
 
-  const isKeyMissing = !process.env.NEXT_PUBLIC_KAKAO_MAP_API_KEY || process.env.NEXT_PUBLIC_KAKAO_MAP_API_KEY === 'YOUR_KAKAO_MAP_API_KEY'
-
   return (
     <Card className="w-full h-[300px] overflow-hidden relative border-dashed bg-slate-50 flex items-center justify-center">
+      {!isKeyMissing && (
+        <Script
+          src={`https://dapi.kakao.com/v2/maps/sdk.js?appkey=${apiKey}&libraries=services&autoload=false`}
+          strategy="afterInteractive"
+          onLoad={() => {
+            console.log('[StoreLocationMap] SDK Script loaded via next/script');
+            // Check if kakao and kakao.maps exist before calling load
+            const checkKakao = () => {
+              if (window.kakao && window.kakao.maps) {
+                window.kakao.maps.load(() => {
+                  console.log('[StoreLocationMap] Kakao maps engine loaded');
+                  setIsSdkLoaded(true);
+                });
+              } else {
+                console.log('[StoreLocationMap] Waiting for kakao.maps object...');
+                setTimeout(checkKakao, 100);
+              }
+            };
+            checkKakao();
+          }}
+          onError={(e) => {
+            console.error('[StoreLocationMap] SDK Script load failed:', e);
+          }}
+        />
+      )}
       {isKeyMissing ? (
         <div className="flex flex-col items-center justify-center p-6 text-center gap-2">
           <p className="text-sm font-medium text-destructive text-balance">

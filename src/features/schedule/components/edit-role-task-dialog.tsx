@@ -65,19 +65,19 @@ export function EditRoleTaskDialog({ storeId, task, open, onOpenChange, hideRole
       if (result?.error) {
         toast.error('오류 발생', { description: result.error as string })
       } else {
-        toast.success('업무 템플릿이 수정되었습니다.')
+        toast.success('루틴 업무가 수정되었습니다.')
         onOpenChange(false)
       }
     } catch (error) {
       console.error(error)
-      toast.error('업무 템플릿 수정 중 오류가 발생했습니다.')
+      toast.error('루틴 업무 수정 중 오류가 발생했습니다.')
     } finally {
       setLoading(false)
     }
   }
 
   const handleDelete = async () => {
-    if (!confirm('이 업무 템플릿을 삭제하시겠습니까?')) return
+    if (!confirm('이 루틴 업무를 삭제하시겠습니까?')) return
     
     setLoading(true)
     try {
@@ -85,7 +85,7 @@ export function EditRoleTaskDialog({ storeId, task, open, onOpenChange, hideRole
       if (result?.error) {
         toast.error('오류 발생', { description: result.error as string })
       } else {
-        toast.success('업무 템플릿이 삭제되었습니다.')
+        toast.success('루틴 업무가 삭제되었습니다.')
         onOpenChange(false)
       }
     } catch (error) {
@@ -100,8 +100,8 @@ export function EditRoleTaskDialog({ storeId, task, open, onOpenChange, hideRole
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-xl h-auto max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden rounded-2xl shadow-2xl border-none">
         <DialogHeader className="p-8 pb-6 bg-gradient-to-r from-primary/5 to-transparent">
-          <DialogTitle className="text-2xl font-bold tracking-tight text-foreground">업무 가이드 수정</DialogTitle>
-          <p className="text-[14px] text-muted-foreground mt-1.5">선택한 업무의 내용을 수정하거나 삭제할 수 있습니다.</p>
+          <DialogTitle className="text-2xl font-bold tracking-tight text-foreground">루틴 업무 수정</DialogTitle>
+          <p className="text-[14px] text-muted-foreground mt-1.5">선택한 루틴 업무의 내용을 수정하거나 삭제할 수 있습니다.</p>
         </DialogHeader>
         <div className="flex-1 overflow-hidden">
           <RoleTaskForm 

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useMemo } from 'react'
 import { Task, getDashboardTasks, toggleTaskCheckitem, updateTaskStatus } from '../task-actions'
-import { getTodayDateString } from '@/shared/lib/date-utils'
+import { getTodayDateString, toKSTISOString } from '@/shared/lib/date-utils'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -24,25 +24,35 @@ function parseTimeToMinutes(timeString: string): number {
   let minStr = '00'
 
   if (timeString.includes('T')) {
-    // "2024-03-24T09:00:00Z" 등 (서버에서 가져올 때 임시 가공된 형태 등 대비)
-    const timePart = timeString.split('T')[1]
+    // UTC/ISO 시간이 넘어왔을 때 한국 시간(KST)으로 변환 후 추출
+    const kstString = toKSTISOString(timeString)
+    const timePart = kstString.split('T')[1]
     if (timePart && timePart.length >= 5) {
       hourStr = timePart.substring(0, 2)
       minStr = timePart.substring(3, 5)
-    } else {
-      const d = new Date(timeString)
-      if (!isNaN(d.getTime())) {
-        hourStr = d.getHours().toString().padStart(2, '0')
-        minStr = d.getMinutes().toString().padStart(2, '0')
-      }
     }
   } else if (timeString.length >= 5) {
-    // "09:00:00" 형태
+    // 순수 "09:00:00" 형태
     hourStr = timeString.substring(0, 2)
     minStr = timeString.substring(3, 5)
   }
   
   return Number(hourStr) * 60 + Number(minStr)
+}
+
+// 시간 문자열 포맷팅 헬퍼 (HH:mm)
+function formatTimeLabel(timeString: string): string {
+  if (!timeString) return '';
+  if (timeString.includes('T')) {
+    const kstString = toKSTISOString(timeString)
+    const timePart = kstString.split('T')[1]
+    if (timePart && timePart.length >= 5) {
+      return timePart.substring(0, 5)
+    }
+  } else if (timeString.length >= 5) {
+    return timeString.substring(0, 5)
+  }
+  return timeString;
 }
 
 // 업무 상태 도출 로직 (스케줄 관리 페이지와 동일하되, 시간 텍스트 기반으로 정확히 비교)
@@ -77,6 +87,11 @@ interface DashboardTaskListProps {
   currentUserId?: string
 }
 
+// 로컬 스토리지 키 생성 유틸리티
+function getRoutineStorageKey(userId: string | undefined, date: string) {
+  return `routine_tasks_${userId || 'anonymous'}_${date}`
+}
+
 export function DashboardTaskList({ storeId, roleId, attendanceStatus, currentUserId }: DashboardTaskListProps) {
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [createForm, setCreateForm] = useState({
@@ -96,11 +111,47 @@ export function DashboardTaskList({ storeId, roleId, attendanceStatus, currentUs
 
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
+  // 당일 루틴 업무 상태 (Local Storage 기반)
+  const [routineStatus, setRoutineStatus] = useState<Record<string, {
+    status: 'todo' | 'done',
+    checkedItems: string[]
+  }>>({})
+
   // 1분마다 현재 시간 갱신
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60000)
     return () => clearInterval(timer)
   }, [])
+
+  // Local Storage에서 당일 루틴 상태 불러오기
+  useEffect(() => {
+    const today = getTodayDateString()
+    const key = getRoutineStorageKey(currentUserId, today)
+    try {
+      const stored = localStorage.getItem(key)
+      if (stored) {
+        setRoutineStatus(JSON.parse(stored))
+      } else {
+        // 어제 이전의 찌꺼기 데이터 청소 (옵션)
+        for (let i = 0; i < localStorage.length; i++) {
+           const k = localStorage.key(i)
+           if (k?.startsWith(`routine_tasks_${currentUserId || 'anonymous'}_`) && k !== key) {
+             localStorage.removeItem(k)
+           }
+        }
+      }
+    } catch (e) {
+      console.error('Failed to parse routine status from local storage')
+    }
+  }, [currentUserId])
+
+  // 루틴 상태가 변경될 때마다 Local Storage 동기화
+  const saveRoutineStatusToStorage = (newStatus: typeof routineStatus) => {
+    const today = getTodayDateString()
+    const key = getRoutineStorageKey(currentUserId, today)
+    localStorage.setItem(key, JSON.stringify(newStatus))
+    setRoutineStatus(newStatus)
+  }
 
   const fetchTasks = async () => {
     try {
@@ -129,7 +180,36 @@ export function DashboardTaskList({ storeId, roleId, attendanceStatus, currentUs
     fetchTasks()
   }, [storeId, roleId])
 
-  const handleChecklistToggle = async (taskId: string, itemId: string, checked: boolean) => {
+  const handleChecklistToggle = async (taskId: string, itemId: string, checked: boolean, isTemplate?: boolean) => {
+    if (isTemplate) {
+      // 템플릿(루틴)인 경우 프론트엔드 로컬 상태만 업데이트
+      const currentTaskStatus = routineStatus[taskId] || { status: 'todo', checkedItems: [] }
+      let newCheckedItems = [...currentTaskStatus.checkedItems]
+      
+      if (checked && !newCheckedItems.includes(itemId)) {
+        newCheckedItems.push(itemId)
+      } else if (!checked) {
+        newCheckedItems = newCheckedItems.filter(id => id !== itemId)
+      }
+      
+      // 해당 템플릿의 전체 체크리스트 항목 수 구하기
+      const task = roleTasks.find(t => t.id === taskId)
+      const totalChecklists = task?.checklist?.length || 0
+      
+      const allCompleted = totalChecklists > 0 && newCheckedItems.length === totalChecklists
+      const newStatusVal = allCompleted ? 'done' : 'todo'
+      
+      saveRoutineStatusToStorage({
+        ...routineStatus,
+        [taskId]: {
+          status: newStatusVal,
+          checkedItems: newCheckedItems
+        }
+      })
+      return
+    }
+
+    // 일반 개인/할당 업무인 경우 DB 연동
     setTasks(prev => prev.map(task => {
         if (task.id !== taskId) return task
         const newChecklist = task.checklist?.map(item => 
@@ -143,7 +223,27 @@ export function DashboardTaskList({ storeId, roleId, attendanceStatus, currentUs
     if (result.error) fetchTasks()
   }
 
-  const handleStatusChange = async (taskId: string, status: 'todo' | 'in_progress' | 'done') => {
+  const handleStatusChange = async (taskId: string, status: 'todo' | 'in_progress' | 'done', isTemplate?: boolean) => {
+      if (isTemplate) {
+        // 템플릿(루틴) 통째로 완료/미완료 토글 시 처리
+        const task = roleTasks.find(t => t.id === taskId)
+        let newCheckedItems: string[] = []
+        
+        // 'done'으로 변경하면 내부의 모든 체크리스트를 체크된 상태로 만듦
+        if (status === 'done' && task?.checklist) {
+          newCheckedItems = task.checklist.map(item => item.id)
+        }
+        
+        saveRoutineStatusToStorage({
+          ...routineStatus,
+          [taskId]: {
+            status: status === 'done' ? 'done' : 'todo',
+            checkedItems: newCheckedItems
+          }
+        })
+        return
+      }
+
       setTasks(prev => prev.map(task => {
           if (task.id !== taskId) return task
           return { ...task, status }
@@ -183,12 +283,8 @@ export function DashboardTaskList({ storeId, roleId, attendanceStatus, currentUs
       if (!task.start_time || task.task_type === 'always') {
         anytime.push(task)
       } else {
-        // 시간 지정 업무 처리 (문자열 기반 파싱 공통 함수 사용)
-        const taskMins = parseTimeToMinutes(task.start_time)
-        const hourStr = Math.floor(taskMins / 60).toString().padStart(2, '0')
-        const minStr = (taskMins % 60).toString().padStart(2, '0')
-        
-        const key = `${hourStr}:${minStr}`
+        // KST 기준의 정확한 시간 텍스트 라벨 가져오기
+        const key = formatTimeLabel(task.start_time)
         if (!groups[key]) groups[key] = []
         groups[key].push(task)
       }
@@ -255,7 +351,7 @@ export function DashboardTaskList({ storeId, roleId, attendanceStatus, currentUs
                 onCheckedChange={setShowPlaybook} 
                 className="scale-90"
               />
-              <Label htmlFor="show-guide" className="text-[12px] font-medium text-[#6b6b6b] cursor-pointer">가이드 표시</Label>
+              <Label htmlFor="show-guide" className="text-[12px] font-medium text-[#6b6b6b] cursor-pointer">루틴 업무 표시</Label>
             </div>
           </div>
           
@@ -298,22 +394,26 @@ export function DashboardTaskList({ storeId, roleId, attendanceStatus, currentUs
               <div className="mb-8">
                 <div className="flex items-center gap-2 mb-3">
                   <Calendar className="w-4 h-4 text-[#6b6b6b]" />
-                  <h3 className="text-[13px] font-bold text-[#1a1a1a]">상시 업무 {showPlaybook && '& 가이드'}</h3>
+                  <h3 className="text-[13px] font-bold text-[#1a1a1a]">상시 업무 {showPlaybook && '& 루틴'}</h3>
                   <span className="text-[11px] text-[#6b6b6b] font-medium bg-black/5 px-1.5 py-0.5 rounded-md">시간 미지정</span>
                   <Badge variant="secondary" className="ml-auto bg-black/5 text-[#1a1a1a] font-bold shadow-none border-none">{mergedAnytimeTasks.length}</Badge>
                 </div>
                 <div className="space-y-2.5">
-                  {mergedAnytimeTasks.map(task => (
-                    <TaskCard 
-                      key={task.id} 
-                      task={task} 
-                      now={now}
-                      onCheck={handleChecklistToggle} 
-                      onStatusChange={handleStatusChange}
-                      onDelete={() => handleDeleteTask(task.id)}
-                      isDeleting={deletingId === task.id}
-                    />
-                  ))}
+                  {mergedAnytimeTasks.map(task => {
+                    const rStatus = task.is_template ? routineStatus[task.id] : undefined;
+                    return (
+                      <TaskCard 
+                        key={task.id} 
+                        task={task} 
+                        now={now}
+                        routineStatus={rStatus}
+                        onCheck={handleChecklistToggle} 
+                        onStatusChange={handleStatusChange}
+                        onDelete={() => handleDeleteTask(task.id)}
+                        isDeleting={deletingId === task.id}
+                      />
+                    )
+                  })}
                 </div>
               </div>
             )}
@@ -363,17 +463,21 @@ export function DashboardTaskList({ storeId, roleId, attendanceStatus, currentUs
 
                     {/* 카드 목록 */}
                     <div className={cn("flex flex-col gap-2 pl-4 transition-opacity", isPast ? "opacity-60 hover:opacity-100" : "")}>
-                      {group.tasks.map(task => (
-                        <TaskCard 
-                          key={task.id} 
-                          task={task} 
-                          now={now}
-                          onCheck={handleChecklistToggle} 
-                          onStatusChange={handleStatusChange}
-                          onDelete={() => handleDeleteTask(task.id)}
-                          isDeleting={deletingId === task.id}
-                        />
-                      ))}
+                      {group.tasks.map(task => {
+                        const rStatus = task.is_template ? routineStatus[task.id] : undefined;
+                        return (
+                          <TaskCard 
+                            key={task.id} 
+                            task={task} 
+                            now={now}
+                            routineStatus={rStatus}
+                            onCheck={handleChecklistToggle} 
+                            onStatusChange={handleStatusChange}
+                            onDelete={() => handleDeleteTask(task.id)}
+                            isDeleting={deletingId === task.id}
+                          />
+                        )
+                      })}
                     </div>
                     
                     {/* 현재 시간 표시선 (이 그룹 직후가 현재 시간일 때) */}
@@ -426,21 +530,25 @@ export function DashboardTaskList({ storeId, roleId, attendanceStatus, currentUs
 interface TaskCardProps {
   task: Task
   now: Date
-  onCheck: (taskId: string, itemId: string, checked: boolean) => void
-  onStatusChange: (taskId: string, status: 'todo' | 'in_progress' | 'done') => void
+  routineStatus?: { status: 'todo' | 'done', checkedItems: string[] }
+  onCheck: (taskId: string, itemId: string, checked: boolean, isTemplate?: boolean) => void
+  onStatusChange: (taskId: string, status: 'todo' | 'in_progress' | 'done', isTemplate?: boolean) => void
   onDelete: () => void
   isDeleting: boolean
 }
 
-function TaskCard({ task, now, onCheck, onStatusChange, onDelete, isDeleting }: TaskCardProps) {
-  const isDone = task.status === 'done'
+function TaskCard({ task, now, routineStatus, onCheck, onStatusChange, onDelete, isDeleting }: TaskCardProps) {
   const isTemplate = task.is_template === true
+  const isDone = isTemplate ? (routineStatus?.status === 'done') : (task.status === 'done')
   
   // 템플릿(가이드) 이거나 역할에 배정된 경우 뱃지 표시
   const isRoleTask = isTemplate || (task.assigned_role_ids && task.assigned_role_ids.length > 0)
   const isPersonal = !isTemplate && (!task.assigned_role_ids || task.assigned_role_ids.length === 0)
   
-  const derivedStatus = getDerivedTaskStatus(task, now)
+  // 템플릿의 경우 로컬 완료 상태 우선, 아니면 시간 기반 상태
+  const derivedStatus = isTemplate 
+    ? (routineStatus?.status === 'done' ? 'done' : getDerivedTaskStatus(task, now))
+    : getDerivedTaskStatus(task, now)
 
   // 색상 매핑
   const statusColorClass = {
@@ -463,29 +571,23 @@ function TaskCard({ task, now, onCheck, onStatusChange, onDelete, isDeleting }: 
         isTemplate ? "border-l-[#534AB7]/40 bg-slate-50/50" : statusColorClass // 템플릿은 별도 컬러 처리
     )}>
         <div className="flex items-start gap-2.5">
-            {!isTemplate ? (
-              <Checkbox 
-                  checked={isDone}
-                  onCheckedChange={() => onStatusChange(task.id, isDone ? 'todo' : 'done')}
-                  className={cn(
-                      "w-[18px] h-[18px] mt-0.5 rounded-md transition-colors",
-                      checkboxClass
-                  )}
-              />
-            ) : (
-              <div className="w-[18px] h-[18px] mt-0.5 flex items-center justify-center">
-                <div className="w-1.5 h-1.5 rounded-full bg-[#534AB7]/40" />
-              </div>
-            )}
+            <Checkbox 
+                checked={isDone}
+                onCheckedChange={() => onStatusChange(task.id, isDone ? 'todo' : 'done', isTemplate)}
+                className={cn(
+                    "w-[18px] h-[18px] mt-0.5 rounded-md transition-colors",
+                    isTemplate ? "border-black/20 data-[state=checked]:bg-[#534AB7] data-[state=checked]:border-[#534AB7]" : checkboxClass
+                )}
+            />
             
             <div className="flex flex-col gap-1 min-w-0 flex-1">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-2 flex-wrap min-w-0">
-                  <h4 className={cn("font-bold text-[13px] text-[#1a1a1a] leading-tight truncate", isDone && !isTemplate && "line-through text-muted-foreground opacity-60")}>
+                  <h4 className={cn("font-bold text-[13px] text-[#1a1a1a] leading-tight truncate", isDone && "line-through text-muted-foreground opacity-60")}>
                       {task.title}
                   </h4>
                   {isTemplate ? (
-                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-[18px] font-medium bg-[#534AB7]/10 text-[#534AB7] border-none">가이드</Badge>
+                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-[18px] font-medium bg-[#534AB7]/10 text-[#534AB7] border-none">루틴</Badge>
                   ) : isRoleTask ? (
                     <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-[18px] font-medium bg-blue-500/10 text-blue-600 border-none">역할 업무</Badge>
                   ) : (
@@ -518,22 +620,32 @@ function TaskCard({ task, now, onCheck, onStatusChange, onDelete, isDeleting }: 
         
         {task.checklist && task.checklist.length > 0 && (
           <div className="pl-7 space-y-2 mt-1">
-            {task.checklist.map(item => (
-              <div key={item.id} className="flex items-start gap-2">
-                 {!isTemplate ? (
+            {task.checklist.map(item => {
+              const isItemCompleted = isTemplate 
+                ? (routineStatus?.checkedItems?.includes(item.id) || false) 
+                : item.is_completed
+              
+              return (
+                <div key={item.id} className="flex items-start gap-2">
                    <Checkbox 
-                      checked={item.is_completed}
-                      onCheckedChange={(c) => onCheck(task.id, item.id, !!c)}
-                      className={cn("w-3.5 h-3.5 mt-0.5 rounded-sm border-black/20", item.is_completed && "data-[state=checked]:bg-[#1D9E75] data-[state=checked]:border-[#1D9E75]")}
+                      checked={isItemCompleted}
+                      onCheckedChange={(c) => onCheck(task.id, item.id, !!c, isTemplate)}
+                      className={cn(
+                        "w-3.5 h-3.5 mt-0.5 rounded-sm border-black/20 transition-colors", 
+                        isTemplate 
+                          ? (isItemCompleted && "data-[state=checked]:bg-[#534AB7] data-[state=checked]:border-[#534AB7]")
+                          : (isItemCompleted && "data-[state=checked]:bg-[#1D9E75] data-[state=checked]:border-[#1D9E75]")
+                      )}
                    />
-                 ) : (
-                   <div className="w-[3px] h-[3px] rounded-full bg-muted-foreground mt-[7px] shrink-0" />
-                 )}
-                 <span className={cn("text-[11px] font-medium text-[#1a1a1a]", item.is_completed && !isTemplate && "line-through text-muted-foreground opacity-60")}>
-                   {item.text}
-                 </span>
-              </div>
-            ))}
+                   <span className={cn(
+                     "text-[11px] font-medium text-[#1a1a1a] transition-all", 
+                     isItemCompleted && "line-through text-muted-foreground opacity-60"
+                   )}>
+                     {item.text}
+                   </span>
+                </div>
+              )
+            })}
           </div>
         )}
     </div>

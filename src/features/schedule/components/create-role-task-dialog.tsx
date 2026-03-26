@@ -56,12 +56,12 @@ export function CreateRoleTaskDialog({ storeId, initialRoleIds, trigger, hideRol
       if (result?.error) {
         toast.error('오류 발생', { description: result.error as string })
       } else {
-        toast.success('업무 템플릿이 생성되었습니다.')
+        toast.success('루틴 업무가 생성되었습니다.')
         setOpen(false)
       }
     } catch (error) {
       console.error(error)
-      toast.error('업무 템플릿 등록 중 오류가 발생했습니다.')
+      toast.error('루틴 업무 등록 중 오류가 발생했습니다.')
     } finally {
       setLoading(false)
     }
@@ -73,14 +73,14 @@ export function CreateRoleTaskDialog({ storeId, initialRoleIds, trigger, hideRol
         {trigger || (
           <Button className="gap-2">
             <Plus className="w-4 h-4" />
-            가이드라인 추가
+            루틴 추가
           </Button>
         )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-xl h-auto max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden rounded-2xl shadow-2xl border-none">
         <DialogHeader className="p-8 pb-6 bg-gradient-to-r from-primary/5 to-transparent">
-          <DialogTitle className="text-2xl font-bold tracking-tight text-foreground">새 업무 가이드 만들기</DialogTitle>
-          <p className="text-[14px] text-muted-foreground mt-1.5">직급별로 수행해야 할 주요 업무를 등록해 주세요.</p>
+          <DialogTitle className="text-2xl font-bold tracking-tight text-foreground">새 루틴 업무 만들기</DialogTitle>
+          <p className="text-[14px] text-muted-foreground mt-1.5">직급별로 매일 수행해야 할 주요 반복 업무를 등록해 주세요.</p>
         </DialogHeader>
         <div className="flex-1 overflow-hidden">
           <RoleTaskForm 

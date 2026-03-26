@@ -391,8 +391,9 @@ export function StaffList({ initialData, storeId, canManage, inviteCode }: Staff
                   <TableHeader className="bg-slate-50/80 border-b border-t border-border/50">
                     <TableRow className="hover:bg-transparent text-[11px] uppercase tracking-widest text-slate-500">
                       <TableHead className="w-[90px] px-2 text-center font-bold h-9">상태</TableHead>
-                      <TableHead className="w-[260px] font-bold h-9 px-4">직원 정보</TableHead>
-                      <TableHead className="px-4 font-bold h-9">근로 조건 및 스케줄</TableHead>
+                      <TableHead className="w-[260px] font-bold h-9 px-4 text-center">직원 정보</TableHead>
+                      <TableHead className="px-4 font-bold h-9 text-center">근로 조건 및 스케줄</TableHead>
+                      <TableHead className="w-24 h-9"></TableHead>
                       <TableHead className="w-[120px] font-bold h-9 px-4 text-center">근로계약서</TableHead>
                       <TableHead className="w-[100px] text-right h-9 pr-6"></TableHead>
                     </TableRow>
@@ -419,7 +420,7 @@ export function StaffList({ initialData, storeId, canManage, inviteCode }: Staff
                     ))}
                     {list.length === 0 && (
                       <TableRow className="hover:bg-transparent">
-                        <TableCell colSpan={5} className="h-64 text-center text-muted-foreground">
+                        <TableCell colSpan={6} className="h-64 text-center text-muted-foreground">
                           <div className="flex flex-col items-center justify-center gap-4 py-8">
                             {searchQuery ? (
                               <>

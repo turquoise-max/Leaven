@@ -35,14 +35,17 @@ export default async function UnifiedSchedulePage() {
     return <div>접근 권한이 없습니다.</div>
   }
 
-  let canManage = false
+  // 관리자 권한 확인 (manage_schedule)
+  let isManager = false
   try {
     await requirePermission(user.id, member.store_id, 'manage_schedule')
-    canManage = true
-  } catch (error) {}
+    isManager = true
+  } catch (error) {
+    isManager = false
+  }
 
   const roles = await getStoreRoles(member.store_id)
-  
+
   // 직원 목록 조회
   const { data: rawStaffList } = await supabase
     .from('store_members')
@@ -93,57 +96,8 @@ export default async function UnifiedSchedulePage() {
     .eq('store_id', member.store_id)
     .eq('status', 'approved')
 
-  const mySchedules = (schedules || []).filter((sch: any) =>
-    sch.schedule_members?.some((sm: any) => sm.member_id === member.id)
-  )
-
-  // Sort by start_time
-  mySchedules.sort((a: any, b: any) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
-
-  const staffView = (
-    <div className={`flex flex-col h-full bg-white rounded-xl border shadow-sm p-6 overflow-auto ${canManage ? 'lg:hidden' : ''}`}>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">나의 스케줄</h1>
-        <p className="text-muted-foreground mt-1">
-          나와 관련된 근무 일정을 확인합니다.
-        </p>
-      </div>
-      
-      {mySchedules.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-muted-foreground bg-slate-50 rounded-xl border border-dashed">
-          <p>배정된 스케줄이 없습니다.</p>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-4">
-          {mySchedules.map((sch: any) => {
-            const start = new Date(sch.start_time)
-            const end = new Date(sch.end_time)
-            const dateStr = `${start.getMonth() + 1}월 ${start.getDate()}일`
-            const timeStr = `${start.getHours().toString().padStart(2, '0')}:${start.getMinutes().toString().padStart(2, '0')} ~ ${end.getHours().toString().padStart(2, '0')}:${end.getMinutes().toString().padStart(2, '0')}`
-
-            return (
-              <div key={sch.id} className="flex flex-col p-4 rounded-xl border bg-card hover:shadow-sm transition-shadow">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-2 h-10 rounded-full" style={{ backgroundColor: sch.color || '#1D9E75' }} />
-                  <div>
-                    <h3 className="font-bold text-lg">{dateStr}</h3>
-                    <p className="font-semibold text-primary">{timeStr}</p>
-                  </div>
-                </div>
-                <div className="pl-5 ml-1 border-l-2 border-border/50">
-                  <p className="text-sm font-medium">{sch.title || '기본 스케줄'}</p>
-                  {sch.memo && <p className="text-sm text-muted-foreground mt-1">{sch.memo}</p>}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-
-  const managerView = canManage ? (
-    <div className="hidden lg:flex flex-col h-[calc(100vh-100px)] space-y-4">
+  return (
+    <div className="flex flex-col h-[calc(100vh-100px)] space-y-4">
       {/* Header Area */}
       <div className="flex items-center justify-between shrink-0">
         <div>
@@ -162,14 +116,9 @@ export default async function UnifiedSchedulePage() {
         schedules={schedules || []}
         storeOpeningHours={Array.isArray(member.store) ? member.store[0]?.opening_hours : (member.store as any)?.opening_hours}
         approvedLeaves={approvedLeaves || []}
+        isManager={isManager}
+        currentUserId={user.id}
       />
     </div>
-  ) : null
-
-  return (
-    <>
-      {staffView}
-      {managerView}
-    </>
   )
 }

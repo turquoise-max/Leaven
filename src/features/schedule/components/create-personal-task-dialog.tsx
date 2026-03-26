@@ -107,15 +107,15 @@ export function CreatePersonalTaskDialog({ storeId, open, onOpenChange, onSucces
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>새 개인 업무 추가</DialogTitle>
+          <DialogTitle>나의 할 일 추가</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="title">업무 내용 <span className="text-red-500">*</span></Label>
+            <Label htmlFor="title">할 일 이름 <span className="text-red-500">*</span></Label>
             <Input 
               id="title" 
-              placeholder="예: 매장 청소 마무리" 
+              placeholder="예: 분리수거하기, 매장 환기 등" 
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               autoFocus
@@ -123,7 +123,7 @@ export function CreatePersonalTaskDialog({ storeId, open, onOpenChange, onSucces
           </div>
 
           <div className="space-y-3">
-            <Label>체크리스트 (선택)</Label>
+            <Label>하위 할 일 (체크리스트)</Label>
             <div className="space-y-2">
               {checklist.map((item) => (
                 <div key={item.id} className="flex items-center gap-2 bg-black/5 px-3 py-2 rounded-md">
@@ -158,10 +158,10 @@ export function CreatePersonalTaskDialog({ storeId, open, onOpenChange, onSucces
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description">상세 설명 (선택)</Label>
+            <Label htmlFor="description">메모 (선택)</Label>
             <Textarea 
               id="description" 
-              placeholder="필요한 경우 상세 내용을 입력하세요" 
+              placeholder="추가로 남길 내용을 입력하세요" 
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="resize-none"
@@ -171,8 +171,8 @@ export function CreatePersonalTaskDialog({ storeId, open, onOpenChange, onSucces
 
           <div className="flex items-center justify-between p-3 border rounded-lg bg-black/5">
             <div className="space-y-0.5">
-              <Label className="text-sm font-medium">시간 지정 없음 (상시 업무)</Label>
-              <p className="text-[12px] text-muted-foreground">오늘 중 언제든 수행할 수 있는 업무</p>
+              <Label className="text-sm font-medium">시간 정하지 않기</Label>
+              <p className="text-[12px] text-muted-foreground">특정 시간 없이 오늘 중으로 완료할 할 일</p>
             </div>
             <Switch 
               checked={isAnytime} 
@@ -197,7 +197,7 @@ export function CreatePersonalTaskDialog({ storeId, open, onOpenChange, onSucces
           </Button>
           <Button onClick={handleSubmit} disabled={loading || !title.trim()}>
             {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-            추가하기
+            저장하기
           </Button>
         </div>
       </DialogContent>

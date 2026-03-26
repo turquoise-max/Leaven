@@ -26,6 +26,7 @@ interface CalendarHeaderProps {
   
   onAutoSchedule: () => void
   onBulkDelete: () => void
+  isManager?: boolean
 }
 
 export function CalendarHeader({
@@ -49,7 +50,8 @@ export function CalendarHeader({
   toggleRole,
   
   onAutoSchedule,
-  onBulkDelete
+  onBulkDelete,
+  isManager = true
 }: CalendarHeaderProps) {
   const [isMounted, setIsMounted] = useState(false)
   
@@ -119,7 +121,9 @@ export function CalendarHeader({
       {/* 오른쪽: 필터 칩, 검색창, 액션 버튼 */}
       <div className="flex items-center gap-3 ml-auto flex-wrap justify-end">
         
-        {/* 역할(Role) 필터 토글 칩 */}
+        {isManager && (
+          <>
+            {/* 역할(Role) 필터 토글 칩 */}
         <div className="flex gap-1.5 flex-wrap">
           {roles.slice(0, 4).map(r => {
             const isActive = activeRoleIds.includes(r.id)
@@ -189,23 +193,25 @@ export function CalendarHeader({
           )}
         </div>
 
-        {/* 액션 버튼 */}
-        <div className="flex items-stretch shadow-sm rounded-md ml-1">
-          <button 
-            className="bg-[#1a1a1a] text-white text-[11px] font-medium px-3 py-1.5 rounded-l-md hover:bg-black/80 flex items-center gap-1.5 transition-colors outline-none border-r border-white/20"
-            onClick={onAutoSchedule}
-            title="스케줄 자동 생성"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500/20" /> 스케줄 자동 생성
-          </button>
-          <button 
-            className="bg-[#1a1a1a] text-white/70 px-2.5 py-1.5 rounded-r-md hover:bg-destructive hover:text-white flex items-center transition-colors outline-none"
-            onClick={onBulkDelete}
-            title="스케줄 일괄 초기화"
-          >
-            <Trash2 className="w-[14px] h-[14px]" />
-          </button>
-        </div>
+            {/* 액션 버튼 */}
+            <div className="flex items-stretch shadow-sm rounded-md ml-1">
+              <button 
+                className="bg-[#1a1a1a] text-white text-[11px] font-medium px-3 py-1.5 rounded-l-md hover:bg-black/80 flex items-center gap-1.5 transition-colors outline-none border-r border-white/20"
+                onClick={onAutoSchedule}
+                title="스케줄 자동 생성"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500/20" /> 스케줄 자동 생성
+              </button>
+              <button 
+                className="bg-[#1a1a1a] text-white/70 px-2.5 py-1.5 rounded-r-md hover:bg-destructive hover:text-white flex items-center transition-colors outline-none"
+                onClick={onBulkDelete}
+                title="스케줄 일괄 초기화"
+              >
+                <Trash2 className="w-[14px] h-[14px]" />
+              </button>
+            </div>
+          </>
+        )}
 
       </div>
     </div>

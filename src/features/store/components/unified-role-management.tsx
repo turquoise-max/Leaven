@@ -32,6 +32,8 @@ import {
 } from '@/components/ui/alert-dialog'
 
 const permissionTitles: Record<string, string> = {
+  'view_dashboard': '대시보드 메인 확인',
+  
   'manage_store': '매장 정보 수정',
   'manage_roles': '직급 및 권한 설정',
   
@@ -40,21 +42,23 @@ const permissionTitles: Record<string, string> = {
   'view_salary': '급여/시급 확인',
   'manage_payroll': '급여 정산 및 관리',
   
-  'view_schedule': '근무표 확인',
-  'manage_schedule': '근무표 짜기 및 수정',
+  'view_schedule': '스케줄표 확인',
+  'manage_schedule': '스케줄표 짜기 및 수정',
   'view_attendance': '출퇴근 현황 확인',
   'manage_attendance': '출퇴근 기록 수정/승인',
   'view_leave': '휴가 신청 현황 확인',
   'manage_leave': '휴가 승인 및 관리',
   
-  'view_tasks': '업무 순서 확인',
-  'manage_tasks': '업무 순서 만들기',
+  'view_tasks': '루틴 업무 확인',
+  'manage_tasks': '루틴 업무 만들기',
   'view_sales': '매출 및 결제 확인',
   'manage_inventory': '재고 채우기 및 관리',
   'manage_menu': '메뉴/가격 관리'
 }
 
 const permissionDescriptions: Record<string, string> = {
+  'view_dashboard': '대시보드 첫 화면의 요약 정보를 볼 수 있습니다.',
+  
   'manage_store': '매장 이름, 전화번호 등 기본 정보를 바꿀 수 있습니다.',
   'manage_roles': '새로운 직급을 만들거나, 직급별로 앱에서 할 수 있는 일을 정합니다.',
   
@@ -63,15 +67,15 @@ const permissionDescriptions: Record<string, string> = {
   'view_salary': '다른 직원의 민감한 시급이나 급여 정보를 볼 수 있습니다.',
   'manage_payroll': '직원들의 월급을 계산하고 명세서를 관리합니다.',
   
-  'view_schedule': '전체 직원의 이번 주, 이번 달 근무표를 볼 수 있습니다.',
-  'manage_schedule': '근무표를 새로 만들거나, 자동으로 짜인 근무표를 승인합니다.',
+  'view_schedule': '전체 직원의 이번 주, 이번 달 스케줄을 볼 수 있습니다.',
+  'manage_schedule': '전체 직원의 스케줄을 관리합니다. 이 권한이 없으면 본인의 스케줄만 확인 가능합니다.',
   'view_attendance': '지금 누가 출근했는지, 오늘 지각한 사람은 없는지 확인합니다.',
   'manage_attendance': '잘못 찍힌 출퇴근 시간을 바로잡거나 지각/결근을 처리합니다.',
   'view_leave': '누가 언제 휴가를 가는지 캘린더로 한눈에 확인합니다.',
   'manage_leave': '직원의 휴가 신청을 승인/거절하거나 남은 연차를 조정합니다.',
   
-  'view_tasks': '우리 매장의 직급별 업무 순서를 확인할 수 있습니다.',
-  'manage_tasks': '출근해서 퇴근까지 해야 할 일들을 순서대로 만듭니다.',
+  'view_tasks': '우리 매장의 직급별 루틴 업무 목록을 확인할 수 있습니다.',
+  'manage_tasks': '출근해서 퇴근까지 해야 할 일들(루틴)을 만들거나 수정합니다.',
   'view_sales': '매장 매출 현황과 손님들이 결제한 내역을 확인합니다.',
   'manage_inventory': '물건 재고가 얼마나 남았는지 확인하고 채워넣습니다.',
   'manage_menu': '메뉴 이름을 바꾸거나 가격을 수정할 수 있습니다.'
@@ -176,31 +180,77 @@ export function UnifiedRoleManagement({ storeId, roles, permissions, taskTemplat
     return isNameChanged || isColorChanged || isParentChanged || isPermissionsChanged
   }, [selectedRole, editName, editColor, editParentId, rolePermissions, initialRolePermissions])
 
-  // 3차원 디스코드 폼 매트릭스 카테고리 정의
+  // 메뉴 리스트 사이드바 페이지별 권한 카테고리 정의
   const PERMISSION_CATEGORIES = [
     {
-      id: 'system',
-      title: '매장 설정 및 직급 관리',
-      desc: '매장 정보와 직급별 권한을 설정합니다.',
-      codes: ['manage_store', 'manage_roles']
+      id: 'dashboard',
+      title: '대시보드',
+      desc: '메인 대시보드 페이지 접근 권한입니다.',
+      viewCode: 'view_dashboard',
+      manageCodes: []
     },
     {
-      id: 'hr',
-      title: '직원 및 급여 관리',
-      desc: '직원 정보와 월급 계산에 관한 권한입니다.',
-      codes: ['view_staff', 'manage_staff', 'view_salary', 'manage_payroll']
+      id: 'tasks',
+      title: '할 일 (루틴 업무)',
+      desc: '루틴 업무 체크리스트 페이지 접근 및 관리 권한입니다.',
+      viewCode: 'view_tasks',
+      manageCodes: ['manage_tasks']
     },
     {
-      id: 'time',
-      title: '근무 시간 및 휴가 관리',
-      desc: '근무표 작성, 출퇴근 기록, 휴가 승인에 관한 권한입니다.',
-      codes: ['view_schedule', 'manage_schedule', 'view_attendance', 'manage_attendance', 'view_leave', 'manage_leave']
+      id: 'schedule',
+      title: '스케줄 관리',
+      desc: '직원들의 스케줄표 페이지 접근 및 스케줄 수정 권한입니다.',
+      viewCode: 'view_schedule',
+      manageCodes: ['manage_schedule']
     },
     {
-      id: 'ops',
-      title: '매장 운영 및 업무 관리',
-      desc: '매출 확인, 재고 관리, 업무 순서 정하기에 관한 권한입니다.',
-      codes: ['view_tasks', 'manage_tasks', 'view_sales', 'manage_inventory', 'manage_menu']
+      id: 'attendance',
+      title: '출퇴근 관리',
+      desc: '출퇴근 기록 현황 접근 및 승인/수정 권한입니다.',
+      viewCode: 'view_attendance',
+      manageCodes: ['manage_attendance']
+    },
+    {
+      id: 'leave',
+      title: '휴가 및 연차',
+      desc: '직원들의 휴가 신청 현황 접근 및 승인 권한입니다.',
+      viewCode: 'view_leave',
+      manageCodes: ['manage_leave']
+    },
+    {
+      id: 'staff',
+      title: '직원 관리',
+      desc: '직원 명부 접근 및 초대/정보 수정 권한입니다.',
+      viewCode: 'view_staff',
+      manageCodes: ['manage_staff']
+    },
+    {
+      id: 'roles',
+      title: '직급 및 권한 설정',
+      desc: '직급 생성 및 직급별 업무/기능 권한 설정 페이지 접근 권한입니다.',
+      viewCode: 'manage_roles',
+      manageCodes: []
+    },
+    {
+      id: 'payroll',
+      title: '급여 및 인건비',
+      desc: '직원들의 급여 정보 확인 및 급여 정산 권한입니다.',
+      viewCode: 'view_salary',
+      manageCodes: ['manage_payroll']
+    },
+    {
+      id: 'sales_assets',
+      title: '매출 및 자산 관리',
+      desc: '매출 분석 확인 및 매장 재고/메뉴 관리 권한입니다.',
+      viewCode: 'view_sales',
+      manageCodes: ['manage_inventory', 'manage_menu']
+    },
+    {
+      id: 'settings',
+      title: '매장 설정',
+      desc: '매장의 기본 정보와 시스템 설정을 변경할 수 있는 권한입니다.',
+      viewCode: 'manage_store',
+      manageCodes: []
     }
   ]
 
@@ -349,14 +399,33 @@ export function UnifiedRoleManagement({ storeId, roles, permissions, taskTemplat
     }
   }
 
-  const togglePermission = (code: string) => {
+  const togglePermission = (code: string, categoryId?: string) => {
     if (selectedRole && selectedRole.priority >= 100) return // Owner permissions cannot be changed
     
-    setRolePermissions(prev => 
-      prev.includes(code) 
-        ? prev.filter(c => c !== code) 
-        : [...prev, code]
-    )
+    setRolePermissions(prev => {
+      const isCurrentlyEnabled = prev.includes(code)
+      let next = isCurrentlyEnabled ? prev.filter(c => c !== code) : [...prev, code]
+
+      // 부모(viewCode)가 꺼지면 자식(manageCodes)도 모두 꺼지도록 처리
+      if (isCurrentlyEnabled && categoryId) {
+        const category = PERMISSION_CATEGORIES.find(c => c.id === categoryId)
+        if (category && category.viewCode === code) {
+          next = next.filter(c => !category.manageCodes.includes(c))
+        }
+      }
+
+      // 자식(manageCode)이 켜질 때 부모(viewCode)가 꺼져있다면 자동으로 켜줌
+      if (!isCurrentlyEnabled && categoryId) {
+        const category = PERMISSION_CATEGORIES.find(c => c.id === categoryId)
+        if (category && category.manageCodes.includes(code) && category.viewCode) {
+          if (!next.includes(category.viewCode)) {
+            next = [...next, category.viewCode]
+          }
+        }
+      }
+
+      return next
+    })
   }
 
   const isOwner = selectedRole ? selectedRole.priority >= 100 : false
@@ -493,23 +562,23 @@ export function UnifiedRoleManagement({ storeId, roles, permissions, taskTemplat
             <div className="flex items-center justify-between px-6 py-5 border-b">
               <div className="space-y-1">
                 <h3 className="text-xl font-bold flex items-center gap-2">
+                  권한 및 루틴 업무 설정
                   {isOwner ? (
-                    <>
-                      {editName} <Badge variant="secondary">매장 주인</Badge>
-                    </>
+                    <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20 border-primary/20">
+                      {editName}
+                    </Badge>
                   ) : (
-                    <>
-                      <Badge variant="outline" className="border-primary/20 text-primary bg-primary/5">{editName}</Badge>
-                      권한 및 업무 순서 설정
-                    </>
-                  )}
-                </h3>
-                <p className="text-[13px] text-muted-foreground">
-                  {isOwner 
-                    ? "사장님은 매장의 모든 기능을 자유롭게 사용할 수 있습니다." 
-                    : "이 직급의 직원이 앱에서 어떤 메뉴를 볼 수 있는지, 어떤 일을 할 수 있는지 정해줍니다."}
-                </p>
-              </div>
+                      <Badge variant="outline" className="border-primary/20 text-primary bg-primary/5">
+                        {editName}
+                      </Badge>
+                    )}
+                  </h3>
+                  <p className="text-[13px] text-muted-foreground">
+                    {isOwner 
+                      ? "사장님은 매장의 모든 기능을 자유롭게 사용할 수 있습니다." 
+                      : "이 직급의 직원이 시스템에서 어떤 기능을 사용할 수 있는지, 출퇴근 시 해야 할 루틴 업무가 무엇인지 설정합니다."}
+                  </p>
+                </div>
               {!isOwner && (
                 <Button 
                   variant="ghost" 
@@ -541,7 +610,7 @@ export function UnifiedRoleManagement({ storeId, roles, permissions, taskTemplat
                         className="group relative px-1 pb-3 pt-0 font-medium text-[14px] text-muted-foreground data-[state=active]:text-foreground data-[state=active]:font-bold data-[state=active]:shadow-none rounded-none bg-transparent hover:bg-transparent data-[state=active]:bg-transparent flex items-center gap-1.5 outline-none ring-0 focus:ring-0 focus-visible:ring-0 !shadow-none border-0"
                       >
                         <BookOpen className="w-4 h-4 opacity-70 group-data-[state=active]:opacity-100" />
-                        업무 순서 가이드
+                        루틴 업무 설정
                         <div className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-primary scale-x-0 origin-left transition-transform duration-200 group-data-[state=active]:scale-x-100 rounded-t-full" />
                       </TabsTrigger>
                     )}
@@ -614,88 +683,102 @@ export function UnifiedRoleManagement({ storeId, roles, permissions, taskTemplat
                     <div className="flex-1 pb-24">
                       <div className="space-y-10 max-w-4xl">
                       {PERMISSION_CATEGORIES.map((category) => {
-                        const availableCodes = category.codes.filter(code => permissions.some(p => p.code === code) || true)
+                        const viewPerm = permissions.find(p => p.code === category.viewCode)
+                        const viewTitle = permissionTitles[category.viewCode] || viewPerm?.name || category.viewCode
+                        const viewDesc = permissionDescriptions[category.viewCode] || viewPerm?.description || category.viewCode
                         
+                        const isViewEnabled = isOwner || rolePermissions.includes(category.viewCode)
+
                         return (
-                          <div key={category.id} className="space-y-5 bg-card border shadow-sm rounded-xl p-6">
-                            <div className="border-b pb-4">
-                              <h4 className="text-lg font-bold text-foreground tracking-tight">{category.title}</h4>
-                              <p className="text-[13px] text-muted-foreground mt-1">{category.desc}</p>
+                          <div key={category.id} className="bg-card border shadow-sm rounded-xl overflow-hidden">
+                            {/* 마스터 (페이지) 토글 헤더 */}
+                            <div className={cn(
+                              "p-4 border-b flex items-start gap-4 transition-colors",
+                              isViewEnabled ? "bg-primary/5" : "bg-muted/30"
+                            )}>
+                              <div className="relative flex items-center mt-0.5">
+                                <div className={cn(
+                                  "w-11 h-6 rounded-full transition-all duration-200 cursor-pointer shrink-0 border-2 border-transparent inline-flex items-center",
+                                  isViewEnabled 
+                                    ? "bg-primary" 
+                                    : "bg-input hover:bg-input/80",
+                                  (isOwner || loading) && "opacity-50 cursor-not-allowed"
+                                )} onClick={() => { if(!isOwner && !loading) togglePermission(category.viewCode, category.id) }}>
+                                  <div className={cn(
+                                    "bg-background w-5 h-5 rounded-full transition-transform duration-200 shadow-sm block",
+                                    isViewEnabled ? "translate-x-5" : "translate-x-0"
+                                  )} />
+                                </div>
+                              </div>
+                              <div className="flex flex-col gap-1 flex-1 cursor-pointer" onClick={() => { if(!isOwner && !loading) togglePermission(category.viewCode, category.id) }}>
+                                <div className="flex items-center gap-2">
+                                  <h4 className="text-[15px] font-bold text-foreground tracking-tight leading-none">{category.title}</h4>
+                                  {!isViewEnabled && <Badge variant="secondary" className="text-[10px] h-4 px-1.5 py-0 font-medium opacity-70">페이지 숨김</Badge>}
+                                </div>
+                                <p className="text-[12px] text-muted-foreground">{viewDesc}</p>
+                              </div>
                             </div>
                             
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 pt-2">
-                              {availableCodes.map((code) => {
-                                const dbPerm = permissions.find(p => p.code === code)
-                                const title = permissionTitles[code] || dbPerm?.name || code
-                                const desc = permissionDescriptions[code] || dbPerm?.description || code
-                                const isDangerous = code.startsWith('manage_') || code === 'view_salary'
-                                
-                                const dangerousTooltip = isDangerous ? "이 권한은 민감한 정보를 열람하거나 시스템을 변경할 수 있어 주의가 필요합니다." : null;
+                            {/* 하위 (기능) 권한 토글들 */}
+                            {category.manageCodes.length > 0 && (
+                              <div className={cn(
+                                "p-5 pl-[4.5rem] transition-all duration-300",
+                                !isViewEnabled && !isOwner ? "opacity-40 grayscale-[50%] pointer-events-none select-none bg-muted/10" : ""
+                              )}>
+                                <div className="grid grid-cols-1 gap-y-5">
+                                  {category.manageCodes.map((code) => {
+                                    const dbPerm = permissions.find(p => p.code === code)
+                                    const title = permissionTitles[code] || dbPerm?.name || code
+                                    const desc = permissionDescriptions[code] || dbPerm?.description || code
+                                    const isDangerous = code.startsWith('manage_') || code === 'view_salary'
+                                    const dangerousTooltip = isDangerous ? "이 권한은 민감한 정보를 열람하거나 시스템을 변경할 수 있어 주의가 필요합니다." : null;
+                                    
+                                    const isCodeEnabled = isOwner || rolePermissions.includes(code)
 
-                                return (
-                                  <div
-                                    key={code}
-                                    className={cn(
-                                      "flex items-start space-x-4 transition-all group",
-                                      isOwner ? "opacity-60 grayscale cursor-not-allowed" : ""
-                                    )}
-                                  >
-                                    {/* Discord-style Toggle Switch */}
-                                    <div className="relative flex items-center mt-1">
-                                      <input
-                                        type="checkbox"
-                                        id={code}
-                                        className="sr-only peer"
-                                        checked={isOwner || rolePermissions.includes(code)}
-                                        onChange={() => togglePermission(code)}
-                                        disabled={isOwner || loading}
-                                      />
-                                      <div className={cn(
-                                        "w-9 h-5 rounded-full peer-focus:outline-none transition-all duration-300 relative border cursor-pointer shrink-0 shadow-inner",
-                                        (isOwner || rolePermissions.includes(code)) 
-                                          ? (isDangerous ? "bg-emerald-500 border-emerald-600" : "bg-[#1D9E75] border-[#1D9E75]/80") 
-                                          : "bg-slate-200 border-slate-300 hover:bg-slate-300"
-                                      )} onClick={() => { if(!isOwner && !loading) togglePermission(code) }}>
-                                        <div className={cn(
-                                          "absolute top-0.5 left-0.5 bg-white w-4 h-4 rounded-full transition-all duration-300 shadow flex items-center justify-center",
-                                          (isOwner || rolePermissions.includes(code)) ? "translate-x-4" : "translate-x-0"
-                                        )}>
-                                          {(isOwner || rolePermissions.includes(code)) ? (
-                                            <Check className={cn("w-2.5 h-2.5", isDangerous ? "text-emerald-600" : "text-[#1D9E75]")} />
-                                          ) : (
-                                            <X className="w-2.5 h-2.5 text-slate-400" />
-                                          )}
+                                    return (
+                                      <div key={code} className="flex items-start space-x-3 group relative">
+                                        <div className="absolute -left-6 top-2.5 w-3 h-[1px] bg-border" />
+                                        <div className="relative flex items-center mt-0.5">
+                                          <div className={cn(
+                                            "w-9 h-5 rounded-full transition-all duration-200 cursor-pointer shrink-0 border-2 border-transparent inline-flex items-center",
+                                            isCodeEnabled 
+                                              ? (isDangerous ? "bg-amber-500" : "bg-primary") 
+                                              : "bg-input hover:bg-input/80",
+                                            (isOwner || loading) && "opacity-50 cursor-not-allowed"
+                                          )} onClick={() => { if(!isOwner && !loading) togglePermission(code, category.id) }}>
+                                            <div className={cn(
+                                              "bg-background w-4 h-4 rounded-full transition-transform duration-200 shadow-sm block",
+                                              isCodeEnabled ? "translate-x-4" : "translate-x-0"
+                                            )} />
+                                          </div>
+                                        </div>
+
+                                        <div className="flex flex-col gap-1 flex-1 cursor-pointer" onClick={() => { if(!isOwner && !loading) togglePermission(code, category.id) }}>
+                                          <Label className={cn(
+                                            "text-[13px] font-bold leading-none flex items-center gap-1.5 pointer-events-none",
+                                            isDangerous && isCodeEnabled ? "text-amber-600" : "text-foreground"
+                                          )}>
+                                            {title}
+                                            {isDangerous && (
+                                              <div className="relative group/tooltip inline-flex items-center">
+                                                <AlertTriangle className="w-3.5 h-3.5 text-amber-500 cursor-help pointer-events-auto" />
+                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-xs px-2 py-1 bg-gray-800 text-white text-[11px] font-normal rounded opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all z-50">
+                                                  {dangerousTooltip}
+                                                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800" />
+                                                </div>
+                                              </div>
+                                            )}
+                                          </Label>
+                                          <p className="text-[12px] text-muted-foreground/80 leading-snug">
+                                            {desc}
+                                          </p>
                                         </div>
                                       </div>
-                                    </div>
-
-                                    <div className="flex flex-col gap-1.5 leading-none flex-1 cursor-pointer" onClick={() => { if(!isOwner && !loading) togglePermission(code) }}>
-                                      <Label
-                                        htmlFor={code}
-                                        className={cn(
-                                          "text-[14px] font-bold leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center gap-1.5 pointer-events-none",
-                                          isDangerous && !isOwner && rolePermissions.includes(code) ? "text-emerald-700" : "text-slate-800"
-                                        )}
-                                      >
-                                        {title}
-                                        {isDangerous && (
-                                          <div className="relative group/tooltip inline-flex items-center">
-                                            <AlertTriangle className="w-3.5 h-3.5 text-amber-500 cursor-help pointer-events-auto" />
-                                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-xs px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all z-50">
-                                              {dangerousTooltip}
-                                              <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800" />
-                                            </div>
-                                          </div>
-                                        )}
-                                      </Label>
-                                      <p className="text-[12px] text-muted-foreground/90 leading-relaxed font-medium">
-                                        {desc}
-                                      </p>
-                                    </div>
-                                  </div>
-                                )
-                              })}
-                            </div>
+                                    )
+                                  })}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )
                       })}
@@ -714,10 +797,10 @@ export function UnifiedRoleManagement({ storeId, roles, permissions, taskTemplat
                         </div>
                         <div className="flex flex-col justify-center h-11">
                           <h3 className="text-lg font-bold text-foreground">
-                            업무 순서 가이드
+                            루틴 업무 설정
                           </h3>
                           <p className="text-[13px] text-muted-foreground mt-0.5">
-                            <span className="font-semibold text-foreground/80">'{selectedRole.name}'</span> 직급이 출근해서 퇴근까지 순서대로 해야 할 일을 정해줍니다.
+                            <span className="font-semibold text-foreground/80">'{selectedRole.name}'</span> 직급이 출근해서 퇴근까지 매일 해야 하는 고정 업무를 설정합니다.
                           </p>
                         </div>
                       </div>
@@ -729,7 +812,7 @@ export function UnifiedRoleManagement({ storeId, roles, permissions, taskTemplat
                         hideTaskType={true}
                         trigger={
                           <Button className="gap-2 shadow-sm">
-                            <Plus className="w-4 h-4" /> 가이드라인 추가
+                            <Plus className="w-4 h-4" /> 루틴 업무 추가
                           </Button>
                         } 
                       />
@@ -740,11 +823,11 @@ export function UnifiedRoleManagement({ storeId, roles, permissions, taskTemplat
                     {roleTasks.length === 0 ? (
                       <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed border-border/60 rounded-2xl bg-background/50 h-[350px] w-full max-w-3xl">
                         <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mb-4">
-                          <BookOpen className="w-8 h-8 text-muted-foreground/50" />
+                          <CheckSquare className="w-8 h-8 text-muted-foreground/50" />
                         </div>
-                        <p className="font-semibold text-foreground text-[16px]">플레이북이 비어있습니다</p>
+                        <p className="font-semibold text-foreground text-[16px]">등록된 루틴 업무가 없습니다</p>
                         <p className="text-[13px] mt-2 mb-6 text-center leading-relaxed text-muted-foreground">
-                          오픈 준비, 휴식 시간, 마감 정산 등 이 포지션이 완벽하게 하루를<br/>보낼 수 있도록 타임라인 형태의 시나리오를 구성해 보세요.
+                          오픈 준비, 매장 청소, 마감 정산 등 이 직급이 반복적으로<br/>수행해야 할 타임라인 형태의 루틴을 구성해 보세요.
                         </p>
                         <CreateRoleTaskDialog 
                           storeId={storeId} 
@@ -754,7 +837,7 @@ export function UnifiedRoleManagement({ storeId, roles, permissions, taskTemplat
                           hideTaskType={true}
                           trigger={
                             <Button className="gap-2 px-6">
-                              <Plus className="w-4 h-4" /> 첫 번째 가이드라인 추가하기
+                              <Plus className="w-4 h-4" /> 첫 번째 루틴 추가하기
                             </Button>
                           }
                         />
@@ -764,7 +847,7 @@ export function UnifiedRoleManagement({ storeId, roles, permissions, taskTemplat
                         <div className="flex items-center justify-between border-b border-black/10 pb-3">
                           <div className="flex items-center gap-2">
                             <Clock className="w-4 h-4 text-primary" />
-                            <h4 className="font-bold text-[15px] text-foreground tracking-tight">전체 업무 타임라인</h4>
+                            <h4 className="font-bold text-[15px] text-foreground tracking-tight">일일 루틴 타임라인</h4>
                           </div>
                           <Badge variant="secondary" className="font-mono text-[11px] bg-primary/10 text-primary px-2">{scheduledTasks.length}개</Badge>
                         </div>
@@ -787,7 +870,7 @@ export function UnifiedRoleManagement({ storeId, roles, permissions, taskTemplat
                                 hideTaskType={true}
                                 trigger={
                                   <Button variant="ghost" size="sm" className="h-8 px-4 text-[12px] text-muted-foreground hover:text-primary hover:bg-primary/5 border border-dashed border-transparent hover:border-primary/30 rounded-lg w-full justify-start">
-                                    <Plus className="w-3 h-3 mr-2" /> 새 가이드 추가하기
+                                    <Plus className="w-3 h-3 mr-2" /> 새 루틴 추가하기
                                   </Button>
                                 }
                               />

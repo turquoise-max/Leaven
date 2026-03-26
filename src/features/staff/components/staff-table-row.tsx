@@ -4,8 +4,7 @@
 
 import { TableCell, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
-import { Check, X, CalendarDays, ChevronRight, FileText, Download, Link2, Link2Off } from 'lucide-react'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Check, X, CalendarDays, ChevronRight, FileText, Download, Link2, Link2Off, User } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import {
   Tooltip,
@@ -177,15 +176,9 @@ export function StaffTableRow({
       </TableCell>
 
       {/* 2. 직원 정보 (프로필 + 연락처 다이어트) */}
-      <TableCell className="w-[260px] align-middle py-3 px-4">
+      <TableCell className="w-[260px] align-middle py-3 px-4 pr-10">
         <div className="flex gap-3 items-center">
-          <Avatar className={cn("h-10 w-10 border shadow-sm shrink-0", isResigned && "grayscale opacity-50")}>
-            <AvatarImage src={staff.profile?.avatar_url || ''} />
-            <AvatarFallback className="bg-slate-100 text-slate-600 font-medium text-sm">
-              {getDisplayName(staff).substring(0, 2)}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex flex-col justify-center min-w-0 gap-0.5">
+          <div className="flex flex-col justify-center min-w-0 gap-0.5 flex-1">
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="font-bold text-sm tracking-tight text-foreground truncate max-w-[100px]">
                 {getDisplayName(staff)}
@@ -229,13 +222,13 @@ export function StaffTableRow({
             -
           </div>
         ) : (
-          <div className="flex flex-col gap-1.5 justify-center">
+          <div className="flex flex-col gap-1.5 pl-6">
             
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-xs font-semibold text-slate-600">{getEmploymentText(staff)}</span>
-              <span className="text-muted-foreground/30 text-xs">|</span>
+              <span className="text-xs font-semibold text-slate-600 shrink-0">{getEmploymentText(staff)}</span>
+              <span className="text-muted-foreground/30 text-xs shrink-0">|</span>
               {canManage && staff.base_wage ? (
-                <span className="text-[13px] font-bold tracking-tight text-foreground/90">
+                <span className="text-[13px] font-bold tracking-tight text-foreground/90 whitespace-nowrap">
                   {wageText} {staff.base_wage.toLocaleString()}원
                   {(staff.wage_type === 'hourly' || staff.wage_type === 'daily') && expectedPay && (
                     <span className="text-[11px] font-normal text-muted-foreground ml-1">
@@ -244,7 +237,7 @@ export function StaffTableRow({
                   )}
                 </span>
               ) : (
-                <span className="text-[12px] text-muted-foreground">급여 미설정</span>
+                <span className="text-[12px] text-muted-foreground whitespace-nowrap">급여 미설정</span>
               )}
             </div>
 
@@ -257,13 +250,16 @@ export function StaffTableRow({
                   ))}
                 </div>
               ) : (
-                <span className="text-[11px] text-muted-foreground/50">{staff.work_hours || '스케줄 미등록'}</span>
+                <span className="text-[11px] text-muted-foreground/50 whitespace-nowrap">{staff.work_hours || '스케줄 미등록'}</span>
               )}
             </div>
             
           </div>
         )}
       </TableCell>
+
+      {/* 빈 컬럼 추가로 여백 확보 */}
+      <TableCell className="w-115"></TableCell>
 
       {/* 4. 근로계약서 상태 뱃지 (미니멀리즘) */}
       {showContract !== false && (

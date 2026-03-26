@@ -35,7 +35,7 @@ export async function getLeaveRequests(storeId: string) {
     .from('leave_requests')
     .select(`
       *,
-      member:store_members!inner(id, name, role, profile:profiles(full_name))
+      member:store_members!inner(id, name, role, user_id, profile:profiles(full_name))
     `)
     .eq('store_id', storeId)
     .order('created_at', { ascending: false })
@@ -175,58 +175,25 @@ export async function cancelLeaveRequest(requestId: string, storeId: string) {
 
   if (!user) return { error: '인증되지 않은 사용자입니다.' }
 
-  try {
-    await requirePermission(user.id, storeId, 'manage_schedule')
-  } catch {
-    return { error: '요청을 처리할 권한이 없습니다.' }
+  // [아키텍트 결정] RLS 권한 문제를 근본적으로 해결하기 위해 DB RPC(PostgreSQL Function) 호출 방식으로 전환
+  // 이 방식은 원자적 트랜잭션을 보장하며, 복잡한 RLS 정책 우회 없이 안전하게 비즈니스 로직을 처리합니다.
+  const { data, error } = await supabase.rpc('cancel_leave_request_v1', {
+    p_request_id: requestId,
+    p_user_id: user.id,
+    p_store_id: storeId
+  })
+
+  if (error) {
+    console.error('RPC Error cancelling leave request:', error)
+    return { error: '휴가 취소 중 오류가 발생했습니다.' }
   }
 
-  // 1. Get request details
-  const { data: request, error: reqError } = await supabase
-    .from('leave_requests')
-    .select('*')
-    .eq('id', requestId)
-    .single()
-
-  if (reqError || !request) return { error: '요청 정보를 찾을 수 없습니다.' }
-
-  // 2. Update status to 'rejected' (승인 취소 = 반려 처리하여 SSOT에서 제거)
-  const { error: finalError } = await supabase
-    .from('leave_requests')
-    .update({
-      status: 'rejected',
-      reviewed_by: user.id,
-      reviewed_at: new Date().toISOString()
-    })
-    .eq('id', requestId)
-
-  if (finalError) return { error: '승인 취소 중 오류가 발생했습니다.' }
-
-  // 3. Rollback 연차 차감
-  const isAnnualType = ['annual', 'half_am', 'half_pm'].includes(request.leave_type)
-  if (isAnnualType) {
-    const year = parseInt(request.start_date.substring(0, 4))
-    const { data: balance } = await supabase
-      .from('leave_balances')
-      .select('*')
-      .eq('member_id', request.member_id)
-      .eq('year', year)
-      .single()
-      
-    if (balance) {
-      await supabase
-        .from('leave_balances')
-        .update({
-          used_days: Math.max(0, Number(balance.used_days) - Number(request.requested_days))
-        })
-        .eq('id', balance.id)
-    }
+  if (data?.error) {
+    return { error: data.error }
   }
 
   // [기획자 핵심 로직] 스케줄 테이블을 직접 수정하지 않고 Path Revalidation만 수행
-  // 화면 렌더링 시점에 leave_requests의 'approved' 상태가 사라졌으므로, 
-  // 스케줄은 자동으로 원래 유형(regular 등)으로 표시됩니다.
-
+  // 렌더링 시점에 leave_requests의 상태를 대조하므로 SSOT(Single Source of Truth)가 유지됩니다.
   revalidatePath('/dashboard/leave')
   revalidatePath('/dashboard/schedule')
   return { success: true }

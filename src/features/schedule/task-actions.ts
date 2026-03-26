@@ -412,12 +412,37 @@ export async function deleteTask(id: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Get store_id for permission check
-  const { data: task } = await supabase.from('tasks').select('store_id').eq('id', id).single()
+  if (!user) throw new Error('User not found')
+
+  // Get task info for permission check
+  const { data: task } = await supabase
+    .from('tasks')
+    .select('store_id, is_template, assigned_role_ids')
+    .eq('id', id)
+    .single()
+    
   if (!task) return { error: 'Task not found' }
 
-  if (!user) throw new Error('User not found')
-  await requirePermission(user.id, task.store_id, 'manage_tasks')
+  // Check if it's a personal task (not a template, no assigned roles)
+  const isPersonalTask = !task.is_template && (!task.assigned_role_ids || task.assigned_role_ids.length === 0)
+
+  if (isPersonalTask) {
+    // For personal tasks, check if the user is the one who owns the assignment
+    const { data: assignment } = await supabase
+      .from('task_assignments')
+      .select('id')
+      .eq('task_id', id)
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (!assignment) {
+      // If not the owner, check for management permission
+      await requirePermission(user.id, task.store_id, 'manage_tasks')
+    }
+  } else {
+    // For role tasks or templates, always require management permission
+    await requirePermission(user.id, task.store_id, 'manage_tasks')
+  }
 
   const { error } = await supabase
     .from('tasks')

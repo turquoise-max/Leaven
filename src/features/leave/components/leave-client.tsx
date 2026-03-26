@@ -42,8 +42,8 @@ export function LeaveClientPage({
   currentUserId,
   leaveCalcType
 }: LeaveClientPageProps) {
-  const [activeTab, setActiveTab] = useState('calendar')
-  const [referenceDate, setReferenceDate] = useState(new Date())
+  const [activeTab, setActiveTab] = useState(isManager ? 'calendar' : 'my')
+  const referenceDate = new Date() // Always use today
   const selectedYear = referenceDate.getFullYear()
   const [balances, setBalances] = useState<any[]>([])
   const [requests, setRequests] = useState<any[]>([])
@@ -52,7 +52,7 @@ export function LeaveClientPage({
   
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false)
   const [requestDraft, setRequestDraft] = useState({ 
-    memberId: currentUserId, // Not ideal for manager choosing others, but good for now
+    memberId: '', // Will be set in useEffect or when manager selects
     leaveType: 'annual', 
     startDate: format(new Date(), 'yyyy-MM-dd'), 
     endDate: format(new Date(), 'yyyy-MM-dd'), 
@@ -81,9 +81,19 @@ export function LeaveClientPage({
 
   useEffect(() => {
     fetchData()
-  }, [storeId, selectedYear]) // selectedYear is derived from referenceDate
+  }, [storeId, selectedYear])
 
-  const pendingCount = requests.filter(r => r.status === 'pending').length
+  const myStaff = staffList.find(s => s.user_id === currentUserId)
+
+  useEffect(() => {
+    if (myStaff && !requestDraft.memberId) {
+      setRequestDraft(prev => ({ ...prev, memberId: myStaff.id }))
+    }
+  }, [myStaff])
+
+  const pendingCount = isManager 
+    ? requests.filter(r => r.status === 'pending').length
+    : requests.filter(r => r.status === 'pending' && r.member?.user_id === currentUserId).length
 
   const getStaffRoleInfo = (staff: any) => {
     if (staff?.role_info) return staff.role_info
@@ -108,8 +118,6 @@ export function LeaveClientPage({
     return `${years}년 ${months}개월`
   }
 
-  const myStaff = staffList.find(s => s.user_id === currentUserId)
-
   const myRequests = requests.filter(r => r.member?.user_id === currentUserId)
   const myBalance = balances.find(b => b.member_id === myStaff?.id)
   
@@ -121,116 +129,31 @@ export function LeaveClientPage({
   const used = myBalance?.used_days || 0
   const remain = total - used
 
-  const staffView = (
-    <div className={cn("flex flex-col h-full bg-white rounded-xl border shadow-sm overflow-hidden", isManager ? "lg:hidden" : "")}>
-      <div className="p-6 border-b bg-slate-50 flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-bold">나의 휴가/연차 현황</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            올해 남은 연차와 신청 내역을 확인하세요.
-            <span className="ml-2 text-xs bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full font-medium">
-              {leaveCalcType === 'hire_date' ? '입사일 기준' : '회계연도 기준'}
-            </span>
-          </p>
-        </div>
-        <Button className="gap-2 shadow-sm" onClick={() => setIsRequestModalOpen(true)}>
-          <Plus className="w-4 h-4" /> 휴가 신청
-        </Button>
-      </div>
-
-      <div className="grid grid-cols-3 gap-0 border-b shrink-0">
-        <div className="p-6 flex flex-col items-center justify-center border-r">
-          <span className="text-sm font-medium text-muted-foreground mb-1">총 발생 연차</span>
-          <span className="text-3xl font-bold">{total}<span className="text-lg font-medium text-muted-foreground ml-1">일</span></span>
-        </div>
-        <div className="p-6 flex flex-col items-center justify-center border-r">
-          <span className="text-sm font-medium text-muted-foreground mb-1">사용 완료</span>
-          <span className="text-3xl font-bold">{used}<span className="text-lg font-medium text-muted-foreground ml-1">일</span></span>
-        </div>
-        <div className="p-6 flex flex-col items-center justify-center">
-          <span className="text-sm font-medium text-primary mb-1">잔여 연차</span>
-          <span className="text-3xl font-bold text-primary">{remain}<span className="text-lg font-medium opacity-70 ml-1">일</span></span>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-auto p-6 bg-slate-50/30">
-        <h3 className="font-semibold text-base mb-4 flex items-center gap-2">
-          <FileText className="w-4 h-4 text-primary" /> 나의 신청 내역
-        </h3>
-        
-        {myRequests.length === 0 ? (
-          <div className="flex flex-col items-center justify-center text-muted-foreground py-16 bg-white rounded-xl border border-dashed border-border/50">
-            <FileText className="w-12 h-12 mb-4 opacity-20" />
-            <p>휴가 신청 내역이 없습니다.</p>
-          </div>
-        ) : (
-          <div className="grid gap-4 max-w-4xl mx-auto">
-            {myRequests.map(req => {
-              const leaveTypeLabel = req.leave_type === 'annual' ? '연차' : req.leave_type === 'sick' ? '병가' : req.leave_type === 'unpaid' ? '무급휴가' : '반차'
-
-              return (
-                <div key={req.id} className={cn("bg-white border shadow-sm rounded-xl p-5 flex flex-col gap-4 transition-colors", req.status !== 'pending' && "opacity-80 bg-slate-50/50")}>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20">{leaveTypeLabel}</Badge>
-                        <span className="font-bold text-base">{req.start_date} ~ {req.end_date}</span>
-                        <span className="text-sm font-medium text-muted-foreground">({req.requested_days}일)</span>
-                      </div>
-                    </div>
-                    <div>
-                      {req.status === 'pending' ? (
-                        <Badge variant="secondary" className="bg-orange-100 text-orange-700">심사 대기 중</Badge>
-                      ) : req.status === 'approved' ? (
-                        <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-200">승인됨</Badge>
-                      ) : (
-                        <Badge variant="secondary" className="bg-red-100 text-red-700 border-red-200">반려됨</Badge>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col gap-2">
-                    <span className="text-xs font-semibold text-muted-foreground">사유 및 증빙 자료</span>
-                    <div className="text-sm bg-muted/30 p-3 rounded-md border border-dashed border-black/10 whitespace-pre-wrap">
-                      {req.reason}
-                    </div>
-                    {req.attachment_url && (
-                      <a 
-                        href={req.attachment_url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="mt-2 flex items-center gap-2 p-3 rounded-lg border bg-white hover:bg-slate-50 transition-colors w-fit"
-                      >
-                        <div className="bg-primary/10 p-1.5 rounded text-primary">
-                          <FileText className="w-4 h-4" />
-                        </div>
-                        <span className="text-xs font-bold text-slate-700">제출한 증빙 서류 확인</span>
-                      </a>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-
-  const managerView = isManager ? (
-    <div className="hidden lg:flex flex-col h-full bg-white rounded-xl border shadow-sm overflow-hidden">
-      {/* Tabs */}
+  const view = (
+    <div className="flex flex-col h-full bg-white rounded-xl border shadow-sm overflow-hidden">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
         <div className="px-6 pt-4 border-b bg-slate-50/50 flex justify-between items-end">
           <TabsList className="bg-transparent h-10 p-0 gap-8 justify-start">
-            <TabsTrigger 
-              value="calendar" 
-              className="relative rounded-none px-1 pb-3 pt-2 text-base font-semibold text-muted-foreground hover:text-foreground data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none outline-none focus-visible:outline-none !shadow-none bg-transparent group"
-            >
-              <Calendar className="w-4 h-4 mr-2" />
-              휴가 현황 (캘린더)
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary scale-x-0 origin-left transition-transform duration-200 group-data-[state=active]:scale-x-100" />
-            </TabsTrigger>
+            {isManager && (
+              <TabsTrigger 
+                value="calendar" 
+                className="relative rounded-none px-1 pb-3 pt-2 text-base font-semibold text-muted-foreground hover:text-foreground data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none outline-none focus-visible:outline-none !shadow-none bg-transparent group"
+              >
+                <Calendar className="w-4 h-4 mr-2" />
+                휴가 현황 (캘린더)
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary scale-x-0 origin-left transition-transform duration-200 group-data-[state=active]:scale-x-100" />
+              </TabsTrigger>
+            )}
+            {!isManager && (
+              <TabsTrigger 
+                value="my" 
+                className="relative rounded-none px-1 pb-3 pt-2 text-base font-semibold text-muted-foreground hover:text-foreground data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none outline-none focus-visible:outline-none !shadow-none bg-transparent group"
+              >
+                <Umbrella className="w-4 h-4 mr-2" />
+                나의 휴가/연차
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary scale-x-0 origin-left transition-transform duration-200 group-data-[state=active]:scale-x-100" />
+              </TabsTrigger>
+            )}
             <TabsTrigger 
               value="requests" 
               className="relative rounded-none px-1 pb-3 pt-2 text-base font-semibold text-muted-foreground hover:text-foreground data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none outline-none focus-visible:outline-none !shadow-none bg-transparent group"
@@ -261,135 +184,124 @@ export function LeaveClientPage({
           </Button>
         </div>
 
-        {/* Tab Contents */}
         <div className="flex-1 overflow-auto bg-slate-50/30 p-6">
-          
-          {/* Calendar View Placeholder */}
-          <TabsContent value="calendar" className="m-0 mt-0 h-full flex flex-col gap-6 outline-none">
-            <div className="bg-white rounded-lg border shadow-sm overflow-hidden flex-1 flex flex-col">
-              <div className="p-4 border-b flex items-center justify-between shrink-0 bg-slate-50/50">
-                <h3 className="font-semibold text-base">직원 휴가 캘린더</h3>
-                <div className="flex gap-2 text-[11px] font-medium">
-                  <div className="flex items-center gap-1.5 bg-blue-50 text-blue-700 px-2 py-1 rounded border border-blue-200">
-                    <div className="w-2 h-2 rounded-full bg-blue-500" /> 연차
-                  </div>
-                  <div className="flex items-center gap-1.5 bg-red-50 text-red-700 px-2 py-1 rounded border border-red-200">
-                    <div className="w-2 h-2 rounded-full bg-red-500" /> 병가
-                  </div>
-                  <div className="flex items-center gap-1.5 bg-slate-100 text-slate-700 px-2 py-1 rounded border border-slate-200">
-                    <div className="w-2 h-2 rounded-full bg-slate-400" /> 무급휴가
+          {!isManager && (
+            <TabsContent value="my" className="m-0 mt-0 h-full flex flex-col gap-6 outline-none">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <Card className="border-border shadow-sm">
+                  <CardHeader className="pb-2">
+                    <CardDescription className="font-semibold text-muted-foreground">총 발생 연차</CardDescription>
+                    <CardTitle className="text-3xl">{total}일</CardTitle>
+                  </CardHeader>
+                </Card>
+                <Card className="border-border shadow-sm">
+                  <CardHeader className="pb-2">
+                    <CardDescription className="font-semibold text-muted-foreground">사용 완료</CardDescription>
+                    <CardTitle className="text-3xl">{used}일</CardTitle>
+                  </CardHeader>
+                </Card>
+                <Card className="border-primary/20 bg-primary/5 shadow-sm">
+                  <CardHeader className="pb-2">
+                    <CardDescription className="font-semibold text-primary">잔여 연차</CardDescription>
+                    <CardTitle className="text-3xl">{remain}일</CardTitle>
+                  </CardHeader>
+                </Card>
+              </div>
+              <div className="bg-white rounded-lg border shadow-sm p-6">
+                 <h3 className="font-semibold text-base mb-4 flex items-center gap-2">
+                   <Settings className="w-4 h-4 text-muted-foreground" /> 연차 산정 정보
+                 </h3>
+                 <div className="text-sm space-y-2">
+                   <div className="flex justify-between py-2 border-b">
+                     <span className="text-muted-foreground">산정 기준</span>
+                     <span className="font-medium">{leaveCalcType === 'hire_date' ? '입사일 기준' : '회계연도 기준'}</span>
+                   </div>
+                   <div className="flex justify-between py-2 border-b">
+                     <span className="text-muted-foreground">입사일</span>
+                     <span className="font-medium">{formattedHireDate || '미등록'}</span>
+                   </div>
+                   <div className="flex justify-between py-2 border-b">
+                     <span className="text-muted-foreground">근속 기간</span>
+                     <span className="font-medium">{getServicePeriodLabel(formattedHireDate)}</span>
+                   </div>
+                 </div>
+              </div>
+            </TabsContent>
+          )}
+
+          {isManager && (
+            <TabsContent value="calendar" className="m-0 mt-0 h-full flex flex-col gap-6 outline-none">
+              <div className="bg-white rounded-lg border shadow-sm overflow-hidden flex-1 flex flex-col">
+                <div className="p-4 border-b flex items-center justify-between shrink-0 bg-slate-50/50">
+                  <h3 className="font-semibold text-base">직원 휴가 캘린더</h3>
+                  <div className="flex gap-2 text-[11px] font-medium">
+                    <div className="flex items-center gap-1.5 bg-blue-50 text-blue-700 px-2 py-1 rounded border border-blue-200">
+                      <div className="w-2 h-2 rounded-full bg-blue-500" /> 연차
+                    </div>
+                    <div className="flex items-center gap-1.5 bg-red-50 text-red-700 px-2 py-1 rounded border border-red-200">
+                      <div className="w-2 h-2 rounded-full bg-red-500" /> 병가
+                    </div>
+                    <div className="flex items-center gap-1.5 bg-slate-100 text-slate-700 px-2 py-1 rounded border border-slate-200">
+                      <div className="w-2 h-2 rounded-full bg-slate-400" /> 무급휴가
+                    </div>
                   </div>
                 </div>
+                <div className="flex-1 p-4 overflow-hidden relative leave-calendar-container">
+                  <style>{`
+                    .leave-calendar-container .fc { height: 100%; font-size: 13px; }
+                    .leave-calendar-container .fc-theme-standard th { border-color: rgba(0,0,0,0.05); padding: 8px 0; background: #f8fafc; font-weight: 600; color: #475569; }
+                    .leave-calendar-container .fc-theme-standard td { border-color: rgba(0,0,0,0.05); }
+                    .leave-calendar-container .fc-daygrid-day-number { padding: 4px 8px; color: #334155; font-weight: 500; }
+                    .leave-calendar-container .fc-event { border: none; border-radius: 4px; padding: 2px 4px; margin: 1px 4px; font-size: 11px; font-weight: 600; }
+                  `}</style>
+                  <FullCalendar
+                    plugins={[dayGridPlugin, interactionPlugin]}
+                    initialView="dayGridMonth"
+                    locale={ko}
+                    headerToolbar={{ left: 'prev,next today', center: 'title', right: '' }}
+                    events={requests.filter(r => r.status === 'approved').map(r => {
+                      let color = '#94a3b8'
+                      if (r.leave_type === 'annual') color = '#3b82f6'
+                      if (r.leave_type === 'sick') color = '#ef4444'
+                      if (r.leave_type.startsWith('half')) color = '#60a5fa'
+                      const name = r.member?.name || r.member?.profile?.full_name || '직원'
+                      const label = r.leave_type === 'annual' ? '연차' : r.leave_type === 'sick' ? '병가' : r.leave_type === 'unpaid' ? '무급' : '반차'
+                      const endDateObj = new Date(r.end_date)
+                      endDateObj.setDate(endDateObj.getDate() + 1)
+                      return { id: r.id, title: `${name} (${label})`, start: r.start_date, end: endDateObj.toISOString().substring(0, 10), backgroundColor: color, textColor: '#fff', allDay: true }
+                    })}
+                    height="100%"
+                  />
+                </div>
               </div>
-              <div className="flex-1 p-4 overflow-hidden relative leave-calendar-container">
-                <style>{`
-                  .leave-calendar-container .fc {
-                    height: 100%;
-                    font-size: 13px;
-                  }
-                  .leave-calendar-container .fc-theme-standard th {
-                    border-color: rgba(0,0,0,0.05);
-                    padding: 8px 0;
-                    background: #f8fafc;
-                    font-weight: 600;
-                    color: #475569;
-                  }
-                  .leave-calendar-container .fc-theme-standard td {
-                    border-color: rgba(0,0,0,0.05);
-                  }
-                  .leave-calendar-container .fc-daygrid-day-number {
-                    padding: 4px 8px;
-                    color: #334155;
-                    font-weight: 500;
-                  }
-                  .leave-calendar-container .fc-event {
-                    border: none;
-                    border-radius: 4px;
-                    padding: 2px 4px;
-                    margin: 1px 4px;
-                    font-size: 11px;
-                    font-weight: 600;
-                  }
-                `}</style>
-                <FullCalendar
-                  plugins={[dayGridPlugin, interactionPlugin]}
-                  initialView="dayGridMonth"
-                  locale={ko}
-                  headerToolbar={{
-                    left: 'prev,next today',
-                    center: 'title',
-                    right: ''
-                  }}
-                  events={requests.filter(r => r.status === 'approved').map(r => {
-                    let color = '#94a3b8' // slate
-                    let textColor = '#fff'
-                    if (r.leave_type === 'annual') { color = '#3b82f6'; } // blue
-                    if (r.leave_type === 'sick') { color = '#ef4444'; } // red
-                    if (r.leave_type === 'half_am' || r.leave_type === 'half_pm') { color = '#60a5fa'; } // light blue
+            </TabsContent>
+          )}
 
-                    const name = r.member?.name || r.member?.profile?.full_name || '직원'
-                    const label = r.leave_type === 'annual' ? '연차' : r.leave_type === 'sick' ? '병가' : r.leave_type === 'unpaid' ? '무급' : '반차'
-
-                    // FullCalendar end date is exclusive, so we add 1 day to end_date
-                    const endDateObj = new Date(r.end_date)
-                    endDateObj.setDate(endDateObj.getDate() + 1)
-                    const endStr = endDateObj.toISOString().substring(0, 10)
-
-                    return {
-                      id: r.id,
-                      title: `${name} (${label})`,
-                      start: r.start_date,
-                      end: endStr,
-                      backgroundColor: color,
-                      textColor: textColor,
-                      allDay: true
-                    }
-                  })}
-                  height="100%"
-                />
-              </div>
-            </div>
-          </TabsContent>
-
-          {/* Requests View */}
           <TabsContent value="requests" className="m-0 mt-0 h-full flex flex-col outline-none">
             <div className="bg-white rounded-lg border shadow-sm overflow-hidden flex-1 flex flex-col">
               <div className="p-4 border-b flex items-center justify-between">
-                <h3 className="font-semibold text-base">휴가 및 연차 신청함</h3>
+                <h3 className="font-semibold text-base">{isManager ? '휴가 및 연차 신청함' : '나의 휴가 신청 내역'}</h3>
               </div>
               <div className="flex-1 overflow-auto bg-slate-50/50 p-6">
-                {requests.length === 0 ? (
+                {(isManager ? requests : myRequests).length === 0 ? (
                   <div className="flex flex-col items-center justify-center text-muted-foreground h-full bg-white rounded-xl border border-dashed border-border/50">
                     <FileText className="w-12 h-12 mb-4 opacity-20" />
                     <p>등록된 휴가 신청이 없습니다.</p>
                   </div>
                 ) : (
                   <div className="grid gap-4 max-w-4xl mx-auto">
-                    {requests.map(req => {
+                    {(isManager ? requests : myRequests).map(req => {
                       const handleResolve = async (status: 'approved' | 'rejected') => {
-                        if (!isManager) return toast.error('매니저 권한이 필요합니다.')
-                        
-                        const confirmMsg = status === 'approved' ? '이 휴가를 승인하시겠습니까?' : '이 휴가를 반려하시겠습니까?'
-                        if (!window.confirm(confirmMsg)) return
-                        
+                        if (!isManager) return
+                        if (!window.confirm(`이 휴가를 ${status === 'approved' ? '승인' : '반려'}하시겠습니까?`)) return
                         setActionLoading(req.id)
                         try {
                           const res = await resolveLeaveRequest(req.id, storeId, status)
                           if (res.error) toast.error(res.error)
-                          else {
-                            toast.success(status === 'approved' ? '승인되었습니다.' : '반려되었습니다.')
-                            // 승인 시 전체 데이터 리프레시 (잔여 연차 테이블 갱신을 위함)
-                            fetchData()
-                          }
-                        } catch (e) {
-                          toast.error('오류가 발생했습니다.')
-                        } finally {
-                          setActionLoading(null)
-                        }
+                          else { toast.success('처리되었습니다.'); fetchData(); }
+                        } catch (e) { toast.error('오류 발생'); } finally { setActionLoading(null); }
                       }
-
                       const leaveTypeLabel = req.leave_type === 'annual' ? '연차' : req.leave_type === 'sick' ? '병가' : req.leave_type === 'unpaid' ? '무급휴가' : '반차'
-
                       return (
                         <div key={req.id} className={cn("bg-white border shadow-sm rounded-xl p-5 flex flex-col gap-4 transition-colors", req.status !== 'pending' && "opacity-80 bg-slate-50/50")}>
                           <div className="flex items-start justify-between">
@@ -402,83 +314,55 @@ export function LeaveClientPage({
                                   <span className="font-bold text-base">{req.member?.name || req.member?.profile?.full_name}</span>
                                   <Badge variant="outline" className="text-[10px]">{req.member?.role_info?.name || '직원'}</Badge>
                                 </div>
-                                <div className="text-sm text-muted-foreground mt-0.5 font-medium">
-                                  {req.start_date} ~ {req.end_date} <span className="font-bold text-foreground">({req.requested_days}일)</span>
-                                </div>
+                                <div className="text-sm text-muted-foreground mt-0.5 font-medium">{req.start_date} ~ {req.end_date} <span className="font-bold text-foreground">({req.requested_days}일)</span></div>
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
                               <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20">{leaveTypeLabel}</Badge>
-                              {req.status === 'pending' ? (
-                                <Badge variant="secondary" className="bg-orange-100 text-orange-700">대기 중</Badge>
-                              ) : req.status === 'approved' ? (
-                                <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-200">승인 완료</Badge>
-                              ) : (
-                                <Badge variant="secondary" className="bg-red-100 text-red-700 border-red-200">반려됨</Badge>
-                              )}
+                              <Badge variant="secondary" className={cn(
+                                req.status === 'pending' ? "bg-orange-100 text-orange-700" : 
+                                req.status === 'approved' ? "bg-green-100 text-green-700" : 
+                                req.status === 'cancelled' ? "bg-slate-100 text-slate-600" :
+                                "bg-red-100 text-red-700"
+                              )}>
+                                {req.status === 'pending' ? '대기 중' : 
+                                 req.status === 'approved' ? '승인 완료' : 
+                                 req.status === 'cancelled' ? '취소됨' :
+                                 '반려됨'}
+                              </Badge>
                             </div>
                           </div>
-
                           <div className="flex flex-col gap-2">
                             <span className="text-xs font-semibold text-muted-foreground">사유 및 증빙 자료</span>
-                            <div className="text-sm bg-muted/30 p-3 rounded-md border border-dashed border-black/10 whitespace-pre-wrap">
-                              {req.reason}
-                            </div>
-                            {req.attachment_url && (
-                              <a 
-                                href={req.attachment_url} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="mt-2 flex items-center gap-2 p-3 rounded-lg border bg-white hover:bg-slate-50 transition-colors w-fit"
-                              >
-                                <div className="bg-primary/10 p-1.5 rounded text-primary">
-                                  <FileText className="w-4 h-4" />
-                                </div>
-                                <span className="text-xs font-bold text-slate-700">첨부된 증빙 서류 확인하기</span>
-                              </a>
-                            )}
+                            <div className="text-sm bg-muted/30 p-3 rounded-md border border-dashed border-black/10 whitespace-pre-wrap">{req.reason}</div>
+                            {req.attachment_url && <a href={req.attachment_url} target="_blank" rel="noopener noreferrer" className="mt-2 flex items-center gap-2 p-3 rounded-lg border bg-white hover:bg-slate-50 transition-colors w-fit"><FileText className="w-4 h-4 text-primary" /><span className="text-xs font-bold text-slate-700">증빙 서류 확인</span></a>}
                           </div>
-
-                          {req.status === 'pending' && isManager && (
-                            <div className="flex gap-2 justify-end mt-2">
-                              <Button variant="outline" className="text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/20" disabled={actionLoading === req.id} onClick={() => handleResolve('rejected')}>
-                                <X className="w-4 h-4 mr-1.5" /> 반려
-                              </Button>
-                              <Button className="bg-[#1D9E75] hover:bg-[#1D9E75]/90" disabled={actionLoading === req.id} onClick={() => handleResolve('approved')}>
-                                <Check className="w-4 h-4 mr-1.5" /> 승인
-                              </Button>
-                            </div>
-                          )}
-
-                          {req.status === 'approved' && isManager && (
-                            <div className="flex justify-end mt-2 pt-2 border-t border-black/5">
+                          <div className="flex gap-2 justify-end mt-2">
+                            {req.status === 'pending' && isManager && (
+                              <>
+                                <Button variant="outline" className="text-destructive border-destructive/20" disabled={!!actionLoading} onClick={() => handleResolve('rejected')}>반려</Button>
+                                <Button className="bg-[#1D9E75]" disabled={!!actionLoading} onClick={() => handleResolve('approved')}>승인</Button>
+                              </>
+                            )}
+                            {req.status === 'pending' && !isManager && req.member?.user_id === currentUserId && (
                               <Button 
                                 variant="outline" 
-                                size="sm"
-                                className="text-muted-foreground hover:bg-black/5 h-8 text-[12px]" 
-                                disabled={actionLoading === req.id} 
+                                className="text-muted-foreground border-slate-200 hover:bg-slate-50" 
+                                disabled={!!actionLoading}
                                 onClick={async () => {
-                                  if (!window.confirm('이 휴가 승인을 취소하시겠습니까? (차감된 연차가 복구됩니다)')) return
-                                  
+                                  if (!window.confirm('신청하신 휴가를 취소하시겠습니까?')) return
                                   setActionLoading(req.id)
                                   try {
                                     const res = await cancelLeaveRequest(req.id, storeId)
                                     if (res.error) toast.error(res.error)
-                                    else {
-                                      toast.success('휴가 승인이 취소되었습니다.')
-                                      fetchData()
-                                    }
-                                  } catch (e) {
-                                    toast.error('오류가 발생했습니다.')
-                                  } finally {
-                                    setActionLoading(null)
-                                  }
+                                    else { toast.success('취소되었습니다.'); fetchData(); }
+                                  } catch (e) { toast.error('오류 발생'); } finally { setActionLoading(null); }
                                 }}
                               >
-                                승인 취소 (원복)
+                                신청 취소
                               </Button>
-                            </div>
-                          )}
+                            )}
+                          </div>
                         </div>
                       )
                     })}
@@ -488,187 +372,37 @@ export function LeaveClientPage({
             </div>
           </TabsContent>
 
-          {/* Balances View */}
           <TabsContent value="balances" className="m-0 mt-0 h-full flex flex-col outline-none">
             <div className="bg-white rounded-lg border shadow-sm overflow-hidden flex-1 flex flex-col">
               <div className="p-4 border-b flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="flex flex-col">
-                    <h3 className="font-semibold text-base">직원별 잔여 연차 관리</h3>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <p className="text-xs text-muted-foreground">
-                        연차 발생 기준: <span className="font-semibold text-foreground">{leaveCalcType === 'hire_date' ? '입사일 기준' : '회계연도 기준'}</span>
-                      </p>
-                      {leaveCalcType === 'hire_date' && (
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-blue-50/50 text-blue-600 border-blue-200">
-                          {selectedYear}년 내 도래하는 입사일 기준
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <Label className="text-xs font-medium text-muted-foreground whitespace-nowrap">조회 기준일:</Label>
-                    <Input 
-                      type="date" 
-                      value={format(referenceDate, 'yyyy-MM-dd')} 
-                      onChange={(e) => {
-                        const newDate = new Date(e.target.value)
-                        if (!isNaN(newDate.getTime())) {
-                          setReferenceDate(newDate)
-                        }
-                      }}
-                      className="h-9 w-[150px] font-medium bg-slate-50"
-                    />
-                  </div>
+                <div className="flex flex-col">
+                  <h3 className="font-semibold text-base">직원별 잔여 연차 관리</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">산정 방식: <span className="font-semibold text-foreground">{leaveCalcType === 'hire_date' ? '입사일 기준' : '회계연도 기준'}</span> (오늘 시점 보유량)</p>
                 </div>
-                {isManager && (
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="h-8 text-xs gap-1.5 text-muted-foreground hover:text-primary"
-                    onClick={async () => {
-                      if (!window.confirm(`${selectedYear}년의 모든 직원의 연차를 시스템 자동 계산 방식으로 복구하시겠습니까?\n수동으로 수정했던 내역이 모두 초기화됩니다.`)) return
-                      
-                      const res = await resetAllLeaveBalances(storeId, selectedYear)
-                      if (res.error) toast.error(res.error)
-                      else {
-                        toast.success('모든 데이터가 자동 계산 방식으로 복구되었습니다.')
-                        fetchData()
-                      }
-                    }}
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    전체 자동 계산으로 복구
-                  </Button>
-                )}
               </div>
               <div className="flex-1 overflow-auto">
                 <table className="w-full text-sm text-left">
-                  <thead className="bg-muted/50 text-muted-foreground sticky top-0 z-10">
-                    <tr>
-                      <th className="px-4 py-3 font-semibold border-b">이름 (역할)</th>
-                      <th className="px-4 py-3 font-semibold border-b text-center">근속 기간</th>
-                      <th className="px-4 py-3 font-semibold border-b text-center">총 발생 연차</th>
-                      <th className="px-4 py-3 font-semibold border-b text-center">사용 연차</th>
-                      <th className="px-4 py-3 font-semibold border-b text-center">잔여 연차</th>
-                      <th className="px-4 py-3 font-semibold border-b text-right"></th>
-                    </tr>
+                  <thead className="bg-muted/50 text-muted-foreground sticky top-0">
+                    <tr><th className="px-4 py-3 border-b">이름 (역할)</th><th className="px-4 py-3 border-b text-center">근속 기간</th><th className="px-4 py-3 border-b text-center">발생</th><th className="px-4 py-3 border-b text-center">사용</th><th className="px-4 py-3 border-b text-center">잔여</th><th className="px-4 py-3 border-b"></th></tr>
                   </thead>
                   <tbody className="divide-y">
-                    {staffList.map(staff => {
-                      const isOwner = staff.role === 'owner'
-                      const roleInfo = getStaffRoleInfo(staff)
+                    {staffList.filter(s => isManager || s.user_id === currentUserId).map(staff => {
+                      if (staff.role === 'owner') return null
                       const balance = balances.find(b => b.member_id === staff.id)
-                      const isOverridden = balance?.total_days !== undefined && balance?.total_days !== null
-                      
-                      const rawCurrentHireDate = staff.hired_at || staff.join_date
-                      const formattedCurrentHireDate = rawCurrentHireDate ? new Date(rawCurrentHireDate).toISOString().split('T')[0] : null
-                      const hasJoinDate = !!formattedCurrentHireDate
-                      
-                      // Auto calculate total
-                      const calcTotal = formattedCurrentHireDate ? calculateAnnualLeave(formattedCurrentHireDate, referenceDate, leaveCalcType) : 0
-                      
-                      // Final total (override if exists)
-                      const total = isOverridden ? balance.total_days : calcTotal
-                      
-                      // For hire_date, show the anniversary range info
-                      const today = new Date()
-                      const isToday = referenceDate.toDateString() === today.toDateString()
-                      const anniversaryInfo = hasJoinDate && leaveCalcType === 'hire_date' ? (
-                        <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">
-                          {isToday ? "현재(오늘) 보유량" : `${format(referenceDate, 'yy.MM.dd')} 시점 보유량`}
-                        </p>
-                      ) : null
-
+                      const hireDate = staff.hired_at || staff.join_date ? new Date(staff.hired_at || staff.join_date).toISOString().split('T')[0] : null
+                      const calcTotal = hireDate ? calculateAnnualLeave(hireDate, referenceDate, leaveCalcType) : 0
+                      const total = balance?.total_days ?? calcTotal
                       const used = balance?.used_days || 0
                       const remain = total - used
-
                       return (
-                        <tr key={staff.id} className="hover:bg-muted/20 transition-colors">
-                          <td className="px-4 py-3">
-                            <div className="flex flex-col gap-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium">{staff.name || staff.profile?.full_name}</span>
-                                <Badge variant="outline" className="text-[10px]">{roleInfo?.name || '직원'}</Badge>
-                              </div>
-                              <span className={cn("text-[11px]", !hasJoinDate ? "text-red-500 font-medium" : "text-muted-foreground")}>
-                                {!hasJoinDate ? "입사일 미등록 (계산 불가)" : `입사일: ${formattedCurrentHireDate}`}
-                              </span>
-                            </div>
+                        <tr key={staff.id} className="hover:bg-muted/20">
+                          <td className="px-4 py-3"><div className="font-medium">{staff.name}</div><div className="text-[10px] text-muted-foreground">{hireDate || '입사일 미등록'}</div></td>
+                          <td className="px-4 py-3 text-center">{getServicePeriodLabel(hireDate)}</td>
+                          <td className="px-4 py-3 text-center font-semibold">{total}일</td>
+                          <td className="px-4 py-3 text-center text-muted-foreground">{used}일</td>
+                          <td className="px-4 py-3 text-center font-bold text-primary">{remain}일</td>
+                          <td className="px-4 py-3 text-right">
                           </td>
-                          
-                          {isOwner ? (
-                            <>
-                              <td className="px-4 py-3 text-center text-muted-foreground/50 font-medium">-</td>
-                              <td className="px-4 py-3 text-center text-muted-foreground/50 font-medium">-</td>
-                              <td className="px-4 py-3 text-center text-muted-foreground/50 font-medium">-</td>
-                              <td className="px-4 py-3 text-center text-muted-foreground/50 font-medium">-</td>
-                              <td className="px-4 py-3 text-right"></td>
-                            </>
-                          ) : (
-                            <>
-                              <td className="px-4 py-3 text-center text-muted-foreground font-medium">
-                                {getServicePeriodLabel(formattedCurrentHireDate)}
-                              </td>
-                              <td className="px-4 py-3 text-center font-semibold">
-                                <div className="flex flex-col items-center">
-                                  <div className="flex items-center justify-center gap-1.5">
-                                    {hasJoinDate || isOverridden ? `${total}일` : "-"}
-                                    {hasJoinDate && !isOverridden && (
-                                      <Badge variant="secondary" className="text-[9px] px-1 py-0 bg-blue-50 text-blue-600 border-blue-200">자동</Badge>
-                                    )}
-                                    {isOverridden && (
-                                      <Badge variant="secondary" className="text-[9px] px-1 py-0 bg-amber-50 text-amber-600 border-amber-200">수동</Badge>
-                                    )}
-                                  </div>
-                                  {anniversaryInfo}
-                                </div>
-                              </td>
-                              <td className="px-4 py-3 text-center text-muted-foreground">
-                                {used > 0 ? `${used}일` : "0일"}
-                              </td>
-                              <td className="px-4 py-3 text-center">
-                                {hasJoinDate || isOverridden ? (
-                                  <Badge 
-                                    variant="secondary" 
-                                    className={cn(
-                                      "font-bold px-3 py-1",
-                                      remain < 0 ? "bg-red-500 text-white hover:bg-red-600" : 
-                                      remain === 0 ? "bg-orange-100 text-orange-700" :
-                                      "bg-primary/10 text-primary border border-primary/20"
-                                    )}
-                                  >
-                                    {remain}일
-                                  </Badge>
-                                ) : "-"}
-                              </td>
-                              <td className="px-4 py-3 text-right">
-                                {isManager && (
-                                  <Button variant="ghost" size="sm" className="h-7 text-[11px] text-muted-foreground hover:text-primary" onClick={async () => {
-                                    const newTotal = prompt(`${staff.name || staff.profile?.full_name}님의 ${selectedYear}년 총 발생 연차 일수를 수정합니다.\n자동 계산으로 되돌리려면 빈칸으로 두고 확인을 누르세요.`, isOverridden ? String(total) : '')
-                                    
-                                    if (newTotal !== null) {
-                                      const parsedVal = newTotal === '' ? null : Number(newTotal)
-                                      if (parsedVal !== null && isNaN(parsedVal)) {
-                                        toast.error('유효한 숫자를 입력하세요.')
-                                        return
-                                      }
-                                      
-                                      const res = await updateLeaveBalance(storeId, staff.id, selectedYear, parsedVal as any)
-                                      if (res.error) toast.error(res.error)
-                                      else {
-                                        toast.success('잔여 연차가 업데이트되었습니다.')
-                                        fetchData()
-                                      }
-                                    }
-                                  }}>
-                                    수정
-                                  </Button>
-                                )}
-                              </td>
-                            </>
-                          )}
                         </tr>
                       )
                     })}
@@ -677,38 +411,24 @@ export function LeaveClientPage({
               </div>
             </div>
           </TabsContent>
-
         </div>
       </Tabs>
 
-      {/* Leave Request Modal */}
       <Dialog open={isRequestModalOpen} onOpenChange={setIsRequestModalOpen}>
         <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>휴가 및 연차 신청</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-6 py-4">
-            {!isManager && (
-              <div className="flex items-center gap-2 mb-2 p-3 bg-muted/50 rounded-lg text-sm">
-                <span>신청자:</span>
-                <span className="font-bold">{staffList.find(s => s.user_id === currentUserId)?.name || '직원'}</span>
-              </div>
-            )}
-            
-            {isManager && (
-              <div className="flex flex-col gap-2">
-                <Label className="text-sm font-medium">대상 직원 (관리자 대리 신청)</Label>
+          <DialogHeader><DialogTitle>휴가 및 연차 신청</DialogTitle></DialogHeader>
+          <div className="grid gap-4 py-4 text-sm">
+            {isManager ? (
+              <div className="flex flex-col gap-1.5">
+                <Label>대상 직원</Label>
                 <Select value={requestDraft.memberId} onValueChange={(v) => setRequestDraft(prev => ({...prev, memberId: v}))}>
                   <SelectTrigger><SelectValue placeholder="직원 선택" /></SelectTrigger>
-                  <SelectContent>
-                    {staffList.map(s => <SelectItem key={s.id} value={s.id}>{s.name || s.profile?.full_name}</SelectItem>)}
-                  </SelectContent>
+                  <SelectContent>{staffList.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-            )}
-
-            <div className="flex flex-col gap-2">
-              <Label className="text-sm font-medium">휴가 종류</Label>
+            ) : <div className="p-3 bg-muted/50 rounded-lg">신청자: <span className="font-bold">{myStaff?.name}</span></div>}
+            <div className="flex flex-col gap-1.5">
+              <Label>휴가 종류</Label>
               <Select value={requestDraft.leaveType} onValueChange={(v) => setRequestDraft(prev => ({...prev, leaveType: v}))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -716,93 +436,32 @@ export function LeaveClientPage({
                   <SelectItem value="half_am">오전 반차 (0.5일)</SelectItem>
                   <SelectItem value="half_pm">오후 반차 (0.5일)</SelectItem>
                   <SelectItem value="sick">병가</SelectItem>
-                  <SelectItem value="unpaid">무급휴가 (대타 필요)</SelectItem>
+                  <SelectItem value="unpaid">무급휴가</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-
             <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-2">
-                <Label className="text-sm font-medium">시작일</Label>
-                <Input type="date" value={requestDraft.startDate} onChange={(e) => setRequestDraft(prev => ({...prev, startDate: e.target.value}))} />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label className="text-sm font-medium">종료일</Label>
-                <Input type="date" value={requestDraft.endDate} onChange={(e) => setRequestDraft(prev => ({...prev, endDate: e.target.value}))} />
-              </div>
+              <div className="flex flex-col gap-1.5"><Label>시작일</Label><Input type="date" value={requestDraft.startDate} onChange={(e) => setRequestDraft(prev => ({...prev, startDate: e.target.value}))} /></div>
+              <div className="flex flex-col gap-1.5"><Label>종료일</Label><Input type="date" value={requestDraft.endDate} onChange={(e) => setRequestDraft(prev => ({...prev, endDate: e.target.value}))} /></div>
             </div>
-            
-            <div className="flex flex-col gap-2">
-              <Label className="text-sm font-medium">사유 작성</Label>
-              <Textarea 
-                placeholder="휴가 사유를 작성해주세요."
-                value={requestDraft.reason}
-                onChange={(e) => setRequestDraft(prev => ({...prev, reason: e.target.value}))}
-                className="h-20 resize-none"
-              />
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <Label className="text-sm font-medium">증빙 자료 (선택)</Label>
-              <LeaveAttachmentUpload 
-                storeId={storeId} 
-                onUpload={(url) => setRequestDraft(prev => ({...prev, attachmentUrl: url || ''}))} 
-              />
-            </div>
+            <div className="flex flex-col gap-1.5"><Label>사유</Label><Textarea placeholder="사유를 입력하세요" value={requestDraft.reason} onChange={(e) => setRequestDraft(prev => ({...prev, reason: e.target.value}))} className="h-20" /></div>
+            <div className="flex flex-col gap-1.5"><Label>증빙 (선택)</Label><LeaveAttachmentUpload storeId={storeId} onUpload={(url) => setRequestDraft(prev => ({...prev, attachmentUrl: url || ''}))} /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsRequestModalOpen(false)}>취소</Button>
-            <Button 
-              className="bg-primary hover:bg-primary/90"
-              disabled={submitLoading || !requestDraft.reason.trim() || !requestDraft.memberId}
-              onClick={async () => {
-                setSubmitLoading(true)
-                try {
-                  // 일수 계산 로직 고도화: 시작일과 종료일 포함 (differenceInDays + 1)
-                  let days = 1
-                  if (requestDraft.leaveType.includes('half')) {
-                    days = 0.5
-                  } else {
-                    const start = parseISO(requestDraft.startDate)
-                    const end = parseISO(requestDraft.endDate)
-                    days = differenceInDays(end, start) + 1
-                  }
-
-                  const res = await createLeaveRequest(
-                    storeId, 
-                    requestDraft.memberId, 
-                    requestDraft.leaveType, 
-                    requestDraft.startDate, 
-                    requestDraft.endDate, 
-                    days, 
-                    requestDraft.reason,
-                    requestDraft.attachmentUrl
-                  )
-                  if (res.error) toast.error(res.error)
-                  else {
-                    toast.success('신청 완료되었습니다.')
-                    setIsRequestModalOpen(false)
-                    fetchData()
-                  }
-                } catch(e) {
-                  toast.error('오류 발생')
-                } finally {
-                  setSubmitLoading(false)
-                }
-              }}
-            >
-              {submitLoading ? '처리 중...' : '신청하기'}
-            </Button>
+            <Button disabled={submitLoading || !requestDraft.reason.trim()} onClick={async () => {
+              setSubmitLoading(true);
+              try {
+                let days = requestDraft.leaveType.includes('half') ? 0.5 : differenceInDays(parseISO(requestDraft.endDate), parseISO(requestDraft.startDate)) + 1;
+                const res = await createLeaveRequest(storeId, requestDraft.memberId, requestDraft.leaveType, requestDraft.startDate, requestDraft.endDate, days, requestDraft.reason, requestDraft.attachmentUrl);
+                if (res.error) toast.error(res.error); else { toast.success('신청 완료'); setIsRequestModalOpen(false); fetchData(); }
+              } catch(e) { toast.error('오류'); } finally { setSubmitLoading(false); }
+            }}>신청하기</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
-  ) : null
-
-  return (
-    <>
-      {staffView}
-      {managerView}
-    </>
   )
+
+  return view
 }
