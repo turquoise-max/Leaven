@@ -20,6 +20,7 @@ interface MonthlyCalendarViewProps {
   activeRoleIds: string[]
   getStaffRoleInfo: (staff: any) => any
   approvedLeaves?: any[]
+  isManager?: boolean
   onDateClick: (date: Date) => void
   onScheduleClick: (sch: any, staff: any) => void
 }
@@ -32,6 +33,7 @@ export function MonthlyCalendarView({
   activeRoleIds,
   getStaffRoleInfo,
   approvedLeaves = [],
+  isManager = true,
   onDateClick,
   onScheduleClick
 }: MonthlyCalendarViewProps) {
@@ -108,12 +110,14 @@ export function MonthlyCalendarView({
                 <div 
                   key={date.toISOString()} 
                   className={cn(
-                    "border-r border-black/5 last:border-r-0 p-1.5 flex flex-col gap-1 relative group/cell cursor-pointer transition-colors bg-white",
+                    "border-r border-black/5 last:border-r-0 p-1.5 flex flex-col gap-1 relative transition-colors bg-white",
                     !isCurrentMonth && "bg-black/[0.02]",
                     isToday && "bg-primary/[0.03] ring-1 ring-inset ring-primary/20",
-                    "hover:bg-black/[0.02]"
+                    isManager ? "cursor-pointer hover:bg-black/[0.02] group/cell" : ""
                   )}
-                  onClick={() => onDateClick(date)}
+                  onClick={() => {
+                    if (isManager) onDateClick(date)
+                  }}
                 >
                   {/* 날짜 표시 */}
                   <div className={cn(
@@ -208,11 +212,13 @@ export function MonthlyCalendarView({
                   </div>
 
                   {/* Hover Plus Icon */}
-                  <div className="absolute top-1 right-1 opacity-0 group-hover/cell:opacity-100 transition-opacity pointer-events-none">
-                    <div className="bg-white rounded p-0.5 shadow-sm border border-black/10 text-black/40">
-                      <Plus className="w-3 h-3" />
+                  {isManager && (
+                    <div className="absolute top-1 right-1 opacity-0 group-hover/cell:opacity-100 transition-opacity pointer-events-none">
+                      <div className="bg-white rounded p-0.5 shadow-sm border border-black/10 text-black/40">
+                        <Plus className="w-3 h-3" />
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               )
             })}

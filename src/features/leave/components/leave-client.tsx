@@ -42,7 +42,7 @@ export function LeaveClientPage({
   currentUserId,
   leaveCalcType
 }: LeaveClientPageProps) {
-  const [activeTab, setActiveTab] = useState(isManager ? 'calendar' : 'my')
+  const [activeTab, setActiveTab] = useState('calendar')
   const referenceDate = new Date() // Always use today
   const selectedYear = referenceDate.getFullYear()
   const [balances, setBalances] = useState<any[]>([])
@@ -134,26 +134,14 @@ export function LeaveClientPage({
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
         <div className="px-6 pt-4 border-b bg-slate-50/50 flex justify-between items-end">
           <TabsList className="bg-transparent h-10 p-0 gap-8 justify-start">
-            {isManager && (
-              <TabsTrigger 
-                value="calendar" 
-                className="relative rounded-none px-1 pb-3 pt-2 text-base font-semibold text-muted-foreground hover:text-foreground data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none outline-none focus-visible:outline-none !shadow-none bg-transparent group"
-              >
-                <Calendar className="w-4 h-4 mr-2" />
-                휴가 현황 (캘린더)
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary scale-x-0 origin-left transition-transform duration-200 group-data-[state=active]:scale-x-100" />
-              </TabsTrigger>
-            )}
-            {!isManager && (
-              <TabsTrigger 
-                value="my" 
-                className="relative rounded-none px-1 pb-3 pt-2 text-base font-semibold text-muted-foreground hover:text-foreground data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none outline-none focus-visible:outline-none !shadow-none bg-transparent group"
-              >
-                <Umbrella className="w-4 h-4 mr-2" />
-                나의 휴가/연차
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary scale-x-0 origin-left transition-transform duration-200 group-data-[state=active]:scale-x-100" />
-              </TabsTrigger>
-            )}
+            <TabsTrigger 
+              value="calendar" 
+              className="relative rounded-none px-1 pb-3 pt-2 text-base font-semibold text-muted-foreground hover:text-foreground data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none outline-none focus-visible:outline-none !shadow-none bg-transparent group"
+            >
+              <Calendar className="w-4 h-4 mr-2" />
+              휴가 현황 (캘린더)
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary scale-x-0 origin-left transition-transform duration-200 group-data-[state=active]:scale-x-100" />
+            </TabsTrigger>
             <TabsTrigger 
               value="requests" 
               className="relative rounded-none px-1 pb-3 pt-2 text-base font-semibold text-muted-foreground hover:text-foreground data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none outline-none focus-visible:outline-none !shadow-none bg-transparent group"
@@ -185,97 +173,51 @@ export function LeaveClientPage({
         </div>
 
         <div className="flex-1 overflow-auto bg-slate-50/30 p-6">
-          {!isManager && (
-            <TabsContent value="my" className="m-0 mt-0 h-full flex flex-col gap-6 outline-none">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="border-border shadow-sm">
-                  <CardHeader className="pb-2">
-                    <CardDescription className="font-semibold text-muted-foreground">총 발생 연차</CardDescription>
-                    <CardTitle className="text-3xl">{total}일</CardTitle>
-                  </CardHeader>
-                </Card>
-                <Card className="border-border shadow-sm">
-                  <CardHeader className="pb-2">
-                    <CardDescription className="font-semibold text-muted-foreground">사용 완료</CardDescription>
-                    <CardTitle className="text-3xl">{used}일</CardTitle>
-                  </CardHeader>
-                </Card>
-                <Card className="border-primary/20 bg-primary/5 shadow-sm">
-                  <CardHeader className="pb-2">
-                    <CardDescription className="font-semibold text-primary">잔여 연차</CardDescription>
-                    <CardTitle className="text-3xl">{remain}일</CardTitle>
-                  </CardHeader>
-                </Card>
-              </div>
-              <div className="bg-white rounded-lg border shadow-sm p-6">
-                 <h3 className="font-semibold text-base mb-4 flex items-center gap-2">
-                   <Settings className="w-4 h-4 text-muted-foreground" /> 연차 산정 정보
-                 </h3>
-                 <div className="text-sm space-y-2">
-                   <div className="flex justify-between py-2 border-b">
-                     <span className="text-muted-foreground">산정 기준</span>
-                     <span className="font-medium">{leaveCalcType === 'hire_date' ? '입사일 기준' : '회계연도 기준'}</span>
-                   </div>
-                   <div className="flex justify-between py-2 border-b">
-                     <span className="text-muted-foreground">입사일</span>
-                     <span className="font-medium">{formattedHireDate || '미등록'}</span>
-                   </div>
-                   <div className="flex justify-between py-2 border-b">
-                     <span className="text-muted-foreground">근속 기간</span>
-                     <span className="font-medium">{getServicePeriodLabel(formattedHireDate)}</span>
-                   </div>
-                 </div>
-              </div>
-            </TabsContent>
-          )}
-
-          {isManager && (
-            <TabsContent value="calendar" className="m-0 mt-0 h-full flex flex-col gap-6 outline-none">
-              <div className="bg-white rounded-lg border shadow-sm overflow-hidden flex-1 flex flex-col">
-                <div className="p-4 border-b flex items-center justify-between shrink-0 bg-slate-50/50">
-                  <h3 className="font-semibold text-base">직원 휴가 캘린더</h3>
-                  <div className="flex gap-2 text-[11px] font-medium">
-                    <div className="flex items-center gap-1.5 bg-blue-50 text-blue-700 px-2 py-1 rounded border border-blue-200">
-                      <div className="w-2 h-2 rounded-full bg-blue-500" /> 연차
-                    </div>
-                    <div className="flex items-center gap-1.5 bg-red-50 text-red-700 px-2 py-1 rounded border border-red-200">
-                      <div className="w-2 h-2 rounded-full bg-red-500" /> 병가
-                    </div>
-                    <div className="flex items-center gap-1.5 bg-slate-100 text-slate-700 px-2 py-1 rounded border border-slate-200">
-                      <div className="w-2 h-2 rounded-full bg-slate-400" /> 무급휴가
-                    </div>
+          <TabsContent value="calendar" className="m-0 mt-0 h-full flex flex-col gap-6 outline-none">
+            <div className="bg-white rounded-lg border shadow-sm overflow-hidden flex-1 flex flex-col">
+              <div className="p-4 border-b flex items-center justify-between shrink-0 bg-slate-50/50">
+                <h3 className="font-semibold text-base">{isManager ? '직원 휴가 캘린더' : '전체 휴가 캘린더'}</h3>
+                <div className="flex gap-2 text-[11px] font-medium">
+                  <div className="flex items-center gap-1.5 bg-blue-50 text-blue-700 px-2 py-1 rounded border border-blue-200">
+                    <div className="w-2 h-2 rounded-full bg-blue-500" /> 연차
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-red-50 text-red-700 px-2 py-1 rounded border border-red-200">
+                    <div className="w-2 h-2 rounded-full bg-red-500" /> 병가
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-slate-100 text-slate-700 px-2 py-1 rounded border border-slate-200">
+                    <div className="w-2 h-2 rounded-full bg-slate-400" /> 무급휴가
                   </div>
                 </div>
-                <div className="flex-1 p-4 overflow-hidden relative leave-calendar-container">
-                  <style>{`
-                    .leave-calendar-container .fc { height: 100%; font-size: 13px; }
-                    .leave-calendar-container .fc-theme-standard th { border-color: rgba(0,0,0,0.05); padding: 8px 0; background: #f8fafc; font-weight: 600; color: #475569; }
-                    .leave-calendar-container .fc-theme-standard td { border-color: rgba(0,0,0,0.05); }
-                    .leave-calendar-container .fc-daygrid-day-number { padding: 4px 8px; color: #334155; font-weight: 500; }
-                    .leave-calendar-container .fc-event { border: none; border-radius: 4px; padding: 2px 4px; margin: 1px 4px; font-size: 11px; font-weight: 600; }
-                  `}</style>
-                  <FullCalendar
-                    plugins={[dayGridPlugin, interactionPlugin]}
-                    initialView="dayGridMonth"
-                    locale={ko}
-                    headerToolbar={{ left: 'prev,next today', center: 'title', right: '' }}
-                    events={requests.filter(r => r.status === 'approved').map(r => {
-                      let color = '#94a3b8'
-                      if (r.leave_type === 'annual') color = '#3b82f6'
-                      if (r.leave_type === 'sick') color = '#ef4444'
-                      if (r.leave_type.startsWith('half')) color = '#60a5fa'
-                      const name = r.member?.name || r.member?.profile?.full_name || '직원'
-                      const label = r.leave_type === 'annual' ? '연차' : r.leave_type === 'sick' ? '병가' : r.leave_type === 'unpaid' ? '무급' : '반차'
-                      const endDateObj = new Date(r.end_date)
-                      endDateObj.setDate(endDateObj.getDate() + 1)
-                      return { id: r.id, title: `${name} (${label})`, start: r.start_date, end: endDateObj.toISOString().substring(0, 10), backgroundColor: color, textColor: '#fff', allDay: true }
-                    })}
-                    height="100%"
-                  />
-                </div>
               </div>
-            </TabsContent>
-          )}
+              <div className="flex-1 p-4 overflow-hidden relative leave-calendar-container">
+                <style>{`
+                  .leave-calendar-container .fc { height: 100%; font-size: 13px; }
+                  .leave-calendar-container .fc-theme-standard th { border-color: rgba(0,0,0,0.05); padding: 8px 0; background: #f8fafc; font-weight: 600; color: #475569; }
+                  .leave-calendar-container .fc-theme-standard td { border-color: rgba(0,0,0,0.05); }
+                  .leave-calendar-container .fc-daygrid-day-number { padding: 4px 8px; color: #334155; font-weight: 500; }
+                  .leave-calendar-container .fc-event { border: none; border-radius: 4px; padding: 2px 4px; margin: 1px 4px; font-size: 11px; font-weight: 600; }
+                `}</style>
+                <FullCalendar
+                  plugins={[dayGridPlugin, interactionPlugin]}
+                  initialView="dayGridMonth"
+                  locale={ko}
+                  headerToolbar={{ left: 'prev,next today', center: 'title', right: '' }}
+                  events={requests.filter(r => r.status === 'approved').map(r => {
+                    let color = '#94a3b8'
+                    if (r.leave_type === 'annual') color = '#3b82f6'
+                    if (r.leave_type === 'sick') color = '#ef4444'
+                    if (r.leave_type.startsWith('half')) color = '#60a5fa'
+                    const name = r.member?.name || r.member?.profile?.full_name || '직원'
+                    const label = r.leave_type === 'annual' ? '연차' : r.leave_type === 'sick' ? '병가' : r.leave_type === 'unpaid' ? '무급' : '반차'
+                    const endDateObj = new Date(r.end_date)
+                    endDateObj.setDate(endDateObj.getDate() + 1)
+                    return { id: r.id, title: `${name} (${label})`, start: r.start_date, end: endDateObj.toISOString().substring(0, 10), backgroundColor: color, textColor: '#fff', allDay: true }
+                  })}
+                  height="100%"
+                />
+              </div>
+            </div>
+          </TabsContent>
 
           <TabsContent value="requests" className="m-0 mt-0 h-full flex flex-col outline-none">
             <div className="bg-white rounded-lg border shadow-sm overflow-hidden flex-1 flex flex-col">

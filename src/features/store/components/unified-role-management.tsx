@@ -43,14 +43,14 @@ const permissionTitles: Record<string, string> = {
   'manage_payroll': '급여 정산 및 관리',
   
   'view_schedule': '스케줄표 확인',
-  'manage_schedule': '스케줄표 짜기 및 수정',
-  'view_attendance': '출퇴근 현황 확인',
-  'manage_attendance': '출퇴근 기록 수정/승인',
-  'view_leave': '휴가 신청 현황 확인',
+  'manage_schedule': '스케줄표 생성 및 삭제',
+  'view_attendance': '출퇴근 기록 조회',
+  'manage_attendance': '출퇴근 대리 처리 및 수정 승인',
+  'view_leave': '휴가 및 연차 조회',
   'manage_leave': '휴가 승인 및 관리',
   
-  'view_tasks': '루틴 업무 확인',
-  'manage_tasks': '루틴 업무 만들기',
+  'view_tasks': '할 일 확인',
+  'manage_tasks': '개인 할 일 추가/삭제',
   'view_sales': '매출 및 결제 확인',
   'manage_inventory': '재고 채우기 및 관리',
   'manage_menu': '메뉴/가격 관리'
@@ -67,15 +67,15 @@ const permissionDescriptions: Record<string, string> = {
   'view_salary': '다른 직원의 민감한 시급이나 급여 정보를 볼 수 있습니다.',
   'manage_payroll': '직원들의 월급을 계산하고 명세서를 관리합니다.',
   
-  'view_schedule': '전체 직원의 이번 주, 이번 달 스케줄을 볼 수 있습니다.',
-  'manage_schedule': '전체 직원의 스케줄을 관리합니다. 이 권한이 없으면 본인의 스케줄만 확인 가능합니다.',
-  'view_attendance': '지금 누가 출근했는지, 오늘 지각한 사람은 없는지 확인합니다.',
-  'manage_attendance': '잘못 찍힌 출퇴근 시간을 바로잡거나 지각/결근을 처리합니다.',
-  'view_leave': '누가 언제 휴가를 가는지 캘린더로 한눈에 확인합니다.',
-  'manage_leave': '직원의 휴가 신청을 승인/거절하거나 남은 연차를 조정합니다.',
+  'view_schedule': '본인의 스케줄을 확인하거나, 권한에 따라 전체 스케줄을 조회합니다.',
+  'manage_schedule': '전체 직원의 스케줄을 관리(생성/수정/삭제)할 수 있습니다.',
+  'view_attendance': '본인의 출퇴근 기록을 확인하거나, 권한에 따라 전체 직원의 출퇴근 현황을 조회합니다.',
+  'manage_attendance': '직원의 실시간 출퇴근 현황을 보고 대신 처리해주거나, 시간 수정 요청을 승인/반려합니다.',
+  'view_leave': '본인의 남은 연차와 휴가 신청 내역을 확인하거나, 권한에 따라 캘린더에서 전체 현황을 조회합니다.',
+  'manage_leave': '직원들의 휴가 신청을 승인/반려하고, 전체 직원의 잔여 연차를 관리할 수 있습니다.',
   
-  'view_tasks': '우리 매장의 직급별 루틴 업무 목록을 확인할 수 있습니다.',
-  'manage_tasks': '출근해서 퇴근까지 해야 할 일들(루틴)을 만들거나 수정합니다.',
+  'view_tasks': '나의 할 일 목록과 타임라인을 확인할 수 있습니다.',
+  'manage_tasks': '내 타임라인에 오늘 해야 할 개인 업무를 직접 추가하거나 삭제할 수 있습니다.',
   'view_sales': '매장 매출 현황과 손님들이 결제한 내역을 확인합니다.',
   'manage_inventory': '물건 재고가 얼마나 남았는지 확인하고 채워넣습니다.',
   'manage_menu': '메뉴 이름을 바꾸거나 가격을 수정할 수 있습니다.'
@@ -191,8 +191,8 @@ export function UnifiedRoleManagement({ storeId, roles, permissions, taskTemplat
     },
     {
       id: 'tasks',
-      title: '할 일 (루틴 업무)',
-      desc: '루틴 업무 체크리스트 페이지 접근 및 관리 권한입니다.',
+      title: '할 일',
+      desc: '개인 할 일 체크리스트 및 타임라인 접근 권한입니다.',
       viewCode: 'view_tasks',
       manageCodes: ['manage_tasks']
     },
@@ -213,7 +213,7 @@ export function UnifiedRoleManagement({ storeId, roles, permissions, taskTemplat
     {
       id: 'leave',
       title: '휴가 및 연차',
-      desc: '직원들의 휴가 신청 현황 접근 및 승인 권한입니다.',
+      desc: '개인 연차 확인 및 휴가 신청 내역 접근/관리 권한입니다.',
       viewCode: 'view_leave',
       manageCodes: ['manage_leave']
     },
@@ -233,17 +233,24 @@ export function UnifiedRoleManagement({ storeId, roles, permissions, taskTemplat
     },
     {
       id: 'payroll',
-      title: '급여 및 인건비',
+      title: '(준비 중) 급여 및 인건비',
       desc: '직원들의 급여 정보 확인 및 급여 정산 권한입니다.',
       viewCode: 'view_salary',
       manageCodes: ['manage_payroll']
     },
     {
-      id: 'sales_assets',
-      title: '매출 및 자산 관리',
-      desc: '매출 분석 확인 및 매장 재고/메뉴 관리 권한입니다.',
+      id: 'sales',
+      title: '(준비 중) 매출 분석',
+      desc: '매장 매출 현황 및 결제 내역 확인 권한입니다.',
       viewCode: 'view_sales',
-      manageCodes: ['manage_inventory', 'manage_menu']
+      manageCodes: []
+    },
+    {
+      id: 'inventory',
+      title: '(준비 중) 재고 관리',
+      desc: '매장 재고 관리 및 메뉴/가격 수정 권한입니다.',
+      viewCode: 'manage_inventory',
+      manageCodes: ['manage_menu']
     },
     {
       id: 'settings',

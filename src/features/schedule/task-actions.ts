@@ -735,9 +735,15 @@ export async function createPersonalDashboardTask(input: {
   let taskEndTime = null;
 
   if (input.task_type === 'scheduled' && input.start_time) {
-    taskStartTime = toUTCISOString(input.assigned_date, input.start_time)
-    if (input.end_time) {
-      taskEndTime = toUTCISOString(input.assigned_date, input.end_time)
+    // 이미 UTC 문자열이면 그대로 사용, 'HH:mm' 형태면 변환
+    if (input.start_time.includes('T')) {
+      taskStartTime = input.start_time
+      taskEndTime = input.end_time || null
+    } else {
+      taskStartTime = toUTCISOString(input.assigned_date, input.start_time)
+      if (input.end_time) {
+        taskEndTime = toUTCISOString(input.assigned_date, input.end_time)
+      }
     }
   }
 
@@ -769,10 +775,31 @@ export async function createPersonalDashboardTask(input: {
   let assignEndTime = null;
 
   if (input.task_type === 'scheduled' && input.start_time) {
-     assignStartTime = `${input.start_time}:00`
-     if (input.end_time) {
-         assignEndTime = `${input.end_time}:00`
-     }
+    // Assignment에는 "HH:mm:ss" 형태로 저장 (task는 UTC지만, assignment는 로컬 시간 문자열이 주로 쓰임)
+    // input.start_time이 UTC 문자열(T 포함)인 경우, 원래 사용자가 입력했던 HH:mm을 복원해야 함
+    // (프론트에서 UTC로 변환해서 보냈을 경우)
+    if (input.start_time.includes('T')) {
+      // 프론트엔드에서 보낸 시간은 이미 "19:30" 같은 시간을 "T...Z"로 바꾼 것.
+      // 다시 KST "HH:mm" 형태로 추출
+      const kstTime = new Date(input.start_time)
+      kstTime.setHours(kstTime.getHours() + 9)
+      const h = kstTime.getUTCHours().toString().padStart(2, '0')
+      const m = kstTime.getUTCMinutes().toString().padStart(2, '0')
+      assignStartTime = `${h}:${m}:00`
+      
+      if (input.end_time && input.end_time.includes('T')) {
+        const kstEnd = new Date(input.end_time)
+        kstEnd.setHours(kstEnd.getHours() + 9)
+        const eh = kstEnd.getUTCHours().toString().padStart(2, '0')
+        const em = kstEnd.getUTCMinutes().toString().padStart(2, '0')
+        assignEndTime = `${eh}:${em}:00`
+      }
+    } else {
+      assignStartTime = `${input.start_time}:00`
+      if (input.end_time) {
+          assignEndTime = `${input.end_time}:00`
+      }
+    }
   }
 
   const { error: assignError } = await supabase
@@ -893,17 +920,17 @@ export async function getDashboardTasks(storeId: string, date: string) {
         
         let safeStartTime = null;
         if (a.start_time) {
-           // 이미 ISO 포맷이면 그대로, 아니면 조합
-           safeStartTime = a.start_time.includes('T') ? a.start_time : `${date}T${a.start_time}Z`;
+           // 이미 ISO 포맷이면 그대로, 아니면 KST 시간으로 간주하여 UTC로 변환
+           safeStartTime = a.start_time.includes('T') ? a.start_time : toUTCISOString(date, a.start_time.substring(0, 5));
         } else if (a.task.start_time) {
-           safeStartTime = a.task.start_time.includes('T') ? a.task.start_time : `${date}T${a.task.start_time}Z`;
+           safeStartTime = a.task.start_time.includes('T') ? a.task.start_time : toUTCISOString(date, a.task.start_time.substring(0, 5));
         }
 
         let safeEndTime = null;
         if (a.end_time) {
-           safeEndTime = a.end_time.includes('T') ? a.end_time : `${date}T${a.end_time}Z`;
+           safeEndTime = a.end_time.includes('T') ? a.end_time : toUTCISOString(date, a.end_time.substring(0, 5));
         } else if (a.task.end_time) {
-           safeEndTime = a.task.end_time.includes('T') ? a.task.end_time : `${date}T${a.task.end_time}Z`;
+           safeEndTime = a.task.end_time.includes('T') ? a.task.end_time : toUTCISOString(date, a.task.end_time.substring(0, 5));
         }
 
         assignedTasks.push({
@@ -947,7 +974,7 @@ export async function getDashboardTasks(storeId: string, date: string) {
       templateData = filteredTemplates.map(t => {
         let safeStartTime = t.start_time;
         if (safeStartTime && !safeStartTime.includes('T')) {
-          safeStartTime = `${date}T${safeStartTime}Z`; 
+          safeStartTime = toUTCISOString(date, safeStartTime.substring(0, 5)); 
         }
         return {
           ...t,

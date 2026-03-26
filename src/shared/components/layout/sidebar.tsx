@@ -34,13 +34,25 @@ interface SidebarProps {
     full_name: string | null
     avatar_url: string | null
   }
+  memberId?: string
   role: string
+  roleName?: string
+  roleColor?: string
   isCollapsed?: boolean
   className?: string
   permissions?: Record<string, boolean>
 }
 
-export function Sidebar({ user, role, isCollapsed = false, className, permissions = {} }: SidebarProps) {
+export function Sidebar({
+  user,
+  memberId,
+  role,
+  roleName,
+  roleColor,
+  isCollapsed = false,
+  className,
+  permissions = {},
+}: SidebarProps) {
   const pathname = usePathname()
 
   const isManager = role === 'owner' || role === 'manager'
@@ -55,12 +67,12 @@ export function Sidebar({ user, role, isCollapsed = false, className, permission
           icon: LayoutDashboard,
           isUpcoming: false
         }] : []),
-        {
+        ...(permissions.view_tasks ? [{
           title: '할 일',
           href: isManager ? '/dashboard/my-tasks' : '/dashboard',
           icon: CheckSquare,
           isUpcoming: false
-        }
+        }] : [])
       ]
     },
     {
@@ -72,18 +84,18 @@ export function Sidebar({ user, role, isCollapsed = false, className, permission
           icon: CalendarRange,
           isUpcoming: false
         }] : []),
-        {
+        ...(permissions.view_attendance ? [{
           title: '출퇴근 관리',
           href: '/dashboard/attendance',
           icon: CalendarDays,
           isUpcoming: false
-        },
-        {
+        }] : []),
+        ...(permissions.view_leave ? [{
           title: '휴가 및 연차',
           href: '/dashboard/leave',
           icon: Umbrella,
           isUpcoming: false
-        }
+        }] : [])
       ]
     },
     {
@@ -101,29 +113,29 @@ export function Sidebar({ user, role, isCollapsed = false, className, permission
           icon: Settings,
           isUpcoming: false
         }] : []),
-        {
+        ...(permissions.view_salary ? [{
           title: '급여 및 인건비',
           href: '/dashboard/payroll',
           icon: Archive,
           isUpcoming: true
-        }
+        }] : [])
       ]
     },
     {
       title: '매출 및 자산 관리',
       items: [
-        {
+        ...(permissions.view_sales ? [{
           title: '매출 분석',
           href: '#sales',
           icon: BarChart3,
           isUpcoming: true
-        },
-        {
+        }] : []),
+        ...(permissions.manage_inventory ? [{
           title: '재고 관리',
           href: '#inventory',
           icon: Archive,
           isUpcoming: true
-        }
+        }] : [])
       ]
     },
     ...(permissions.manage_store ? [{
@@ -169,7 +181,9 @@ export function Sidebar({ user, role, isCollapsed = false, className, permission
       {/* Navigation */}
       <nav className="flex-1 space-y-6 p-2 overflow-y-auto py-4">
         <TooltipProvider delayDuration={0}>
-          {navGroups.map((group, index) => (
+          {navGroups.map((group, index) => {
+            if (group.items.length === 0) return null;
+            return (
             <div key={index} className="space-y-1">
               {!isCollapsed && (
                 <h4 className="px-2 text-xs font-semibold text-muted-foreground mb-2">
@@ -231,7 +245,7 @@ export function Sidebar({ user, role, isCollapsed = false, className, permission
                 )
               })}
             </div>
-          ))}
+          )})}
         </TooltipProvider>
       </nav>
 
@@ -241,14 +255,31 @@ export function Sidebar({ user, role, isCollapsed = false, className, permission
           "flex items-center gap-3",
           isCollapsed ? "justify-center" : "mb-4"
         )}>
-          <Avatar className="h-9 w-9 border shrink-0">
-            <AvatarImage src={user.avatar_url || ''} />
-            <AvatarFallback>{user.full_name?.substring(0, 2) || 'Me'}</AvatarFallback>
+          <Avatar className="h-9 w-9 border shrink-0 shadow-sm transition-transform hover:scale-105">
+            {/* 구글 아바타 대신 이름 이니셜과 역할 컬러를 조합한 아바타를 우선적으로 보여줌 */}
+            <AvatarFallback 
+              className="text-white font-bold text-xs"
+              style={{ 
+                backgroundColor: roleColor || (role === 'owner' ? '#3b82f6' : '#10b981'),
+                textShadow: '0px 1px 2px rgba(0,0,0,0.1)'
+              }}
+            >
+              {user.full_name?.substring(0, 2) || 'Me'}
+            </AvatarFallback>
           </Avatar>
           {!isCollapsed && (
             <div className="flex flex-col overflow-hidden">
-              <span className="text-sm font-medium truncate">{user.full_name}</span>
-              <span className="text-xs text-muted-foreground capitalize truncate">{role}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium truncate">{user.full_name}</span>
+                {memberId && (
+                  <span className="text-[10px] text-muted-foreground/60 font-mono">
+                    #{memberId.substring(0, 4)}
+                  </span>
+                )}
+              </div>
+              <span className="text-xs text-muted-foreground capitalize truncate">
+                {roleName || role}
+              </span>
             </div>
           )}
         </div>

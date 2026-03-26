@@ -24,7 +24,10 @@ interface DashboardLayoutProps {
     full_name: string | null
     avatar_url: string | null
   }
+  memberId: string
   role: string
+  roleName?: string
+  roleColor?: string
   storeName: string
   storeList: {
     id: string
@@ -40,7 +43,10 @@ interface DashboardLayoutProps {
 export function DashboardClientLayout({
   children,
   user,
+  memberId,
   role,
+  roleName,
+  roleColor,
   storeName,
   storeList,
   staffList,
@@ -148,7 +154,10 @@ export function DashboardClientLayout({
             >
               <Sidebar 
                 user={user} 
+                memberId={memberId}
                 role={role} 
+                roleName={roleName}
+                roleColor={roleColor}
                 isCollapsed={false}
                 permissions={permissions}
               />

@@ -40,6 +40,25 @@ export default async function DashboardLayout({
   if (!currentMember) {
     currentMember = members.find(m => m.status === 'active') || members[0]
   }
+
+  // 상세 정보 조회를 위해 currentMember를 다시 한 번 정확하게 가져옴 (role_info 등 포함)
+  // getUserStores에서 가져온 currentMember는 name과 role_info가 없으므로 다시 조회함
+  const { data: memberDetail } = await supabase
+    .from('store_members')
+    .select(`
+      id,
+      user_id,
+      store_id,
+      role,
+      status,
+      name,
+      role_info:store_roles(id, name, color, priority, is_system)
+    `)
+    .eq('user_id', user.id)
+    .eq('store_id', (currentMember.store as any).id)
+    .single()
+
+  const finalMember = (memberDetail || currentMember) as any
   const currentStore = currentMember.store as any // 타입 단언 필요할 수 있음
   const storeName = currentStore?.name || 'Leaven'
   
@@ -88,17 +107,26 @@ export default async function DashboardLayout({
   const permissions = {
     view_staff: await hasPermission(user.id, currentStoreId, 'view_staff'),
     view_schedule: await hasPermission(user.id, currentStoreId, 'view_schedule'),
-    manage_store: await hasPermission(user.id, currentStoreId, 'manage_store')
+    manage_store: await hasPermission(user.id, currentStoreId, 'manage_store'),
+    view_attendance: await hasPermission(user.id, currentStoreId, 'view_attendance'),
+    view_leave: await hasPermission(user.id, currentStoreId, 'view_leave'),
+    view_tasks: await hasPermission(user.id, currentStoreId, 'view_tasks'),
+    view_salary: await hasPermission(user.id, currentStoreId, 'view_salary'),
+    view_sales: await hasPermission(user.id, currentStoreId, 'view_sales'),
+    manage_inventory: await hasPermission(user.id, currentStoreId, 'manage_inventory'),
   }
 
   return (
     <DashboardClientLayout
       user={{
         email: user.email!,
-        full_name: user.user_metadata.full_name,
+        full_name: finalMember.name || user.user_metadata.full_name,
         avatar_url: user.user_metadata.avatar_url,
       }}
-      role={currentMember.role}
+      memberId={finalMember.id}
+      role={finalMember.role}
+      roleName={finalMember.role_info?.name || finalMember.role}
+      roleColor={finalMember.role_info?.color}
       storeName={storeName}
       storeList={storeList}
       staffList={staffList || []}

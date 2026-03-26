@@ -22,6 +22,7 @@ interface StaffScheduleMatrixProps {
   activeRoleIds: string[]
   getStaffRoleInfo: (staff: any) => any
   approvedLeaves?: any[]
+  isManager?: boolean
   onCellClick: (staff: any, date: Date) => void
   onScheduleClick: (sch: any, staff: any) => void
 }
@@ -35,6 +36,7 @@ export function StaffScheduleMatrix({
   activeRoleIds,
   getStaffRoleInfo,
   approvedLeaves = [],
+  isManager = true,
   onCellClick,
   onScheduleClick
 }: StaffScheduleMatrixProps) {
@@ -233,17 +235,23 @@ export function StaffScheduleMatrix({
                             
                             {/* 빈 공간 클릭을 위한 영역 & Hover Plus Icon */}
                             <div 
-                              className="flex-1 min-h-[24px] mt-1 relative cursor-pointer hover:bg-black/[0.02] rounded-md transition-colors group/empty"
+                              className={cn(
+                                "flex-1 min-h-[24px] mt-1 relative rounded-md transition-colors",
+                                isManager ? "cursor-pointer hover:bg-black/[0.02] group/empty" : ""
+                              )}
                               onClick={(e) => {
+                                if (!isManager) return
                                 e.stopPropagation()
                                 onCellClick(staff, date)
                               }}
                             >
-                              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/empty:opacity-100 transition-opacity pointer-events-none">
-                                <div className="bg-white rounded-full p-1 shadow-md border border-black/10 text-black/40">
-                                  <Plus className="w-4 h-4" />
+                              {isManager && (
+                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/empty:opacity-100 transition-opacity pointer-events-none">
+                                  <div className="bg-white rounded-full p-1 shadow-md border border-black/10 text-black/40">
+                                    <Plus className="w-4 h-4" />
+                                  </div>
                                 </div>
-                              </div>
+                              )}
                             </div>
                           </div>
                         </td>

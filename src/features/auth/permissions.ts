@@ -70,6 +70,10 @@ export async function hasPermission(
       .single()
 
     if (data) return true
+    
+    // role_id가 있다면 커스텀 직급 및 권한 설정이 적용된 것이므로, 
+    // 레거시 role_permissions로 폴백하지 않고 해당 권한이 없음을 반환 (토글 끔 동작을 위해)
+    return false
   }
 
   // 3. Fallback: Check legacy role_permissions table

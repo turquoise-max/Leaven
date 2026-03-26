@@ -759,6 +759,7 @@ export function UnifiedCalendar({
               activeRoleIds={activeRoleIds}
               getStaffRoleInfo={getStaffRoleInfo}
               approvedLeaves={approvedLeaves}
+              isManager={isManager}
               onCellClick={(staff, date) => {
                 if (!isManager) return;
                 setCreateForm({
@@ -772,6 +773,7 @@ export function UnifiedCalendar({
                 setIsCreateModalOpen(true)
               }}
               onScheduleClick={(sch, staff) => {
+                if (!isManager) return;
                 handleScheduleClick(sch, staff)
               }}
             />
@@ -784,6 +786,7 @@ export function UnifiedCalendar({
               activeRoleIds={activeRoleIds}
               getStaffRoleInfo={getStaffRoleInfo}
               approvedLeaves={approvedLeaves}
+              isManager={isManager}
               onDateClick={(date) => {
                 if (!isManager) return;
                 setCreateForm({
@@ -797,6 +800,7 @@ export function UnifiedCalendar({
                 setIsCreateModalOpen(true)
               }}
               onScheduleClick={(sch, staff) => {
+                if (!isManager) return;
                 handleScheduleClick(sch, staff)
               }}
             />

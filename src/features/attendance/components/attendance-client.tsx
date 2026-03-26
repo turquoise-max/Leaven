@@ -378,7 +378,7 @@ export function AttendanceClientPage({
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {staffList.map(staff => {
+                    {staffList.filter(s => isManager || s.user_id === currentUserId).map(staff => {
                       const roleInfo = getStaffRoleInfo(staff)
                       const attendance = attendanceData.find(a => a.member_id === staff.id)
                       const staffSchedule = schedulesData.find(sch => 
@@ -467,7 +467,7 @@ export function AttendanceClientPage({
                     })}
                   </tbody>
                 </table>
-                {staffList.filter(staff => {
+                {staffList.filter(s => isManager || s.user_id === currentUserId).filter(staff => {
                     const attendance = attendanceData.find(a => a.member_id === staff.id)
                     const staffSchedule = schedulesData.find(sch => sch.schedule_members?.some((sm: any) => sm.member_id === staff.id) && toKSTISOString(sch.start_time).startsWith(selectedDate))
                     return attendance || staffSchedule
