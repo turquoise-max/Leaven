@@ -114,6 +114,28 @@ export async function signInWithGoogle(formData?: FormData) {
   }
 }
 
+export async function signInWithKakao(formData?: FormData) {
+  const supabase = await createClient()
+  const origin = (await headers()).get('origin')
+  
+  const nextUrl = formData?.get('nextUrl') as string || '/home'
+
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'kakao',
+    options: {
+      redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(nextUrl)}`,
+    },
+  })
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  if (data.url) {
+    redirect(data.url)
+  }
+}
+
 export async function logout() {
   const supabase = await createClient()
   const { error } = await supabase.auth.signOut()

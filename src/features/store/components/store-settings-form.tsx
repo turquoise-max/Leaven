@@ -33,31 +33,17 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { toast } from 'sonner'
-import { AlertTriangle, Search, MapPin, Save, RotateCcw, Plus, Trash2 } from 'lucide-react'
+import { AlertTriangle, Search, MapPin, Save, RotateCcw, Plus, Trash2, Crosshair } from 'lucide-react'
 import { ImageUpload } from './image-upload'
 import { OpeningHours } from './opening-hours'
-import { cn } from '@/lib/utils'
+import { StoreLocationMap } from './store-location-map'
+import { cn, formatPhoneNumber } from '@/lib/utils'
 
 const formatBusinessNumber = (value: string) => {
   const v = value.replace(/\D/g, '')
   if (v.length <= 3) return v
   if (v.length <= 5) return `${v.slice(0, 3)}-${v.slice(3)}`
   return `${v.slice(0, 3)}-${v.slice(3, 5)}-${v.slice(5, 10)}`
-}
-
-const formatPhoneNumber = (value: string) => {
-  const v = value.replace(/\D/g, '')
-  if (v.startsWith('02')) {
-    if (v.length <= 2) return v
-    if (v.length <= 5) return `${v.slice(0, 2)}-${v.slice(2)}`
-    if (v.length <= 9) return `${v.slice(0, 2)}-${v.slice(2, 5)}-${v.slice(5)}`
-    return `${v.slice(0, 2)}-${v.slice(2, 6)}-${v.slice(6, 10)}`
-  } else {
-    if (v.length <= 3) return v
-    if (v.length <= 6) return `${v.slice(0, 3)}-${v.slice(3)}`
-    if (v.length <= 10) return `${v.slice(0, 3)}-${v.slice(3, 6)}-${v.slice(6)}`
-    return `${v.slice(0, 3)}-${v.slice(3, 7)}-${v.slice(7, 11)}`
-  }
 }
 
 interface StoreSettingsFormProps {
@@ -73,6 +59,9 @@ interface StoreSettingsFormProps {
     address_detail?: string
     image_url?: string
     stamp_image_url?: string
+    latitude?: number
+    longitude?: number
+    auth_radius?: number
     opening_hours?: any
     invite_code?: string
     wage_start_day?: number
@@ -116,6 +105,9 @@ export function StoreSettingsForm({ initialData }: StoreSettingsFormProps) {
       address_detail: initialData.address_detail || '',
       image_url: initialData.image_url || null,
       stamp_image_url: initialData.stamp_image_url || null,
+      latitude: initialData.latitude != null ? String(initialData.latitude) : '',
+      longitude: initialData.longitude != null ? String(initialData.longitude) : '',
+      auth_radius: initialData.auth_radius != null ? String(initialData.auth_radius) : '200',
       opening_hours: initialData.opening_hours || {},
       
       wage_start_day: String(wStart),
@@ -179,11 +171,46 @@ export function StoreSettingsForm({ initialData }: StoreSettingsFormProps) {
             address: data.address,
             zip_code: data.zonecode
           }))
+          
+          // Address to Coord (Optional: if we have Kakao Maps API Key, we can use it here)
+          // For now, we'll encourage using the "Current Location" button at the shop.
         }
       }).open()
     } else {
       toast.error('주소 검색 서비스를 불러오는 중입니다. 잠시 후 다시 시도해주세요.')
     }
+  }
+
+  const handleGetCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error('이 브라우저에서는 위치 정보를 지원하지 않습니다.')
+      return
+    }
+
+    toast.promise(
+      new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            setFormData(prev => ({
+              ...prev,
+              latitude: String(position.coords.latitude),
+              longitude: String(position.coords.longitude)
+            }))
+            resolve(position)
+          },
+          (error) => reject(error),
+          { enableHighAccuracy: true, timeout: 5000 }
+        )
+      }),
+      {
+        loading: '현재 위치를 파악 중입니다...',
+        success: '매장 좌표가 현재 위치로 설정되었습니다.',
+        error: (err: any) => {
+          if (err.code === 1) return '위치 정보 접근 권한이 거부되었습니다.'
+          return '위치 정보를 가져오지 못했습니다.'
+        }
+      }
+    )
   }
 
   const handleReset = () => {
@@ -204,6 +231,9 @@ export function StoreSettingsForm({ initialData }: StoreSettingsFormProps) {
     submitData.append('address_detail', formData.address_detail)
     if (formData.image_url) submitData.append('image_url', formData.image_url)
     if (formData.stamp_image_url) submitData.append('stamp_image_url', formData.stamp_image_url)
+    if (formData.latitude) submitData.append('latitude', formData.latitude)
+    if (formData.longitude) submitData.append('longitude', formData.longitude)
+    if (formData.auth_radius) submitData.append('auth_radius', formData.auth_radius)
     submitData.append('opening_hours', JSON.stringify(formData.opening_hours))
 
     const startDay = formData.wage_period_type === 'default' ? '1' : formData.wage_start_day
@@ -446,6 +476,83 @@ export function StoreSettingsForm({ initialData }: StoreSettingsFormProps) {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+
+          <div className="flex flex-col md:flex-row gap-6 py-6 border-b border-border/50">
+            <div className="w-full md:w-1/3 shrink-0 space-y-1">
+              <Label className="text-base font-semibold">출퇴근 인증 좌표</Label>
+              <p className="text-sm text-muted-foreground">정확한 출퇴근 인증을 위해 매장의 위도와 경도를 등록해주세요.</p>
+            </div>
+            <div className="w-full md:w-2/3 max-w-xl space-y-4">
+              <StoreLocationMap 
+                latitude={formData.latitude ? parseFloat(formData.latitude) : null}
+                longitude={formData.longitude ? parseFloat(formData.longitude) : null}
+                radius={parseInt(formData.auth_radius)}
+              />
+              <div className="p-4 bg-slate-50 dark:bg-slate-900 border rounded-lg space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">GPS 좌표 설정</span>
+                  <div className="flex gap-2">
+                    <Button type="button" variant="outline" size="sm" onClick={handleGetCurrentLocation} className="h-8 gap-2">
+                      <Crosshair className="w-3.5 h-3.5" />
+                      현 위치로 설정
+                    </Button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">위도 (Latitude)</Label>
+                    <Input 
+                      value={formData.latitude} 
+                      onChange={(e) => setFormData(prev => ({ ...prev, latitude: e.target.value }))}
+                      placeholder="예: 37.123456"
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">경도 (Longitude)</Label>
+                    <Input 
+                      value={formData.longitude} 
+                      onChange={(e) => setFormData(prev => ({ ...prev, longitude: e.target.value }))}
+                      placeholder="예: 127.123456"
+                      className="h-9"
+                    />
+                  </div>
+                </div>
+                {!formData.latitude && (
+                  <p className="text-[11px] text-destructive">
+                    * 좌표가 등록되지 않으면 위치 기반 출퇴근 기능을 사용할 수 없습니다.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col md:flex-row gap-6 py-6">
+            <div className="w-full md:w-1/3 shrink-0 space-y-1">
+              <Label className="text-base font-medium">출퇴근 허용 반경</Label>
+              <p className="text-sm text-muted-foreground">매장 좌표를 기준으로 출퇴근이 가능한 거리를 설정합니다.</p>
+            </div>
+            <div className="w-full md:w-2/3 max-w-xl">
+              <div className="flex items-center gap-4">
+                <Select 
+                  value={formData.auth_radius} 
+                  onValueChange={(val) => setFormData(prev => ({ ...prev, auth_radius: val }))}
+                >
+                  <SelectTrigger className="w-32">
+                    <SelectValue placeholder="반경 선택" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="50">50m (매우 좁음)</SelectItem>
+                    <SelectItem value="100">100m (보통)</SelectItem>
+                    <SelectItem value="200">200m (추천)</SelectItem>
+                    <SelectItem value="300">300m (넓음)</SelectItem>
+                    <SelectItem value="500">500m (매우 넓음)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <span className="text-sm text-muted-foreground">이내에서만 출퇴근 가능</span>
+              </div>
             </div>
           </div>
         </div>

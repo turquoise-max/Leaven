@@ -43,7 +43,8 @@ export function LeaveClientPage({
   leaveCalcType
 }: LeaveClientPageProps) {
   const [activeTab, setActiveTab] = useState('calendar')
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
+  const [referenceDate, setReferenceDate] = useState(new Date())
+  const selectedYear = referenceDate.getFullYear()
   const [balances, setBalances] = useState<any[]>([])
   const [requests, setRequests] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -80,7 +81,7 @@ export function LeaveClientPage({
 
   useEffect(() => {
     fetchData()
-  }, [storeId, selectedYear])
+  }, [storeId, selectedYear]) // selectedYear is derived from referenceDate
 
   const pendingCount = requests.filter(r => r.status === 'pending').length
 
@@ -107,7 +108,6 @@ export function LeaveClientPage({
     return `${years}년 ${months}개월`
   }
 
-  const currentYear = new Date().getFullYear()
   const myStaff = staffList.find(s => s.user_id === currentUserId)
 
   const myRequests = requests.filter(r => r.member?.user_id === currentUserId)
@@ -116,7 +116,7 @@ export function LeaveClientPage({
   const rawHireDate = myStaff?.hired_at || myStaff?.join_date
   const formattedHireDate = rawHireDate ? new Date(rawHireDate).toISOString().split('T')[0] : null
   
-  const calcTotal = formattedHireDate ? calculateAnnualLeave(formattedHireDate, currentYear, leaveCalcType) : 0
+  const calcTotal = formattedHireDate ? calculateAnnualLeave(formattedHireDate, referenceDate, leaveCalcType) : 0
   const total = myBalance?.total_days !== undefined && myBalance?.total_days !== null ? myBalance.total_days : calcTotal
   const used = myBalance?.used_days || 0
   const remain = total - used
@@ -495,21 +495,32 @@ export function LeaveClientPage({
                 <div className="flex items-center gap-4">
                   <div className="flex flex-col">
                     <h3 className="font-semibold text-base">직원별 잔여 연차 관리</h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      연차 발생 기준: <span className="font-semibold text-foreground">{leaveCalcType === 'hire_date' ? '입사일 기준' : '회계연도 기준'}</span>
-                    </p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <p className="text-xs text-muted-foreground">
+                        연차 발생 기준: <span className="font-semibold text-foreground">{leaveCalcType === 'hire_date' ? '입사일 기준' : '회계연도 기준'}</span>
+                      </p>
+                      {leaveCalcType === 'hire_date' && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-blue-50/50 text-blue-600 border-blue-200">
+                          {selectedYear}년 내 도래하는 입사일 기준
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                   
-                  <Select value={String(selectedYear)} onValueChange={(v) => setSelectedYear(Number(v))}>
-                    <SelectTrigger className="w-[100px] h-9 font-bold bg-slate-50">
-                      <SelectValue placeholder="연도 선택" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - 2 + i)).map(y => (
-                        <SelectItem key={y} value={String(y)}>{y}년</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs font-medium text-muted-foreground whitespace-nowrap">조회 기준일:</Label>
+                    <Input 
+                      type="date" 
+                      value={format(referenceDate, 'yyyy-MM-dd')} 
+                      onChange={(e) => {
+                        const newDate = new Date(e.target.value)
+                        if (!isNaN(newDate.getTime())) {
+                          setReferenceDate(newDate)
+                        }
+                      }}
+                      className="h-9 w-[150px] font-medium bg-slate-50"
+                    />
+                  </div>
                 </div>
                 {isManager && (
                   <Button 
@@ -553,15 +564,25 @@ export function LeaveClientPage({
                       
                       const rawCurrentHireDate = staff.hired_at || staff.join_date
                       const formattedCurrentHireDate = rawCurrentHireDate ? new Date(rawCurrentHireDate).toISOString().split('T')[0] : null
+                      const hasJoinDate = !!formattedCurrentHireDate
                       
                       // Auto calculate total
-                      const calcTotal = formattedCurrentHireDate ? calculateAnnualLeave(formattedCurrentHireDate, selectedYear, leaveCalcType) : 0
+                      const calcTotal = formattedCurrentHireDate ? calculateAnnualLeave(formattedCurrentHireDate, referenceDate, leaveCalcType) : 0
                       
                       // Final total (override if exists)
                       const total = isOverridden ? balance.total_days : calcTotal
+                      
+                      // For hire_date, show the anniversary range info
+                      const today = new Date()
+                      const isToday = referenceDate.toDateString() === today.toDateString()
+                      const anniversaryInfo = hasJoinDate && leaveCalcType === 'hire_date' ? (
+                        <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">
+                          {isToday ? "현재(오늘) 보유량" : `${format(referenceDate, 'yy.MM.dd')} 시점 보유량`}
+                        </p>
+                      ) : null
+
                       const used = balance?.used_days || 0
                       const remain = total - used
-                      const hasJoinDate = !!formattedCurrentHireDate
 
                       return (
                         <tr key={staff.id} className="hover:bg-muted/20 transition-colors">
@@ -591,14 +612,17 @@ export function LeaveClientPage({
                                 {getServicePeriodLabel(formattedCurrentHireDate)}
                               </td>
                               <td className="px-4 py-3 text-center font-semibold">
-                                <div className="flex items-center justify-center gap-1.5">
-                                  {hasJoinDate || isOverridden ? `${total}일` : "-"}
-                                  {hasJoinDate && !isOverridden && (
-                                    <Badge variant="secondary" className="text-[9px] px-1 py-0 bg-blue-50 text-blue-600 border-blue-200">자동</Badge>
-                                  )}
-                                  {isOverridden && (
-                                    <Badge variant="secondary" className="text-[9px] px-1 py-0 bg-amber-50 text-amber-600 border-amber-200">수동</Badge>
-                                  )}
+                                <div className="flex flex-col items-center">
+                                  <div className="flex items-center justify-center gap-1.5">
+                                    {hasJoinDate || isOverridden ? `${total}일` : "-"}
+                                    {hasJoinDate && !isOverridden && (
+                                      <Badge variant="secondary" className="text-[9px] px-1 py-0 bg-blue-50 text-blue-600 border-blue-200">자동</Badge>
+                                    )}
+                                    {isOverridden && (
+                                      <Badge variant="secondary" className="text-[9px] px-1 py-0 bg-amber-50 text-amber-600 border-amber-200">수동</Badge>
+                                    )}
+                                  </div>
+                                  {anniversaryInfo}
                                 </div>
                               </td>
                               <td className="px-4 py-3 text-center text-muted-foreground">

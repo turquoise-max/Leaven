@@ -42,6 +42,10 @@ export async function updateStore(formData: FormData) {
   const stampImageUrl = formData.get('stamp_image_url') as string
   const leaveCalcType = formData.get('leave_calc_type') as string
   
+  const latitude = formData.get('latitude') ? parseFloat(formData.get('latitude') as string) : null
+  const longitude = formData.get('longitude') ? parseFloat(formData.get('longitude') as string) : null
+  const authRadius = formData.get('auth_radius') ? parseInt(formData.get('auth_radius') as string, 10) : 200
+  
   const wageStartDay = formData.get('wage_start_day') ? parseInt(formData.get('wage_start_day') as string, 10) : 1
   const wageEndDay = formData.get('wage_end_day') ? parseInt(formData.get('wage_end_day') as string, 10) : 0
   const payDay = formData.get('pay_day') ? parseInt(formData.get('pay_day') as string, 10) : 10
@@ -80,6 +84,9 @@ export async function updateStore(formData: FormData) {
       opening_hours: openingHours,
       image_url: imageUrl,
       stamp_image_url: stampImageUrl,
+      latitude,
+      longitude,
+      auth_radius: authRadius,
       wage_start_day: wageStartDay,
       wage_end_day: wageEndDay,
       pay_day: payDay,

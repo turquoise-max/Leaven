@@ -176,7 +176,7 @@ export function StaffList({ initialData, storeId, canManage, inviteCode }: Staff
 
   // Dashboard Stats
   const totalActive = staffList.filter(s => !s.resigned_at && s.status === 'active').length
-  const totalPendingContracts = staffList.filter(s => !s.resigned_at && s.status === 'active' && s.contract_status !== 'signed').length
+  const totalPendingContracts = staffList.filter(s => !s.resigned_at && s.status === 'active' && s.role !== 'owner' && s.contract_status !== 'signed').length
   const totalPendingApprovals = staffList.filter(s => !s.resigned_at && (s.status === 'pending_approval' || s.status === 'invited')).length
 
   // Unique Roles for Filter Dropdown

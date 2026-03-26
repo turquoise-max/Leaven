@@ -3,81 +3,84 @@
  */
 
 /**
- * 입사일과 기준 년도를 받아, 근로기준법에 따른 발생 연차를 계산합니다.
+ * 입사일과 기준일을 받아, 근로기준법에 따른 발생 연차를 계산합니다.
  * 
  * @param joinDateStr 직원의 입사일 (YYYY-MM-DD 형식)
- * @param targetYear 조회할 기준 회계연도 (예: 2024)
+ * @param referenceDate 조회 기준일 (Date 객체)
  * @param calcType 연차 발생 기준 ('hire_date' | 'fiscal_year')
- * @returns 해당 연도에 발생해야 하는 총 연차 일수 (number)
+ * @returns 기준일 시점에 발생 완료된(보유 중인) 총 연차 일수 (number)
  */
-export function calculateAnnualLeave(joinDateStr: string | null | undefined, targetYear: number, calcType: 'hire_date' | 'fiscal_year'): number {
-  if (!joinDateStr) return 0 // 입사일이 없으면 0일
+export function calculateAnnualLeave(joinDateStr: string | null | undefined, referenceDate: Date, calcType: 'hire_date' | 'fiscal_year'): number {
+  if (!joinDateStr) return 0
 
   const joinDate = new Date(joinDateStr)
   if (isNaN(joinDate.getTime())) return 0
 
   const joinYear = joinDate.getFullYear()
-  const joinMonth = joinDate.getMonth() // 0 ~ 11
-  const joinDay = joinDate.getDate()
-
-  // 만약 조회 연도가 입사 연도보다 과거라면 0일
-  if (targetYear < joinYear) return 0
-
-  // 근속 연수 (단순 연도 차이가 아닌 만 년수)
-  // 편의상 targetYear 기준 특정 시점을 볼 필요가 있는데, 
-  // 발생 '총' 연차이므로 targetYear의 12월 31일 기준으로 그 해에 '얼마나 발생했나/할 것인가'를 봅니다.
-  const endOfTargetYear = new Date(targetYear, 11, 31) 
+  const targetYear = referenceDate.getFullYear()
   
-  // 입사일 기준 계산
+  // 조회 기준일이 입사일보다 과거라면 0일
+  if (referenceDate < joinDate) return 0
+
   if (calcType === 'hire_date') {
-    if (targetYear === joinYear) {
-      // 입사 1년차: 1개월 만근 시 1일 발생 (최대 11일)
-      // 해당 연도(12/31)까지 몇 개월이 지났는지
-      let monthsPassed = (11 - joinMonth)
-      // 입사일이 1일이 아닐 경우 등 세부적인 월 계산이 필요하지만, 대략적인 만 월수로 계산
-      if (joinDay > 1) {
-        // 엄밀히는 다음 달 같은 일자에 발생하지만, 당해 연도 발생분만 본다면
-        // 12월의 일자가 입사일보다 작으면 1달을 뺌 (12월 31일이므로 항상 크거나 같음)
-      }
-      return Math.min(monthsPassed, 11)
-    } 
+    /**
+     * [입사일 기준 근로기준법 원칙]
+     * 1. 1년 미만: 1개월 개근 시 1일씩 발생 (최대 11일)
+     * 2. 1년 만근 시(만 1년 경과): 15일 발생 (기존 월차 소멸 성격이나 시스템상 '해당 회차' 총량으로 관리)
+     * 3. 만 2년 근속 후(3년차)부터: 2년마다 1일씩 가산 (최대 25일)
+     */
     
-    if (targetYear === joinYear + 1) {
-      // 입사 2년차: 전년도 잔여월수 + 입사 1년 도래 시 15일 발생
-      // 전년도(1년차)에 발생한 연차(최대 11일) 중 1월~입사월 전까지 추가 발생분
-      const extraFirstYearLeaves = joinMonth 
-      // 1년 만근 시점(targetYear의 입사일)에 15일 발생
-      return extraFirstYearLeaves + 15
+    // 전체 근속 개월 수 계산
+    const diffInMonths = (referenceDate.getFullYear() - joinDate.getFullYear()) * 12 + (referenceDate.getMonth() - joinDate.getMonth())
+    const isDayPassed = referenceDate.getDate() >= joinDate.getDate()
+    const fullMonths = isDayPassed ? diffInMonths : diffInMonths - 1
+    const fullYears = Math.floor(fullMonths / 12)
+
+    // 1. 1년 미만인 경우
+    if (fullYears === 0) {
+      // 현재까지 발생한 월차 개수 (최대 11개)
+      return Math.min(Math.max(0, fullMonths), 11)
     }
 
-    // 3년차 이상: 15일 + (근속년수 - 1) / 2 가산 (최대 25일)
-    // 1년 만근 시점(targetYear의 입사일)에 발생하는 연차 개수
-    const yearsOfService = targetYear - joinYear
-    const additionalDays = Math.floor((yearsOfService - 1) / 2)
-    return Math.min(15 + additionalDays, 25)
+    // 2. 1년 이상인 경우 (입사 기념일마다 갱신)
+    // fullYears는 현재 시점의 만 근속년수
+    // 연차는 만 1년, 2년... 시점에 새로 발생하므로 현재 fullYears에 해당하는 연차 개수를 리턴
+    // 가산 연차: 15 + floor((fullYears - 1) / 2)
+    const leaveCount = 15 + Math.floor((fullYears - 1) / 2)
+    return Math.min(leaveCount, 25)
 
   } else {
     // 회계연도 기준 계산 (매년 1월 1일 일괄 부여)
+    const joinMonth = joinDate.getMonth()
+
     if (targetYear === joinYear) {
-      // 입사 당해 연도: 1개월 만근 시 1일 발생 (최대 11일) -> 입사일 기준과 동일
-      let monthsPassed = (11 - joinMonth)
-      return Math.min(monthsPassed, 11)
+      // 입사 당해 연도: 기준일 전까지 발생한 월차 개수
+      const diffInMonths = (referenceDate.getFullYear() - joinDate.getFullYear()) * 12 + (referenceDate.getMonth() - joinDate.getMonth())
+      const isDayPassed = referenceDate.getDate() >= joinDate.getDate()
+      const fullMonths = isDayPassed ? diffInMonths : diffInMonths - 1
+      return Math.min(Math.max(0, fullMonths), 11)
     } 
     
     if (targetYear === joinYear + 1) {
-      // 입사 이듬해 1월 1일:
-      // 1. 2년차 15일에 대한 비례 연차 발생 (15일 * 전년도 근속일수 / 365)
-      // 2. + 1년차(당해) 1개월 만근 시 1일 발생하는 남은 월수 발생
+      /**
+       * 입사 이듬해 1월 1일:
+       * 1. 2년차 15일에 대한 비례 연차 발생 (15일 * 전년도 근속일수 / 365)
+       * 2. + 1년차(당해) 월차 (입사월부터 12월까지 발생분 중 전년도에 미처 못 쓴 분량 혹은 남은 발생분)
+       *    실무적으로는 전년도 미사용 월차는 소멸되거나 수동 정산하지만, 
+       *    시스템상 '총 발생'은 전년도 11개 + 비례 15개를 합쳐서 관리하기도 함.
+       *    여기서는 기존 로직의 의도(비례분 + 전년도 이월 월차 성격)를 유지하며 계산식을 정교화합니다.
+       */
       
       // 전년도 근속일수 = 12/31 - 입사일
       const endOfJoinYear = new Date(joinYear, 11, 31)
       const diffTime = Math.abs(endOfJoinYear.getTime() - joinDate.getTime())
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1 // 당일 포함
       
-      // 비례 연차 (근로자에게 유리하도록 소수점 첫째자리에서 올림 처리하여 정수로 부여)
+      // 비례 연차 (15일 * 근속일수 / 365)
       const proportionalLeaves = Math.ceil((15 * diffDays / 365))
       
-      // 1년차 추가 월차 (2년차의 입사월 전까지)
+      // 1년차 추가 월차 (전체 11개 중 당해연도에 속하는 부분)
+      // 회계연도 기준 1/1에 부여할 때, 전년도에 이미 발생한 것들을 포함할지 여부
       const extraFirstYearLeaves = joinMonth
       
       return proportionalLeaves + extraFirstYearLeaves

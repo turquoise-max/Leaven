@@ -558,7 +558,7 @@ export function UnifiedRoleManagement({ storeId, roles, permissions, taskTemplat
                         id="roleName" 
                         value={editName} 
                         onChange={e => setEditName(e.target.value)}
-                        disabled={loading || isOwner}
+                        disabled={loading}
                       />
                     </div>
                     <div className="space-y-2 md:col-span-1">
@@ -570,13 +570,13 @@ export function UnifiedRoleManagement({ storeId, roles, permissions, taskTemplat
                           value={editColor} 
                           onChange={e => setEditColor(e.target.value)}
                           className="w-12 p-1 cursor-pointer h-10"
-                          disabled={loading || isOwner}
+                          disabled={loading}
                         />
                         <Input 
                           value={editColor} 
                           onChange={e => setEditColor(e.target.value)}
                           className="uppercase font-mono text-sm h-10 flex-1"
-                          disabled={loading || isOwner}
+                          disabled={loading}
                         />
                       </div>
                     </div>
@@ -811,30 +811,35 @@ export function UnifiedRoleManagement({ storeId, roles, permissions, taskTemplat
 
         {/* Floating Save Bar */}
         <div className={cn(
-          "absolute bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-3rem)] max-w-2xl transition-all duration-300 ease-in-out transform z-50",
-          isDirty ? "translate-y-0 opacity-100" : "translate-y-24 opacity-0 pointer-events-none"
+          "fixed bottom-8 left-1/2 md:left-[calc(50%+10rem)] -translate-x-1/2 w-[calc(100%-3rem)] max-w-xl transition-all duration-500 ease-in-out transform z-[100]",
+          isDirty ? "translate-y-0 opacity-100 scale-100" : "translate-y-32 opacity-0 scale-95 pointer-events-none"
         )}>
-          <div className="bg-background text-foreground p-4 rounded-xl shadow-2xl flex items-center justify-between border border-border">
-            <div className="flex items-center gap-2 px-2">
-              <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
-              <span className="text-sm font-medium">변경사항이 감지되었습니다.</span>
+          <div className="bg-white/95 text-foreground p-4 rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.12)] flex items-center justify-between border border-border/60 backdrop-blur-md">
+            <div className="flex items-center gap-3 px-2">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-600 border border-amber-100">
+                <AlertCircle className="h-5 w-5" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-sm font-bold tracking-tight">수정 중인 내용이 있습니다</span>
+                <span className="text-[11px] text-muted-foreground/80 font-medium">변경사항을 저장하려면 오른쪽 버튼을 누르세요.</span>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <Button 
                 variant="ghost" 
                 size="sm" 
                 onClick={handleReset}
-                className="text-muted-foreground hover:text-foreground"
+                className="text-muted-foreground hover:text-foreground hover:bg-muted font-medium"
                 disabled={loading}
               >
                 <RotateCcw className="w-4 h-4 mr-2" />
-                초기화
+                취소
               </Button>
               <Button 
                 onClick={handleSaveChanges} 
                 size="sm"
                 disabled={loading}
-                className="bg-primary text-primary-foreground hover:bg-primary/90"
+                className="bg-primary text-primary-foreground hover:bg-primary/90 font-bold px-6 shadow-md shadow-primary/10 transition-all hover:scale-[1.02] active:scale-[0.98]"
               >
                 {loading ? '저장 중...' : (
                   <>

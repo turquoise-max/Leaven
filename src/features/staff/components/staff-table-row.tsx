@@ -14,7 +14,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { toast } from 'sonner'
-import { cn } from '@/lib/utils'
+import { cn, formatPhoneNumber } from '@/lib/utils'
 import { StaffMember } from './staff-list'
 
 const DAYS = ['일', '월', '화', '수', '목', '금', '토']
@@ -215,7 +215,7 @@ export function StaffTableRow({
             <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5 truncate">
               {email && <span className="truncate" title={email}>{email}</span>}
               {email && phone && <span className="text-muted-foreground/30">|</span>}
-              {phone && <span className="font-mono tracking-tight">{phone}</span>}
+              {phone && <span className="font-mono tracking-tight">{formatPhoneNumber(phone)}</span>}
               {!email && !phone && <span>연락처 미등록</span>}
             </div>
           </div>

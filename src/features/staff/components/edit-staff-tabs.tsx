@@ -14,7 +14,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { CalendarDays, Wallet, ShieldCheck, FileText, CheckCircle2 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, formatPhoneNumber } from '@/lib/utils'
 
 // --- Types ---
 export interface WorkSchedule {
@@ -85,16 +85,7 @@ interface BasicWorkTabProps extends TabProps {
 
 export function BasicWorkInfoTab({ formData, onChange, canEdit, isLinked, roles, isOwner, weeklyTotalMinutes }: BasicWorkTabProps) {
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let val = e.target.value.replace(/[^0-9]/g, '')
-    if (val.length > 3 && val.length <= 7) {
-      val = val.replace(/(\d{3})(\d+)/, '$1-$2')
-    } else if (val.length > 7) {
-      if (val.length === 11) {
-        val = val.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3')
-      } else {
-        val = val.replace(/(\d{3})(\d{3,4})(\d+)/, '$1-$2-$3')
-      }
-    }
+    const val = formatPhoneNumber(e.target.value)
     onChange({ phone: val })
   }
 
@@ -118,12 +109,7 @@ export function BasicWorkInfoTab({ formData, onChange, canEdit, isLinked, roles,
   }
 
   const handleEmergencyPhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let val = e.target.value.replace(/[^0-9]/g, '')
-    if (val.length > 3 && val.length <= 7) val = val.replace(/(\d{3})(\d+)/, '$1-$2')
-    else if (val.length > 7) {
-      if (val.length === 11) val = val.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3')
-      else val = val.replace(/(\d{3})(\d{3,4})(\d+)/, '$1-$2-$3')
-    }
+    const val = formatPhoneNumber(e.target.value)
     onChange({ emergencyContact: `${emRelation} ${val}`.trim() })
   }
 
@@ -198,14 +184,16 @@ export function BasicWorkInfoTab({ formData, onChange, canEdit, isLinked, roles,
                   <SelectItem value="none">
                     <span className="text-muted-foreground">미설정</span>
                   </SelectItem>
-                  {roles.map((role) => (
-                    <SelectItem key={role.id} value={role.id}>
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: role.color }} />
-                        {role.name}
-                      </div>
-                    </SelectItem>
-                  ))}
+                  {roles
+                    .filter(role => !(role.is_system && role.priority === 100))
+                    .map((role) => (
+                      <SelectItem key={role.id} value={role.id}>
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: role.color }} />
+                          {role.name}
+                        </div>
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             )}

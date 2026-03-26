@@ -14,6 +14,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import { Loader2, FileSignature, Mail, MessageCircle } from 'lucide-react'
+import { formatPhoneNumber } from '@/lib/utils'
 
 interface SendContractDialogProps {
   open: boolean
@@ -168,7 +169,7 @@ export function SendContractDialog({
                   </div>
                   <div className="flex flex-col">
                     <span className="font-medium text-sm">카카오톡 발송</span>
-                    <span className="text-xs text-muted-foreground">{phone || '전화번호 미등록'}</span>
+                    <span className="text-xs text-muted-foreground">{formatPhoneNumber(phone) || '전화번호 미등록'}</span>
                   </div>
                 </div>
                 <Checkbox 

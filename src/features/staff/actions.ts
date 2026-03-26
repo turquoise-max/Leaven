@@ -323,6 +323,22 @@ export async function updateStaffInfo(storeId: string, targetMemberId: string, f
     newRoleId = targetMember.role_id
   }
 
+  // 2-1. 점주 역할(시스템 역할) 부여 제한 체크
+  if (roleId) {
+    const { data: targetRole } = await supabase
+      .from('store_roles')
+      .select('is_system, priority')
+      .eq('id', roleId)
+      .single()
+
+    if (targetRole && targetRole.is_system && targetRole.priority === 100) {
+      // 일반 직원을 점주로 변경하려는 시도 차단
+      if (targetMember?.role !== 'owner') {
+        return { error: '시스템 관리자 역할은 부여할 수 없습니다.' }
+      }
+    }
+  }
+
   // 3. 업데이트 실행
   const { data, error } = await supabase
     .from('store_members')

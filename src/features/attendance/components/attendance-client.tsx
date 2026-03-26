@@ -102,11 +102,36 @@ export function AttendanceClientPage({
     setActionLoading(myStaff.id)
     
     try {
+      // Get current location
+      let locationData: { lat: number, lng: number } | undefined = undefined;
+      
+      try {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 5000,
+            maximumAge: 0
+          });
+        });
+        locationData = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        };
+      } catch (geoErr: any) {
+        console.warn('Geolocation failed:', geoErr);
+        if (geoErr.code === 1) { // PERMISSION_DENIED
+          toast.error('위치 정보 접근 권한이 필요합니다. 브라우저 설정에서 위치 권한을 허용해주세요.');
+          setActionLoading(null);
+          return;
+        }
+        // For other errors, we still try to proceed but the server will check if location is mandatory
+      }
+
       let res: any = { error: 'Unknown action' }
       if (action === 'in') {
-        res = await clockIn(storeId, myStaff.id, selectedDate)
+        res = await clockIn(storeId, myStaff.id, selectedDate, undefined, locationData)
       } else if (action === 'out') {
-        res = await clockOut(myAttendance.id, storeId)
+        res = await clockOut(myAttendance.id, storeId, locationData)
       }
       
       if (res?.error) {
@@ -478,11 +503,31 @@ export function AttendanceClientPage({
                               setActionLoading(staff.id)
                               
                               try {
+                                // Only get location if the user is performing their own action
+                                let locationData: { lat: number, lng: number } | undefined = undefined;
+                                if (staff.user_id === currentUserId) {
+                                  try {
+                                    const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+                                      navigator.geolocation.getCurrentPosition(resolve, reject, {
+                                        enableHighAccuracy: true,
+                                        timeout: 5000,
+                                        maximumAge: 0
+                                      });
+                                    });
+                                    locationData = {
+                                      lat: position.coords.latitude,
+                                      lng: position.coords.longitude
+                                    };
+                                  } catch (geoErr) {
+                                    console.warn('Geolocation failed:', geoErr);
+                                  }
+                                }
+
                                 let res: any = { error: 'Unknown action' }
                                 if (action === 'in') {
-                                  res = await clockIn(storeId, staff.id, selectedDate)
+                                  res = await clockIn(storeId, staff.id, selectedDate, undefined, locationData)
                                 } else if (action === 'out') {
-                                  res = await clockOut(attendance.id, storeId)
+                                  res = await clockOut(attendance.id, storeId, locationData)
                                 }
                                 
                                 if (res?.error) {

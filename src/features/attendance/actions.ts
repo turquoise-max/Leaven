@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { unstable_noStore as noStore } from 'next/cache'
 import { getCurrentISOString } from '@/shared/lib/date-utils'
 import { requirePermission } from '@/features/auth/permissions'
+import { isWithinRadius } from '@/shared/lib/geo-utils'
 
 export interface AttendanceRecord {
   id: string
@@ -68,7 +69,13 @@ export async function getDailyAttendanceOverview(storeId: string, date: string, 
   }
 }
 
-export async function clockIn(storeId: string, memberId: string, targetDate: string, scheduleId?: string) {
+export async function clockIn(
+  storeId: string, 
+  memberId: string, 
+  targetDate: string, 
+  scheduleId?: string,
+  location?: { lat: number; lng: number }
+) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -82,6 +89,26 @@ export async function clockIn(storeId: string, memberId: string, targetDate: str
       await requirePermission(user.id, storeId, 'manage_schedule') // Proxy permission for managing others' attendance
     } catch {
       return { error: '타인의 출퇴근을 대리 체크할 권한이 없습니다.' }
+    }
+  } else if (location) {
+    // Verify location if it's the user themselves
+    const { data: store } = await supabase
+      .from('stores')
+      .select('latitude, longitude, auth_radius')
+      .eq('id', storeId)
+      .single()
+
+    if (store && store.latitude !== null && store.longitude !== null) {
+      const within = isWithinRadius(
+        store.latitude,
+        store.longitude,
+        location.lat,
+        location.lng,
+        store.auth_radius
+      )
+      if (!within) {
+        return { error: '매장 위치에서 벗어나 있어 출근 체크가 불가능합니다.' }
+      }
     }
   }
 
@@ -122,13 +149,15 @@ export async function clockIn(storeId: string, memberId: string, targetDate: str
   return { success: true, data }
 }
 
-export async function clockOut(attendanceId: string, storeId: string) {
+export async function clockOut(
+  attendanceId: string, 
+  storeId: string,
+  location?: { lat: number; lng: number }
+) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) return { error: '인증되지 않은 사용자입니다.' }
-
-  const now = getCurrentISOString()
 
   // Verify permission
   const { data: attendance } = await supabase
@@ -145,7 +174,29 @@ export async function clockOut(attendanceId: string, storeId: string) {
     } catch {
       return { error: '타인의 퇴근을 대리 체크할 권한이 없습니다.' }
     }
+  } else if (location) {
+    // Verify location if it's the user themselves
+    const { data: store } = await supabase
+      .from('stores')
+      .select('latitude, longitude, auth_radius')
+      .eq('id', storeId)
+      .single()
+
+    if (store && store.latitude !== null && store.longitude !== null) {
+      const within = isWithinRadius(
+        store.latitude,
+        store.longitude,
+        location.lat,
+        location.lng,
+        store.auth_radius
+      )
+      if (!within) {
+        return { error: '매장 위치에서 벗어나 있어 퇴근 체크가 불가능합니다.' }
+      }
+    }
   }
+
+  const now = getCurrentISOString()
 
   const { data, error } = await supabase
     .from('store_attendance')
