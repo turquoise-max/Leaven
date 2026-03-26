@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Umbrella, Calendar, FileText, Settings, Search, Download, Plus, Check, X, RotateCcw } from 'lucide-react'
-import { getLeaveBalances, getLeaveRequests, resolveLeaveRequest, createLeaveRequest, updateLeaveBalance, cancelLeaveRequest, resetAllLeaveBalances } from '@/features/leave/actions'
+import { getLeaveBalances, getLeaveRequests, resolveLeaveRequest, createLeaveRequest, updateLeaveBalance, cancelLeaveRequest, resetAllLeaveBalances, revokeLeaveRequest } from '@/features/leave/actions'
 import { toast } from 'sonner'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog'
@@ -285,6 +285,25 @@ export function LeaveClientPage({
                                 <Button variant="outline" className="text-destructive border-destructive/20" disabled={!!actionLoading} onClick={() => handleResolve('rejected')}>반려</Button>
                                 <Button className="bg-[#1D9E75]" disabled={!!actionLoading} onClick={() => handleResolve('approved')}>승인</Button>
                               </>
+                            )}
+                            {req.status === 'approved' && isManager && (
+                              <Button 
+                                variant="outline" 
+                                className="text-muted-foreground border-slate-200 hover:bg-slate-50" 
+                                disabled={!!actionLoading}
+                                onClick={async () => {
+                                  if (!window.confirm('승인된 휴가를 취소하시겠습니까? (차감된 연차가 복구됩니다)')) return
+                                  setActionLoading(req.id)
+                                  try {
+                                    const res = await revokeLeaveRequest(req.id, storeId)
+                                    if (res.error) toast.error(res.error)
+                                    else { toast.success('승인이 취소되었습니다.'); fetchData(); }
+                                  } catch (e) { toast.error('오류 발생'); } finally { setActionLoading(null); }
+                                }}
+                              >
+                                <RotateCcw className="w-4 h-4 mr-1" />
+                                승인 취소
+                              </Button>
                             )}
                             {req.status === 'pending' && !isManager && req.member?.user_id === currentUserId && (
                               <Button 

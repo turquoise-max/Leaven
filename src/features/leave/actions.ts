@@ -97,71 +97,56 @@ export async function resolveLeaveRequest(requestId: string, storeId: string, st
     return { error: '요청을 처리할 권한이 없습니다.' }
   }
 
-  // Get request details
-  const { data: request, error: reqError } = await supabase
-    .from('leave_requests')
-    .select('*')
-    .eq('id', requestId)
-    .single()
+  // [아키텍트 결정] RLS 정책 충돌을 피해 안전한 트랜잭션을 보장하기 위해 RPC를 통해 승인/반려를 처리합니다.
+  const { data, error } = await supabase.rpc('resolve_leave_request_v1', {
+    p_request_id: requestId,
+    p_user_id: user.id,
+    p_store_id: storeId,
+    p_status: status
+  })
 
-  if (reqError || !request) return { error: '요청 정보를 찾을 수 없습니다.' }
+  if (error) {
+    console.error('RPC Error resolving leave request:', error)
+    return { error: '요청 상태 변경 중 오류가 발생했습니다.' }
+  }
 
-  if (request.status !== 'pending') return { error: '이미 처리된 요청입니다.' }
-
-  // Update status
-  const { error: finalError } = await supabase
-    .from('leave_requests')
-    .update({
-      status,
-      reviewed_by: user.id,
-      reviewed_at: new Date().toISOString()
-    })
-    .eq('id', requestId)
-
-  if (finalError) return { error: '요청 상태 변경 중 오류가 발생했습니다.' }
-
-  // If approved, deduct balance if it is an annual leave (including half days)
-  const isAnnualType = ['annual', 'half_am', 'half_pm'].includes(request.leave_type)
-  if (status === 'approved' && isAnnualType) {
-    const year = parseInt(request.start_date.substring(0, 4))
-    
-    // Check if balance exists
-    const { data: balance } = await supabase
-      .from('leave_balances')
-      .select('*')
-      .eq('member_id', request.member_id)
-      .eq('year', year)
-      .maybeSingle()
-      
-    if (balance) {
-      const newUsedDays = Number(balance.used_days || 0) + Number(request.requested_days)
-      await supabase
-        .from('leave_balances')
-        .update({
-          used_days: newUsedDays,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', balance.id)
-    } else {
-      // Create new balance record
-      await supabase
-        .from('leave_balances')
-        .insert({
-          store_id: storeId,
-          member_id: request.member_id,
-          year: year,
-          used_days: Number(request.requested_days),
-          total_days: null // Use auto-calc
-        })
-    }
+  if (data?.error) {
+    return { error: data.error }
   }
 
   // [기획자 핵심 로직] 물리적 동기화 최소화 및 렌더링 기반 동기화로 전환
   // 스케줄 테이블의 데이터를 직접 수정하는 대신, revalidate를 통해 최신 휴가 SSOT를 반영하게 합니다.
-  
-  if (status === 'approved') {
-    // 필요한 경우 스케줄 테이블에 명시적 'leave' 마킹을 할 수 있으나, 
-    // 이제 렌더링 시점에 leave_requests를 대조하므로 필수는 아닙니다.
+  revalidatePath('/dashboard/leave')
+  revalidatePath('/dashboard/schedule')
+  return { success: true }
+}
+
+export async function revokeLeaveRequest(requestId: string, storeId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) return { error: '인증되지 않은 사용자입니다.' }
+
+  try {
+    await requirePermission(user.id, storeId, 'manage_schedule')
+  } catch {
+    return { error: '요청을 처리할 권한이 없습니다.' }
+  }
+
+  // 승인 취소 및 연차 복구 RPC 호출
+  const { data, error } = await supabase.rpc('revoke_leave_request_v1', {
+    p_request_id: requestId,
+    p_user_id: user.id,
+    p_store_id: storeId
+  })
+
+  if (error) {
+    console.error('RPC Error revoking leave request:', error)
+    return { error: '승인 취소 중 오류가 발생했습니다.' }
+  }
+
+  if (data?.error) {
+    return { error: data.error }
   }
 
   revalidatePath('/dashboard/leave')

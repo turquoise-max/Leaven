@@ -150,8 +150,9 @@ export async function getTaskTemplates(storeId: string) {
 
   if (!user) return []
 
-  const canManage = await hasPermission(user.id, storeId, 'manage_tasks')
-  if (!canManage) return []
+  const canManageTasks = await hasPermission(user.id, storeId, 'manage_tasks')
+  const canManageRoles = await hasPermission(user.id, storeId, 'manage_roles')
+  if (!canManageTasks && !canManageRoles) return []
 
   const { data, error } = await supabase
     .from('tasks')
@@ -227,7 +228,12 @@ export async function createTask(input: CreateTaskInput) {
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) throw new Error('User not found')
-  await requirePermission(user.id, input.store_id, 'manage_tasks')
+  
+  const hasTaskPerm = await hasPermission(user.id, input.store_id, 'manage_tasks')
+  const hasRolePerm = input.is_template ? await hasPermission(user.id, input.store_id, 'manage_roles') : false
+  if (!hasTaskPerm && !hasRolePerm) {
+    throw new Error('Permission denied: manage_tasks or manage_roles (for templates) required')
+  }
   
   const tasksToCreate: any[] = []
   const original_repeat_id = input.repeat_config ? crypto.randomUUID() : null
@@ -383,21 +389,27 @@ export async function updateTask(input: UpdateTaskInput & { recurrence_rule?: an
   const { id, ...updateData } = input
 
   // Get store_id for permission check
-  const { data: task } = await supabase.from('tasks').select('store_id').eq('id', id).single()
+  const { data: task } = await supabase.from('tasks').select('store_id, is_template').eq('id', id).single()
   if (!task) return { error: 'Task not found' }
 
   if (!user) throw new Error('User not found')
-  await requirePermission(user.id, task.store_id, 'manage_tasks')
+  
+  const hasTaskPerm = await hasPermission(user.id, task.store_id, 'manage_tasks')
+  const hasRolePerm = task.is_template ? await hasPermission(user.id, task.store_id, 'manage_roles') : false
+  if (!hasTaskPerm && !hasRolePerm) {
+    return { error: 'Permission denied' }
+  }
 
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from('tasks')
     .update({
       ...updateData,
       updated_at: getCurrentISOString()
     })
     .eq('id', id)
-    .select()
-    .single()
+    // RLS 등으로 인해 select().single()을 호출하면 데이터를 받아올 수 없어 
+    // PGRST116 (The result contains 0 rows) 에러가 발생할 수 있습니다.
+    // 업데이트만 수행하고 에러 유무만 체크하도록 수정합니다.
 
   if (error) {
     console.error('Error updating task:', error)
@@ -405,7 +417,7 @@ export async function updateTask(input: UpdateTaskInput & { recurrence_rule?: an
   }
 
   revalidatePath('/dashboard/tasks')
-  return { data }
+  return { data: { id, ...updateData } }
 }
 
 export async function deleteTask(id: string) {
@@ -441,7 +453,11 @@ export async function deleteTask(id: string) {
     }
   } else {
     // For role tasks or templates, always require management permission
-    await requirePermission(user.id, task.store_id, 'manage_tasks')
+    const hasTaskPerm = await hasPermission(user.id, task.store_id, 'manage_tasks')
+    const hasRolePerm = task.is_template ? await hasPermission(user.id, task.store_id, 'manage_roles') : false
+    if (!hasTaskPerm && !hasRolePerm) {
+      return { error: 'Permission denied' }
+    }
   }
 
   const { error } = await supabase

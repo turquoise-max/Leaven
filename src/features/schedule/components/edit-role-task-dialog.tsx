@@ -68,9 +68,9 @@ export function EditRoleTaskDialog({ storeId, task, open, onOpenChange, hideRole
         toast.success('루틴 업무가 수정되었습니다.')
         onOpenChange(false)
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(error)
-      toast.error('루틴 업무 수정 중 오류가 발생했습니다.')
+      toast.error('루틴 업무 수정 중 오류가 발생했습니다.', { description: error.message })
     } finally {
       setLoading(false)
     }
@@ -88,9 +88,9 @@ export function EditRoleTaskDialog({ storeId, task, open, onOpenChange, hideRole
         toast.success('루틴 업무가 삭제되었습니다.')
         onOpenChange(false)
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(error)
-      toast.error('삭제 중 오류가 발생했습니다.')
+      toast.error('삭제 중 오류가 발생했습니다.', { description: error.message })
     } finally {
       setLoading(false)
     }

@@ -108,6 +108,7 @@ export default async function DashboardLayout({
     view_staff: await hasPermission(user.id, currentStoreId, 'view_staff'),
     view_schedule: await hasPermission(user.id, currentStoreId, 'view_schedule'),
     manage_store: await hasPermission(user.id, currentStoreId, 'manage_store'),
+    manage_roles: await hasPermission(user.id, currentStoreId, 'manage_roles'),
     view_attendance: await hasPermission(user.id, currentStoreId, 'view_attendance'),
     view_leave: await hasPermission(user.id, currentStoreId, 'view_leave'),
     view_tasks: await hasPermission(user.id, currentStoreId, 'view_tasks'),

@@ -5,6 +5,7 @@ import { cookies } from 'next/headers'
 import { Card, CardContent } from '@/components/ui/card'
 import { Lock } from 'lucide-react'
 import { UnifiedRoleManagement } from '@/features/store/components/unified-role-management'
+import { hasPermission } from '@/features/auth/permissions'
 
 export const dynamic = 'force-dynamic'
 
@@ -44,7 +45,9 @@ export default async function RolesPage() {
     return <div>매장 정보를 찾을 수 없습니다.</div>
   }
 
-  if (member?.role !== 'owner') {
+  const hasManageRolesPermission = await hasPermission(user.id, store.id, 'manage_roles')
+
+  if (!hasManageRolesPermission && member?.role !== 'owner') {
     return (
       <div className="flex flex-col gap-6 h-[calc(100vh-4rem)]">
         <div className="flex items-center justify-between shrink-0">
@@ -64,7 +67,7 @@ export default async function RolesPage() {
             <div className="space-y-1">
               <h2 className="text-xl font-semibold">접근할 수 없습니다</h2>
               <p className="text-sm text-muted-foreground max-w-sm">
-                직급 및 권한 관리는 점주(Owner)만 접근할 수 있는 메뉴입니다.
+                직급 및 권한 관리는 해당 권한을 가진 사용자만 접근할 수 있는 메뉴입니다.
               </p>
             </div>
           </CardContent>

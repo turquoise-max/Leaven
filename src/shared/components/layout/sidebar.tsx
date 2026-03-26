@@ -107,7 +107,7 @@ export function Sidebar({
           icon: Users,
           isUpcoming: false
         }] : []),
-        ...(role === 'owner' ? [{
+        ...(permissions.manage_roles || role === 'owner' ? [{
           title: '직급 및 권한 설정',
           href: '/dashboard/roles',
           icon: Settings,
