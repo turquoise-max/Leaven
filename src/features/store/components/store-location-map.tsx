@@ -1,13 +1,13 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import Script from 'next/script'
 import { Card } from '@/components/ui/card'
 
 interface StoreLocationMapProps {
   latitude: number | null
   longitude: number | null
   radius: number
+  onLocationChange?: (lat: number, lng: number) => void
 }
 
 declare global {
@@ -16,7 +16,7 @@ declare global {
   }
 }
 
-export function StoreLocationMap({ latitude, longitude, radius }: StoreLocationMapProps) {
+export function StoreLocationMap({ latitude, longitude, radius, onLocationChange }: StoreLocationMapProps) {
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstance = useRef<any>(null)
   const circleInstance = useRef<any>(null)
@@ -44,10 +44,74 @@ export function StoreLocationMap({ latitude, longitude, radius }: StoreLocationM
       if (latitude && longitude) {
         updateMap(latitude, longitude, radius);
       }
+
+      // Add click event listener to map
+      window.kakao.maps.event.addListener(mapInstance.current, 'click', function(mouseEvent: any) {
+        const latlng = mouseEvent.latLng;
+        const newLat = latlng.getLat();
+        const newLng = latlng.getLng();
+        
+        // Notify parent
+        if (onLocationChange) {
+          onLocationChange(newLat, newLng);
+        } else {
+          // If no parent handler, just update the map locally
+          updateMap(newLat, newLng, radius);
+        }
+      });
+
     } catch (err) {
       console.error('[StoreLocationMap] Failed to initialize map:', err);
     }
   }
+
+  useEffect(() => {
+    if (isKeyMissing) return;
+
+    if (window.kakao && window.kakao.maps && window.kakao.maps.load) {
+      window.kakao.maps.load(() => {
+        setIsSdkLoaded(true);
+      });
+      return;
+    }
+
+    const scriptId = 'kakao-map-sdk';
+    let script = document.getElementById(scriptId) as HTMLScriptElement | null;
+
+    if (!script) {
+      script = document.createElement('script');
+      script.id = scriptId;
+      script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${apiKey}&libraries=services&autoload=false`;
+      document.head.appendChild(script);
+    }
+
+    const handleLoad = () => {
+      if (window.kakao && window.kakao.maps) {
+        window.kakao.maps.load(() => {
+          setIsSdkLoaded(true);
+        });
+      }
+    };
+
+    const handleError = (e: Event | string) => {
+      console.error('[StoreLocationMap] SDK Script load failed:', e);
+    };
+
+    script.addEventListener('load', handleLoad);
+    script.addEventListener('error', handleError);
+
+    // If script was already loaded but the event fired, try handling it
+    if (window.kakao && window.kakao.maps) {
+      handleLoad();
+    }
+
+    return () => {
+      if (script) {
+        script.removeEventListener('load', handleLoad);
+        script.removeEventListener('error', handleError);
+      }
+    };
+  }, [apiKey, isKeyMissing]);
 
   useEffect(() => {
     if (isSdkLoaded && !mapInstance.current && latitude !== null && longitude !== null) {
@@ -72,8 +136,22 @@ export function StoreLocationMap({ latitude, longitude, radius }: StoreLocationM
     } else {
       markerInstance.current = new window.kakao.maps.Marker({
         position: moveLatLon,
-        map: mapInstance.current
+        map: mapInstance.current,
+        draggable: true
       })
+      
+      // Add dragend event listener to marker
+      window.kakao.maps.event.addListener(markerInstance.current, 'dragend', function() {
+        const markerPos = markerInstance.current.getPosition();
+        const newLat = markerPos.getLat();
+        const newLng = markerPos.getLng();
+        
+        if (onLocationChange) {
+          onLocationChange(newLat, newLng);
+        } else {
+          updateMap(newLat, newLng, radius);
+        }
+      });
     }
 
     // Update Circle
@@ -104,31 +182,6 @@ export function StoreLocationMap({ latitude, longitude, radius }: StoreLocationM
 
   return (
     <Card className="w-full h-[300px] overflow-hidden relative border-dashed bg-slate-50 flex items-center justify-center">
-      {!isKeyMissing && (
-        <Script
-          src={`https://dapi.kakao.com/v2/maps/sdk.js?appkey=${apiKey}&libraries=services&autoload=false`}
-          strategy="afterInteractive"
-          onLoad={() => {
-            console.log('[StoreLocationMap] SDK Script loaded via next/script');
-            // Check if kakao and kakao.maps exist before calling load
-            const checkKakao = () => {
-              if (window.kakao && window.kakao.maps) {
-                window.kakao.maps.load(() => {
-                  console.log('[StoreLocationMap] Kakao maps engine loaded');
-                  setIsSdkLoaded(true);
-                });
-              } else {
-                console.log('[StoreLocationMap] Waiting for kakao.maps object...');
-                setTimeout(checkKakao, 100);
-              }
-            };
-            checkKakao();
-          }}
-          onError={(e) => {
-            console.error('[StoreLocationMap] SDK Script load failed:', e);
-          }}
-        />
-      )}
       {isKeyMissing ? (
         <div className="flex flex-col items-center justify-center p-6 text-center gap-2">
           <p className="text-sm font-medium text-destructive text-balance">

@@ -113,14 +113,15 @@ export function Sidebar({
           icon: Settings,
           isUpcoming: false
         }] : []),
-        ...(permissions.view_salary ? [{
+        /* ...(permissions.view_salary ? [{
           title: '급여 및 인건비',
           href: '/dashboard/payroll',
           icon: Archive,
           isUpcoming: true
-        }] : [])
+        }] : []) */
       ]
     },
+    /*
     {
       title: '매출 및 자산 관리',
       items: [
@@ -138,6 +139,7 @@ export function Sidebar({
         }] : [])
       ]
     },
+    */
     ...(permissions.manage_store ? [{
       title: '시스템 설정',
       items: [

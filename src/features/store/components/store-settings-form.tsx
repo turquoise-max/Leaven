@@ -489,11 +489,21 @@ export function StoreSettingsForm({ initialData }: StoreSettingsFormProps) {
                 latitude={formData.latitude ? parseFloat(formData.latitude) : null}
                 longitude={formData.longitude ? parseFloat(formData.longitude) : null}
                 radius={parseInt(formData.auth_radius)}
+                onLocationChange={(lat, lng) => {
+                  setFormData(prev => ({
+                    ...prev,
+                    latitude: String(lat),
+                    longitude: String(lng)
+                  }))
+                }}
               />
               <div className="p-4 bg-slate-50 dark:bg-slate-900 border rounded-lg space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">GPS 좌표 설정</span>
-                  <div className="flex gap-2">
+                  <span className="text-sm font-medium flex items-center gap-2">
+                    GPS 좌표 설정
+                    {formData.latitude && <span className="text-xs text-muted-foreground font-normal bg-muted px-2 py-0.5 rounded">지도를 클릭하여 미세 조정 가능</span>}
+                  </span>
+                  <div className="flex gap-2 shrink-0">
                     <Button type="button" variant="outline" size="sm" onClick={handleGetCurrentLocation} className="h-8 gap-2">
                       <Crosshair className="w-3.5 h-3.5" />
                       현 위치로 설정

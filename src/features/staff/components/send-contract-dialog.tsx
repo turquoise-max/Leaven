@@ -159,6 +159,7 @@ export function SendContractDialog({
                 />
               </label>
 
+              {/* 카카오톡 발송 준비중
               <label 
                 htmlFor="send-kakao" 
                 className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${sendViaKakao ? 'bg-yellow-50 border-yellow-200' : 'hover:bg-muted/50'}`}
@@ -179,6 +180,7 @@ export function SendContractDialog({
                   disabled={!phone || loading}
                 />
               </label>
+              */}
             </div>
           </div>
         </div>

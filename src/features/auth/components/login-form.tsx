@@ -110,6 +110,7 @@ export function LoginForm({ nextUrl = '/home' }: { nextUrl?: string }) {
             </Button>
           </form>
 
+          {/* 
           <form action={handleKakaoLogin}>
             <input type="hidden" name="nextUrl" value={nextUrl} />
             <Button 
@@ -122,6 +123,7 @@ export function LoginForm({ nextUrl = '/home' }: { nextUrl?: string }) {
               카카오로 시작하기
             </Button>
           </form>
+          */}
         </div>
         <div className="mt-4 text-center text-sm">
           계정이 없으신가요?{' '}
