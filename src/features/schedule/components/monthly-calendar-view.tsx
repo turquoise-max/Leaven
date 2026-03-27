@@ -133,7 +133,6 @@ export function MonthlyCalendarView({
                   key={date.toISOString()} 
                   className={cn(
                     "border-r border-black/5 last:border-r-0 p-1.5 flex flex-col gap-1 relative transition-all bg-white",
-                    !isCurrentMonth && "bg-black/[0.02]",
                     isToday && "bg-primary/[0.03] ring-1 ring-inset ring-primary/20",
                     isManager ? "group/cell" : ""
                   )}

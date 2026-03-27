@@ -54,13 +54,6 @@ export function DashboardClientLayout({
   navCollapsedSize = 4,
   permissions = {},
 }: DashboardLayoutProps) {
-  // 우측 사이드바 상태 (기본값: true)
-  const [showRightSidebar, setShowRightSidebar] = React.useState(false)
-
-  const toggleRightSidebar = () => {
-    setShowRightSidebar(!showRightSidebar)
-  }
-
   // defaultLayout이 3개 요소라면 2개로 줄임 (이전 버전 호환성)
   const safeDefaultLayout = defaultLayout && defaultLayout.length === 3 
     ? [defaultLayout[0], defaultLayout[1] + defaultLayout[2]] 
@@ -173,24 +166,13 @@ export function DashboardClientLayout({
               id="dashboard-main-panel"
             >
               <div className="flex flex-col h-full min-w-0 overflow-hidden">
-                <Header 
-                  storeName={storeName} 
-                  showRightSidebar={showRightSidebar}
-                  onToggleRightSidebar={toggleRightSidebar}
-                />
+                <Header storeName={storeName} />
                 <main className="flex-1 overflow-auto p-6 bg-muted/5">
                   {children}
                 </main>
               </div>
             </ResizablePanel>
           </ResizablePanelGroup>
-
-          {/* 4. Right Sidebar (Overlay) */}
-          {showRightSidebar && (
-            <div className="absolute right-0 top-0 h-full w-70 bg-background border-l shadow-xl z-20">
-              <StaffSidebar staffList={staffList} onClose={() => setShowRightSidebar(false)} />
-            </div>
-          )}
         </div>
       </div>
     </div>

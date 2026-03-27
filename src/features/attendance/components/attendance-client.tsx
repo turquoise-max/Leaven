@@ -82,6 +82,22 @@ export function AttendanceClientPage({
     return null
   }
 
+  const getStaffName = (staff: any) => staff.name || staff.profile?.full_name || ''
+
+  const sortedStaffList = [...staffList].sort((a, b) => {
+    const roleA = getStaffRoleInfo(a)
+    const roleB = getStaffRoleInfo(b)
+    
+    const priorityA = roleA?.priority ?? -1
+    const priorityB = roleB?.priority ?? -1
+    
+    if (priorityB !== priorityA) {
+      return priorityB - priorityA
+    }
+    
+    return getStaffName(a).localeCompare(getStaffName(b), 'ko')
+  })
+
   const myStaff = staffList.find(s => s.user_id === currentUserId)
   const myAttendance = attendanceData.find(a => a.member_id === myStaff?.id)
   const myStatus = myAttendance?.status || 'none'
@@ -222,13 +238,13 @@ export function AttendanceClientPage({
                           <div className="flex items-center justify-center h-full">
                             <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
                           </div>
-                        ) : staffList.length === 0 ? (
+                        ) : sortedStaffList.length === 0 ? (
                           <div className="p-12 flex flex-col items-center justify-center text-muted-foreground h-full">
                             <Activity className="w-12 h-12 mb-4 opacity-20" />
                             <p>등록된 직원이 없습니다.</p>
                           </div>
-                        ) : staffList.filter(staff => {
-                            const name = staff.name || staff.profile?.full_name || ''
+                        ) : sortedStaffList.filter(staff => {
+                            const name = getStaffName(staff)
                             return name.toLowerCase().includes(searchTerm.toLowerCase())
                           }).length === 0 ? (
                             <div className="p-12 flex flex-col items-center justify-center text-muted-foreground h-full">
@@ -237,9 +253,9 @@ export function AttendanceClientPage({
                             </div>
                         ) : (
                           <div className="divide-y">
-                            {staffList
+                            {sortedStaffList
                               .filter(staff => {
-                                const name = staff.name || staff.profile?.full_name || ''
+                                const name = getStaffName(staff)
                                 return name.toLowerCase().includes(searchTerm.toLowerCase())
                               })
                               .map(staff => {
@@ -396,7 +412,7 @@ export function AttendanceClientPage({
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {staffList.filter(s => isManager || s.user_id === currentUserId).map(staff => {
+                    {sortedStaffList.filter(s => isManager || s.user_id === currentUserId).map(staff => {
                       const roleInfo = getStaffRoleInfo(staff)
                       const attendance = attendanceData.find(a => a.member_id === staff.id)
                       const staffSchedule = schedulesData.find(sch => 
@@ -485,7 +501,7 @@ export function AttendanceClientPage({
                     })}
                   </tbody>
                 </table>
-                {staffList.filter(s => isManager || s.user_id === currentUserId).filter(staff => {
+                {sortedStaffList.filter(s => isManager || s.user_id === currentUserId).filter(staff => {
                     const attendance = attendanceData.find(a => a.member_id === staff.id)
                     const staffSchedule = schedulesData.find(sch => sch.schedule_members?.some((sm: any) => sm.member_id === staff.id) && toKSTISOString(sch.start_time).startsWith(selectedDate))
                     return attendance || staffSchedule

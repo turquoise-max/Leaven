@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
@@ -61,6 +61,7 @@ export function LeaveClientPage({
     attachmentUrl: ''
   })
   const [submitLoading, setSubmitLoading] = useState(false)
+  const calendarRef = useRef<any>(null)
 
   const fetchData = async () => {
     setLoading(true)
@@ -196,11 +197,22 @@ export function LeaveClientPage({
                   .leave-calendar-container .fc-theme-standard td { border-color: rgba(0,0,0,0.05); }
                   .leave-calendar-container .fc-daygrid-day-number { padding: 4px 8px; color: #334155; font-weight: 500; }
                   .leave-calendar-container .fc-event { border: none; border-radius: 4px; padding: 2px 4px; margin: 1px 4px; font-size: 11px; font-weight: 600; }
+                  .leave-calendar-container .fc .fc-today-button:disabled { opacity: 1 !important; pointer-events: auto !important; cursor: pointer !important; }
                 `}</style>
                 <FullCalendar
+                  ref={calendarRef}
                   plugins={[dayGridPlugin, interactionPlugin]}
                   initialView="dayGridMonth"
                   locale={ko}
+                  customButtons={{
+                    today: {
+                      text: '오늘',
+                      click: () => {
+                        const calendarApi = calendarRef.current.getApi()
+                        calendarApi.today()
+                      }
+                    }
+                  }}
                   headerToolbar={{ left: 'prev,next today', center: 'title', right: '' }}
                   events={requests.filter(r => r.status === 'approved').map(r => {
                     let color = '#94a3b8'
@@ -416,8 +428,6 @@ export function LeaveClientPage({
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="annual">연차 (1일)</SelectItem>
-                  <SelectItem value="half_am">오전 반차 (0.5일)</SelectItem>
-                  <SelectItem value="half_pm">오후 반차 (0.5일)</SelectItem>
                   <SelectItem value="sick">병가</SelectItem>
                   <SelectItem value="unpaid">무급휴가</SelectItem>
                 </SelectContent>
@@ -435,7 +445,7 @@ export function LeaveClientPage({
             <Button disabled={submitLoading || !requestDraft.reason.trim()} onClick={async () => {
               setSubmitLoading(true);
               try {
-                let days = requestDraft.leaveType.includes('half') ? 0.5 : differenceInDays(parseISO(requestDraft.endDate), parseISO(requestDraft.startDate)) + 1;
+                let days = differenceInDays(parseISO(requestDraft.endDate), parseISO(requestDraft.startDate)) + 1;
                 const res = await createLeaveRequest(storeId, requestDraft.memberId, requestDraft.leaveType, requestDraft.startDate, requestDraft.endDate, days, requestDraft.reason, requestDraft.attachmentUrl);
                 if (res.error) toast.error(res.error); else { toast.success('신청 완료'); setIsRequestModalOpen(false); fetchData(); }
               } catch(e) { toast.error('오류'); } finally { setSubmitLoading(false); }

@@ -392,7 +392,7 @@ export function DashboardTaskList({ storeId, roleId, attendanceStatus, currentUs
       </div>
 
       <ScrollArea className="flex-1 p-5 h-full relative bg-[#fbfbfb]" ref={scrollRef}>
-          <div className="flex flex-col min-h-full pb-10">
+          <div className="flex flex-col min-h-full pt-4 pb-32">
             
             {/* 상시 업무 및 플레이북 영역 (시간 미지정) */}
             {mergedAnytimeTasks.length > 0 && (
@@ -453,36 +453,37 @@ export function DashboardTaskList({ storeId, roleId, attendanceStatus, currentUs
 
                 return (
                   <div key={group.time} className={cn("relative z-10", marginTopClass)}>
-                    
-                    {/* 시간 라벨 (왼쪽) */}
-                    <div className="absolute -left-[54px] top-1 w-[46px] text-right">
-                       <span className="text-xs font-semibold text-muted-foreground bg-background py-1">
-                         {group.time}
-                       </span>
-                    </div>
+                    <div className="flex items-center">
+                      {/* 시간 라벨 (왼쪽) */}
+                      <div className="absolute -left-[54px] w-[46px] text-right">
+                        <span className="text-xs font-semibold text-muted-foreground bg-transparent py-1">
+                          {group.time}
+                        </span>
+                      </div>
 
-                    {/* 노드 (점) */}
-                    <div className="absolute -left-[4.5px] top-[9px] flex items-center justify-center">
-                      <div className="w-2.5 h-2.5 rounded-full bg-[#1a1a1a] border-2 border-[#fbfbfb] shadow-sm z-10" />
-                    </div>
+                      {/* 노드 (점) */}
+                      <div className="absolute -left-[4.5px] flex items-center justify-center">
+                        <div className="w-2.5 h-2.5 rounded-full bg-[#1a1a1a] border-2 border-[#fbfbfb] shadow-sm z-10" />
+                      </div>
 
-                    {/* 카드 목록 */}
-                    <div className={cn("flex flex-col gap-2 pl-4 transition-opacity", isPast ? "opacity-60 hover:opacity-100" : "")}>
-                      {group.tasks.map(task => {
-                        const rStatus = task.is_template ? routineStatus[task.id] : undefined;
-                        return (
-                          <TaskCard 
-                            key={task.id} 
-                            task={task} 
-                            now={now}
-                            routineStatus={rStatus}
-                            onCheck={handleChecklistToggle} 
-                            onStatusChange={handleStatusChange}
-                            onDelete={() => handleDeleteTask(task.id)}
-                            isDeleting={deletingId === task.id}
-                          />
-                        )
-                      })}
+                      {/* 카드 목록 */}
+                      <div className={cn("flex-1 flex flex-col gap-2 pl-4 transition-opacity", isPast ? "opacity-60 hover:opacity-100" : "")}>
+                        {group.tasks.map(task => {
+                          const rStatus = task.is_template ? routineStatus[task.id] : undefined;
+                          return (
+                            <TaskCard 
+                              key={task.id} 
+                              task={task} 
+                              now={now}
+                              routineStatus={rStatus}
+                              onCheck={handleChecklistToggle} 
+                              onStatusChange={handleStatusChange}
+                              onDelete={() => handleDeleteTask(task.id)}
+                              isDeleting={deletingId === task.id}
+                            />
+                          )
+                        })}
+                      </div>
                     </div>
                     
                     {/* 현재 시간 표시선 (이 그룹 직후가 현재 시간일 때) */}

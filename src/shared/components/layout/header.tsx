@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { Menu, Package2, Users } from 'lucide-react'
+import { Menu, Package2, Bug, Sparkles } from 'lucide-react'
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -10,11 +10,9 @@ import { cn } from '@/lib/utils'
 
 interface HeaderProps {
   storeName: string
-  showRightSidebar?: boolean
-  onToggleRightSidebar?: () => void
 }
 
-export function Header({ storeName, showRightSidebar, onToggleRightSidebar }: HeaderProps) {
+export function Header({ storeName }: HeaderProps) {
   const pathname = usePathname()
   const [isMounted, setIsMounted] = useState(false)
 
@@ -76,20 +74,17 @@ export function Header({ storeName, showRightSidebar, onToggleRightSidebar }: He
         <h1 className="text-xl font-bold">{storeName}</h1>
       </div>
 
-      {onToggleRightSidebar && (
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onToggleRightSidebar}
-          className={cn(
-            "hidden lg:flex ml-4",
-            showRightSidebar && "bg-accent text-accent-foreground"
-          )}
-        >
-          <Users className="h-5 w-5" />
-          <span className="sr-only">Toggle staff list</span>
+      <div className="flex items-center gap-2 ml-4">
+        <Button variant="ghost" size="icon" className="hidden lg:flex">
+          <Bug className="h-5 w-5 text-muted-foreground" />
+          <span className="sr-only">Bug report</span>
         </Button>
-      )}
+
+        <Button variant="ghost" size="icon" className="hidden lg:flex">
+          <Sparkles className="h-5 w-5 text-muted-foreground" />
+          <span className="sr-only">AI Chat</span>
+        </Button>
+      </div>
 
       {/* 우측 여백 (모바일 메뉴 버튼과 균형을 맞추기 위함, 필요시 다른 요소 추가) */}
       <div className="w-9 lg:hidden" />
