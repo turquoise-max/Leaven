@@ -683,12 +683,29 @@ export async function updateTaskStatus(
 ) {
   const supabase = await createClient()
 
+  // 1. 현재 할 일 정보를 가져와서 checklist가 있는지 확인
+  const { data: task } = await supabase
+    .from('tasks')
+    .select('checklist')
+    .eq('id', taskId)
+    .single()
+
+  // 2. 상태가 'done'이면 하위 항목 전부 체크, 아니면 전부 해제 (체크리스트가 있을 경우에만)
+  const updatePayload: any = {
+    status,
+    updated_at: getCurrentISOString()
+  }
+
+  if (task?.checklist && Array.isArray(task.checklist)) {
+    updatePayload.checklist = task.checklist.map((item: any) => ({
+      ...item,
+      is_completed: status === 'done'
+    }))
+  }
+
   const { error } = await supabase
     .from('tasks')
-    .update({ 
-        status,
-        updated_at: getCurrentISOString()
-    })
+    .update(updatePayload)
     .eq('id', taskId)
 
   if (error) {
@@ -697,6 +714,7 @@ export async function updateTaskStatus(
   }
 
   revalidatePath('/dashboard/tasks')
+  revalidatePath('/dashboard/my-tasks')
   return { success: true }
 }
 

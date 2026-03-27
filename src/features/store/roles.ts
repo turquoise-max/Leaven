@@ -210,12 +210,16 @@ export async function ensureDefaultRoles(storeId: string) {
   const supabase = await createClient()
 
   // 1. Check if roles exist
-  const { count } = await supabase
+  const { data: existingRoles } = await supabase
     .from('store_roles')
-    .select('*', { count: 'exact', head: true })
+    .select('id, name')
     .eq('store_id', storeId)
   
-  if (count && count > 0) return
+  if (existingRoles && existingRoles.length > 0) {
+    return { 
+      ownerRoleId: existingRoles.find(r => r.name === '점주')?.id 
+    }
+  }
 
   // 2. Create default roles
   const defaultRoles = [
@@ -249,9 +253,10 @@ export async function ensureDefaultRoles(storeId: string) {
 
   if (error) {
     console.error('Failed to create default roles:', error)
-    return
+    return {}
   }
   
-  // 3. Assign permissions (Optional: Can be done later or manually)
-  // For now, we assume 'Owner' gets all permissions implicitly in logic
+  return {
+    ownerRoleId: createdRoles?.find(r => r.name === '점주')?.id
+  }
 }

@@ -125,18 +125,22 @@ export function CreatePersonalTaskDialog({ storeId, open, onOpenChange, onSucces
           <div className="space-y-3">
             <Label>하위 할 일 (체크리스트)</Label>
             <div className="space-y-2">
-              {checklist.map((item) => (
-                <div key={item.id} className="flex items-center gap-2 bg-black/5 px-3 py-2 rounded-md">
-                  <div className="w-4 h-4 rounded-sm border border-black/20 bg-white shrink-0" />
-                  <span className="text-sm flex-1">{item.text}</span>
-                  <button 
-                    onClick={() => handleRemoveChecklist(item.id)}
-                    className="text-muted-foreground hover:text-red-500 transition-colors"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+              {checklist.length > 0 && (
+                <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1 custom-scrollbar">
+                  {checklist.map((item) => (
+                    <div key={item.id} className="flex items-center gap-2 bg-black/5 px-3 py-2 rounded-md">
+                      <div className="w-4 h-4 rounded-sm border border-black/20 bg-white shrink-0" />
+                      <span className="text-sm flex-1">{item.text}</span>
+                      <button 
+                        onClick={() => handleRemoveChecklist(item.id)}
+                        className="text-muted-foreground hover:text-red-500 transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
               <div className="flex gap-2">
                 <Input 
                   placeholder="체크리스트 항목 추가..." 
@@ -169,26 +173,32 @@ export function CreatePersonalTaskDialog({ storeId, open, onOpenChange, onSucces
             />
           </div>
 
-          <div className="flex items-center justify-between p-3 border rounded-lg bg-black/5">
-            <div className="space-y-0.5">
-              <Label className="text-sm font-medium">시간 정하지 않기</Label>
-              <p className="text-[12px] text-muted-foreground">특정 시간 없이 오늘 중으로 완료할 할 일</p>
+          <div className="space-y-3 p-4 border rounded-xl bg-muted/30">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label className="text-sm font-semibold">업무 시간 설정</Label>
+                <p className="text-[12px] text-muted-foreground">
+                  {isAnytime ? "특정 시간 없이 오늘 중 완료" : "업무를 시작할 시간을 지정하세요"}
+                </p>
+              </div>
+              <div className="flex items-center gap-3 bg-white/50 px-3 py-1.5 rounded-full border border-black/5 shadow-sm">
+                <span className="text-xs font-medium text-muted-foreground">종일</span>
+                <Switch 
+                  checked={isAnytime} 
+                  onCheckedChange={setIsAnytime} 
+                />
+              </div>
             </div>
-            <Switch 
-              checked={isAnytime} 
-              onCheckedChange={setIsAnytime} 
-            />
+            
+            {!isAnytime && (
+              <div className="pt-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                <TimePicker 
+                  value={startTime} 
+                  onChange={setStartTime} 
+                />
+              </div>
+            )}
           </div>
-
-          {!isAnytime && (
-            <div className="space-y-2">
-              <Label>업무 시간</Label>
-              <TimePicker 
-                value={startTime} 
-                onChange={setStartTime} 
-              />
-            </div>
-          )}
         </div>
 
         <div className="flex justify-end gap-2">

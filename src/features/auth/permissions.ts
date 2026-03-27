@@ -5,6 +5,7 @@ export type PermissionCode =
   // 📦 매장 및 시스템
   | 'manage_store'
   | 'manage_roles'
+  | 'view_dashboard'
   // 👥 인사 및 근로
   | 'view_staff'
   | 'manage_staff'

@@ -9,6 +9,7 @@ import { DashboardTaskList } from '@/features/schedule/components/dashboard-task
 import { getCurrentSchedule } from '@/features/schedule/actions'
 import { AnnouncementList } from '@/features/store/components/announcement-list'
 import { getStoreAnnouncements } from '@/features/store/announcement-actions'
+import { hasPermission } from '@/features/auth/permissions'
 
 export const dynamic = 'force-dynamic'
 
@@ -62,19 +63,19 @@ export default async function DashboardPage() {
      redirect('/onboarding')
   }
 
+  // 대시보드 조회 권한 확인
+  const canViewDashboard = await hasPermission(user.id, store.id, 'view_dashboard')
+
+  if (!canViewDashboard) {
+    redirect('/dashboard/my-tasks')
+  }
+
   // 병렬로 데이터 조회
   const [pendingCount, currentSchedule, announcements] = await Promise.all([
     getPendingRequestsCount(store.id),
     getCurrentSchedule(store.id),
     getStoreAnnouncements(store.id)
   ])
-
-  // 관리자 여부 확인
-  const isManager = activeMember.role === 'owner' || activeMember.role === 'manager'
-
-  if (!isManager) {
-    redirect('/dashboard/my-tasks')
-  }
 
   return (
     <AdminDashboard pendingCount={pendingCount} store={store} announcements={announcements} />

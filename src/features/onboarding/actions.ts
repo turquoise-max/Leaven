@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { ensureDefaultRoles } from '@/features/store/roles'
 
 export async function createStore(formData: FormData) {
   const supabase = await createClient()
@@ -19,16 +20,28 @@ export async function createStore(formData: FormData) {
   const description = formData.get('description') as string
 
   // Call RPC function to create store and assign owner in a single transaction
-  const { error } = await supabase.rpc('create_store_with_owner', {
+  // This RPC creates the store and adds the current user as an 'owner' member.
+  const { data: storeId, error } = await supabase.rpc('create_store_with_owner', {
     name_param: name,
     description_param: description,
     address_param: address,
     business_number_param: businessNumber,
   })
 
-  if (error) {
+  if (error || !storeId) {
     console.error('Store creation error:', error)
-    return { error: error.message }
+    return { error: error?.message || '매장 생성에 실패했습니다.' }
+  }
+
+  // 2. 기본 직급 생성 및 점주 권한 연결 보정
+  const { ownerRoleId } = await ensureDefaultRoles(storeId)
+  
+  if (ownerRoleId) {
+    await supabase
+      .from('store_members')
+      .update({ role_id: ownerRoleId })
+      .eq('store_id', storeId)
+      .eq('user_id', user.id)
   }
 
   revalidatePath('/', 'layout')

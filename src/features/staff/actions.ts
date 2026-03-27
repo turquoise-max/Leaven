@@ -17,6 +17,7 @@ export async function getStaffList(storeId: string) {
       role_info:store_roles(id, name, color, priority, is_system)
     `)
     .eq('store_id', storeId)
+    .neq('role', 'owner') // 점주 제외
     
   if (error) {
     console.error('Error fetching staff list:', error)

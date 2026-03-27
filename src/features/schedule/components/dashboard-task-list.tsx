@@ -246,7 +246,12 @@ export function DashboardTaskList({ storeId, roleId, attendanceStatus, currentUs
 
       setTasks(prev => prev.map(task => {
           if (task.id !== taskId) return task
-          return { ...task, status }
+          // 메인 상태가 'done'이면 모든 하위 항목도 체크, 아니면 전부 해제
+          const newChecklist = task.checklist?.map(item => ({
+              ...item,
+              is_completed: status === 'done'
+          })) || []
+          return { ...task, status, checklist: newChecklist }
       }))
       const result = await updateTaskStatus(taskId, status)
       if (result.error) fetchTasks()

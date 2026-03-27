@@ -51,7 +51,7 @@ export function MonthlyCalendarView({
 
   const weekDays = ['일', '월', '화', '수', '목', '금', '토']
 
-  // 특정 날짜 스케줄 찾기 (시작 시간 오름차순 정렬)
+  // 특정 날짜 스케줄 찾기 (직급 우선순위 > 이름 가나다순 > 시작 시간 오름차순 정렬)
   const getSchedulesForDate = (date: Date) => {
     const schedules = localSchedules.filter(sch => {
       if (!sch.start_time) return false
@@ -71,7 +71,29 @@ export function MonthlyCalendarView({
       return true
     })
 
-    return schedules.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+    return schedules.sort((a, b) => {
+      const staffAId = a.schedule_members?.[0]?.member_id
+      const staffBId = b.schedule_members?.[0]?.member_id
+      const staffA = staffList.find(s => s.id === staffAId)
+      const staffB = staffList.find(s => s.id === staffBId)
+      
+      const roleA = staffA ? getStaffRoleInfo(staffA) : null
+      const roleB = staffB ? getStaffRoleInfo(staffB) : null
+      
+      // 1. 직급 우선순위 (내림차순)
+      const priorityA = roleA?.priority ?? -1
+      const priorityB = roleB?.priority ?? -1
+      if (priorityA !== priorityB) return priorityB - priorityA
+      
+      // 2. 이름 (오름차순)
+      const nameA = staffA?.name || staffA?.profile?.full_name || ''
+      const nameB = staffB?.name || staffB?.profile?.full_name || ''
+      const nameSort = nameA.localeCompare(nameB)
+      if (nameSort !== 0) return nameSort
+      
+      // 3. 시작 시간 (오름차순)
+      return new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
+    })
   }
 
   // 달력을 주 단위로 분할
@@ -110,14 +132,11 @@ export function MonthlyCalendarView({
                 <div 
                   key={date.toISOString()} 
                   className={cn(
-                    "border-r border-black/5 last:border-r-0 p-1.5 flex flex-col gap-1 relative transition-colors bg-white",
+                    "border-r border-black/5 last:border-r-0 p-1.5 flex flex-col gap-1 relative transition-all bg-white",
                     !isCurrentMonth && "bg-black/[0.02]",
                     isToday && "bg-primary/[0.03] ring-1 ring-inset ring-primary/20",
-                    isManager ? "cursor-pointer hover:bg-black/[0.02] group/cell" : ""
+                    isManager ? "group/cell" : ""
                   )}
-                  onClick={() => {
-                    if (isManager) onDateClick(date)
-                  }}
                 >
                   {/* 날짜 표시 */}
                   <div className={cn(
@@ -211,11 +230,18 @@ export function MonthlyCalendarView({
                     })}
                   </div>
 
-                  {/* Hover Plus Icon */}
+                  {/* 빈 공간 클릭을 위한 영역 & Hover Plus Icon */}
                   {isManager && (
-                    <div className="absolute top-1 right-1 opacity-0 group-hover/cell:opacity-100 transition-opacity pointer-events-none">
-                      <div className="bg-white rounded p-0.5 shadow-sm border border-black/10 text-black/40">
-                        <Plus className="w-3 h-3" />
+                    <div 
+                      className={cn(
+                        "flex-1 h-0 min-h-0 group-hover/cell:h-8 group-hover/cell:min-h-[32px] group-hover/cell:mt-1 relative rounded-md transition-all duration-200 overflow-hidden bg-black/[0.02] hover:bg-black/[0.04] cursor-pointer group/add-btn"
+                      )}
+                      onClick={() => onDateClick(date)}
+                    >
+                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/add-btn:opacity-100 transition-opacity pointer-events-none">
+                        <div className="bg-white rounded-full p-1 shadow-md border border-black/10 text-black/40">
+                          <Plus className="w-4 h-4" />
+                        </div>
                       </div>
                     </div>
                   )}

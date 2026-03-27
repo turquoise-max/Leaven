@@ -57,12 +57,29 @@ export function StaffScheduleMatrix({
     return schedules.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
   }
 
-  // 필터링된 직원 목록
-  const visibleStaff = staffList.filter(staff => {
-    const roleInfo = getStaffRoleInfo(staff)
-    if (roleInfo && !activeRoleIds.includes(roleInfo.id)) return false
-    return true
-  })
+  // 필터링 및 정렬된 직원 목록
+  const visibleStaff = useMemo(() => {
+    return staffList
+      .filter(staff => {
+        const roleInfo = getStaffRoleInfo(staff)
+        if (roleInfo && !activeRoleIds.includes(roleInfo.id)) return false
+        return true
+      })
+      .sort((a, b) => {
+        const roleA = getStaffRoleInfo(a)
+        const roleB = getStaffRoleInfo(b)
+        
+        // 1. 직급 우선순위 (내림차순)
+        const priorityA = roleA?.priority ?? -1
+        const priorityB = roleB?.priority ?? -1
+        if (priorityA !== priorityB) return priorityB - priorityA
+        
+        // 2. 이름 (오름차순)
+        const nameA = a.name || a.profile?.full_name || ''
+        const nameB = b.name || b.profile?.full_name || ''
+        return nameA.localeCompare(nameB)
+      })
+  }, [staffList, activeRoleIds, getStaffRoleInfo])
 
   return (
     <div className="flex flex-col h-full bg-white rounded-xl border border-black/10 shadow-sm overflow-hidden select-none">
@@ -70,7 +87,7 @@ export function StaffScheduleMatrix({
         <table className="w-full text-left border-collapse min-w-[800px]">
           <thead className="sticky top-0 bg-[#fbfbfb] z-20 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
             <tr>
-              <th className="p-3 border-b border-r border-black/5 font-semibold text-[13px] text-[#1a1a1a] w-[200px] sticky left-0 bg-[#fbfbfb] z-30 shadow-[1px_0_0_rgba(0,0,0,0.05)]">
+              <th className="p-3 border-b border-r border-black/5 font-semibold text-[13px] text-[#1a1a1a] w-[200px] sticky left-0 bg-[#fbfbfb] z-30 shadow-[1px_0_0_rgba(0,0,0,0.05)] text-center">
                 직원 정보
               </th>
               {dates.map(date => {
@@ -105,14 +122,8 @@ export function StaffScheduleMatrix({
                 return (
                   <tr key={staff.id} className="group hover:bg-black/[0.01] transition-colors">
                     <td className="p-3 border-b border-r border-black/5 sticky left-0 bg-white group-hover:bg-[#fafafa] z-10 shadow-[1px_0_0_rgba(0,0,0,0.05)]">
-                      <div className="flex items-center gap-2">
-                        <div 
-                          className="w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-bold shrink-0"
-                          style={{ backgroundColor: hexToRgba(roleColor, 0.15), color: roleColor }}
-                        >
-                          {(staff.name || '직').substring(0, 1)}
-                        </div>
-                        <div className="min-w-0">
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="min-w-0 text-center">
                           <div className="text-[13px] font-semibold text-[#1a1a1a] truncate">{staff.name || '알 수 없음'}</div>
                           <div className="text-[11px] text-muted-foreground truncate">{roleInfo?.name || '역할 없음'}</div>
                         </div>
@@ -127,11 +138,11 @@ export function StaffScheduleMatrix({
                         <td 
                           key={date.toISOString()} 
                           className={cn(
-                            "p-1.5 border-b border-r border-black/5 align-top relative transition-colors group/cell",
+                            "p-1.5 border-b border-r border-black/5 align-top relative transition-all group/cell",
                             isToday ? "bg-primary/[0.02]" : ""
                           )}
                         >
-                          <div className="flex flex-col h-full min-h-[60px]">
+                          <div className="flex flex-col h-full min-h-[40px]">
                             <div className="flex flex-col gap-1.5">
                               {daySchedules.map(sch => {
                                 const start = new Date(sch.start_time)
@@ -234,25 +245,23 @@ export function StaffScheduleMatrix({
                             </div>
                             
                             {/* 빈 공간 클릭을 위한 영역 & Hover Plus Icon */}
-                            <div 
-                              className={cn(
-                                "flex-1 min-h-[24px] mt-1 relative rounded-md transition-colors",
-                                isManager ? "cursor-pointer hover:bg-black/[0.02] group/empty" : ""
-                              )}
-                              onClick={(e) => {
-                                if (!isManager) return
-                                e.stopPropagation()
-                                onCellClick(staff, date)
-                              }}
-                            >
-                              {isManager && (
-                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/empty:opacity-100 transition-opacity pointer-events-none">
+                            {isManager && (
+                              <div 
+                                className={cn(
+                                  "h-0 group-hover/cell:h-8 group-hover/cell:mt-1 relative rounded-md transition-all duration-200 overflow-hidden bg-black/[0.02] hover:bg-black/[0.04] cursor-pointer group/add-btn"
+                                )}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  onCellClick(staff, date)
+                                }}
+                              >
+                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/add-btn:opacity-100 transition-opacity pointer-events-none">
                                   <div className="bg-white rounded-full p-1 shadow-md border border-black/10 text-black/40">
                                     <Plus className="w-4 h-4" />
                                   </div>
                                 </div>
-                              )}
-                            </div>
+                              </div>
+                            )}
                           </div>
                         </td>
                       )

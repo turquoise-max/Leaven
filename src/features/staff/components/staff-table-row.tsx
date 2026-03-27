@@ -4,7 +4,7 @@
 
 import { TableCell, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
-import { Check, X, CalendarDays, ChevronRight, FileText, Download, Link2, Link2Off, User } from 'lucide-react'
+import { Check, X, CalendarDays, ChevronRight, FileText, Download, Link2, Link2Off, User, Mail, Phone as PhoneIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import {
   Tooltip,
@@ -169,22 +169,19 @@ export function StaffTableRow({
       onClick={onClick}
     >
       {/* 1. 상태 */}
-      <TableCell className="w-[90px] align-middle text-center px-2">
+      <TableCell className="w-[80px] align-middle text-center px-2">
         <div className="flex items-center justify-center">
            {getStatusBadge(staff)}
         </div>
       </TableCell>
 
       {/* 2. 직원 정보 (프로필 + 연락처 다이어트) */}
-      <TableCell className="w-[260px] align-middle py-3 px-4 pr-10">
-        <div className="flex gap-3 items-center">
-          <div className="flex flex-col justify-center min-w-0 gap-0.5 flex-1">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="font-bold text-sm tracking-tight text-foreground truncate max-w-[100px]">
+      <TableCell className="w-[260px] align-middle py-3 px-4">
+        <div className="flex gap-3 items-center justify-center">
+          <div className="flex flex-col justify-center items-center min-w-0 gap-0.5 flex-1 text-center">
+            <div className="flex items-center justify-center gap-1.5 flex-wrap">
+              <span className="font-bold text-sm tracking-tight text-foreground truncate max-w-[120px]">
                 {getDisplayName(staff)}
-              </span>
-              <span className="text-xs text-muted-foreground font-medium">
-                 · {getRoleText(staff)}
               </span>
               
               {/* 아주 작고 심플한 앱 연동 고리 */}
@@ -205,46 +202,69 @@ export function StaffTableRow({
               </TooltipProvider>
             </div>
             
-            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5 truncate">
-              {email && <span className="truncate" title={email}>{email}</span>}
-              {email && phone && <span className="text-muted-foreground/30">|</span>}
-              {phone && <span className="font-mono tracking-tight">{formatPhoneNumber(phone)}</span>}
-              {!email && !phone && <span>연락처 미등록</span>}
+            <div className="flex flex-col items-center gap-0.5 mt-1">
+              {email ? (
+                <div className="flex items-center gap-1 text-[11px] text-muted-foreground/80 max-w-[180px]">
+                  <Mail className="w-2.5 h-2.5 shrink-0" />
+                  <span className="truncate" title={email}>{email}</span>
+                </div>
+              ) : null}
+              {phone ? (
+                <div className="flex items-center gap-1 text-[11px] text-muted-foreground/80">
+                  <PhoneIcon className="w-2.5 h-2.5 shrink-0" />
+                  <span className="font-mono tracking-tight">{formatPhoneNumber(phone)}</span>
+                </div>
+              ) : null}
+              {!email && !phone && (
+                <span className="text-[11px] text-muted-foreground/50 italic">연락처 미등록</span>
+              )}
             </div>
           </div>
         </div>
       </TableCell>
 
-      {/* 3. 근로 조건 및 스케줄 (텍스트 + 알약 디자인) */}
-      <TableCell className="align-middle py-3 px-4">
+      {/* 3. 역할 */}
+      <TableCell className="w-[100px] align-middle text-center py-3 px-4">
+        <Badge 
+          variant="secondary" 
+          className="font-bold px-2.5 py-0.5 rounded-md shadow-none border-none whitespace-nowrap"
+          style={staff.role_info?.color ? { 
+            backgroundColor: `${staff.role_info.color}15`, 
+            color: staff.role_info.color 
+          } : {
+            backgroundColor: '#64748b15',
+            color: '#64748b'
+          }}
+        >
+          {getRoleText(staff)}
+        </Badge>
+      </TableCell>
+
+      {/* 4. 근로 조건 및 스케줄 (텍스트 + 알약 디자인) */}
+      <TableCell className="w-[280px] align-middle py-3 px-4">
         {staff.role === 'owner' ? (
           <div className="flex items-center justify-center text-muted-foreground/50 font-medium w-full">
             -
           </div>
         ) : (
-          <div className="flex flex-col gap-1.5 pl-6">
+          <div className="flex flex-col items-center justify-center gap-1.5 text-center">
             
-            <div className="flex items-center gap-1.5 flex-wrap">
+            <div className="flex items-center justify-center gap-1.5 flex-wrap">
               <span className="text-xs font-semibold text-slate-600 shrink-0">{getEmploymentText(staff)}</span>
               <span className="text-muted-foreground/30 text-xs shrink-0">|</span>
               {canManage && staff.base_wage ? (
                 <span className="text-[13px] font-bold tracking-tight text-foreground/90 whitespace-nowrap">
                   {wageText} {staff.base_wage.toLocaleString()}원
-                  {(staff.wage_type === 'hourly' || staff.wage_type === 'daily') && expectedPay && (
-                    <span className="text-[11px] font-normal text-muted-foreground ml-1">
-                      (약 {expectedPay.toLocaleString()}원)
-                    </span>
-                  )}
                 </span>
               ) : (
                 <span className="text-[12px] text-muted-foreground whitespace-nowrap">급여 미설정</span>
               )}
             </div>
 
-            <div className="flex items-start gap-1.5">
-              <CalendarDays className="w-3 h-3 text-muted-foreground/70 mt-0.5 shrink-0" />
+            <div className="flex items-center justify-center gap-1.5">
+              <CalendarDays className="w-3 h-3 text-muted-foreground/70 shrink-0" />
               {staff.work_schedules && staff.work_schedules.length > 0 ? (
-                <div className="flex flex-col gap-0.5 text-[11px] font-medium text-slate-500 leading-snug break-keep">
+                <div className="flex flex-col gap-0.5 text-[11px] font-medium text-slate-500 leading-snug break-keep items-center">
                   {getDetailedScheduleText(staff.work_schedules).map((line, i) => (
                     <span key={i}>{line}</span>
                   ))}
@@ -257,9 +277,6 @@ export function StaffTableRow({
           </div>
         )}
       </TableCell>
-
-      {/* 빈 컬럼 추가로 여백 확보 */}
-      <TableCell className="w-115"></TableCell>
 
       {/* 4. 근로계약서 상태 뱃지 (미니멀리즘) */}
       {showContract !== false && (
@@ -302,10 +319,10 @@ export function StaffTableRow({
       )}
 
       {/* 5. 승인/거절/삭제 액션 & 화살표 아이콘 */}
-      <TableCell className="w-[100px] align-middle text-right pr-6">
-        <div className="flex items-center justify-end gap-3 h-full">
+      <TableCell className="w-[100px] align-middle text-center px-4">
+        <div className="flex items-center justify-center gap-3 h-full">
           {staff.status === 'pending_approval' && !isResigned && canManage && (
-            <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-center gap-2" onClick={(e) => e.stopPropagation()}>
               <Button 
                 size="sm" 
                 variant="outline" 
@@ -329,7 +346,7 @@ export function StaffTableRow({
           )}
 
           {isResigned && canManage && (
-            <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-center gap-2" onClick={(e) => e.stopPropagation()}>
               {onRestoreRecord && (
                 <Button 
                   size="sm" 
@@ -356,7 +373,7 @@ export function StaffTableRow({
           )}
           
           {canManage && !isResigned && staff.status !== 'pending_approval' && (
-            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center gap-1 text-muted-foreground w-full items-end">
+            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-muted-foreground">
               <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-primary">
                 <ChevronRight className="w-4 h-4" />
               </div>

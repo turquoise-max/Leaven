@@ -40,6 +40,7 @@ export function AttendanceClientPage({
   const [selectedDate, setSelectedDate] = useState(initialDate)
   const [activeTab, setActiveTab] = useState(isManager ? 'live' : 'history')
   const [attendanceData, setAttendanceData] = useState<any[]>([])
+  const [searchTerm, setSearchTerm] = useState('')
   const [schedulesData, setSchedulesData] = useState<any[]>([])
   const [requestsData, setRequestsData] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -57,10 +58,8 @@ export function AttendanceClientPage({
       setAttendanceData(res.attendance || [])
       setSchedulesData(res.schedules || [])
       
-      if (isManager) {
-        const reqs = await getAttendanceRequests(storeId, Date.now())
-        setRequestsData(reqs || [])
-      }
+      const reqs = await getAttendanceRequests(storeId, Date.now())
+      setRequestsData(reqs || [])
     } catch (error) {
       console.error(error)
       toast.error('출퇴근 데이터를 불러오지 못했습니다.')
@@ -93,7 +92,10 @@ export function AttendanceClientPage({
   )
 
   const managerView = (
-    <div className="flex flex-col h-full bg-white rounded-xl border shadow-sm overflow-hidden">
+    <div className={cn(
+      "flex flex-col bg-white rounded-xl border shadow-sm overflow-hidden",
+      isManager ? "h-full" : "h-auto"
+    )}>
       {/* Header / Controls */}
       <div className="flex items-center justify-between p-4 border-b bg-slate-50/50 shrink-0">
         <div className="flex items-center gap-4">
@@ -118,7 +120,7 @@ export function AttendanceClientPage({
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className={cn("flex flex-col min-h-0", isManager ? "flex-1" : "h-auto")}>
         <div className="px-6 pt-4 border-b">
           <TabsList className="bg-transparent h-10 p-0 gap-8 justify-start">
             {isManager && (
@@ -139,26 +141,24 @@ export function AttendanceClientPage({
               출퇴근 기록부
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary scale-x-0 origin-left transition-transform duration-200 group-data-[state=active]:scale-x-100" />
             </TabsTrigger>
-            {isManager && (
-              <TabsTrigger 
-                value="requests" 
-                className="relative rounded-none px-1 pb-3 pt-2 text-base font-semibold text-muted-foreground hover:text-foreground data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none outline-none focus-visible:outline-none !shadow-none bg-transparent group"
-              >
-                <CheckSquare className="w-4 h-4 mr-2" />
-                수정 내역 및 관리
-                {requestsData.filter(r => r.status === 'pending').length > 0 && (
-                  <Badge variant="destructive" className="absolute -top-1 -right-4 w-5 h-5 flex items-center justify-center p-0 text-[10px]">
-                    {requestsData.filter(r => r.status === 'pending').length}
-                  </Badge>
-                )}
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary scale-x-0 origin-left transition-transform duration-200 group-data-[state=active]:scale-x-100" />
-              </TabsTrigger>
-            )}
+            <TabsTrigger 
+              value="requests" 
+              className="relative rounded-none px-1 pb-3 pt-2 text-base font-semibold text-muted-foreground hover:text-foreground data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none outline-none focus-visible:outline-none !shadow-none bg-transparent group"
+            >
+              <CheckSquare className="w-4 h-4 mr-2" />
+              {isManager ? "수정 내역 및 관리" : "수정 요청 현황"}
+              {requestsData.filter(r => r.status === 'pending' && (isManager || r.member_id === myStaff?.id)).length > 0 && (
+                <Badge variant="destructive" className="absolute -top-1 -right-4 w-5 h-5 flex items-center justify-center p-0 text-[10px]">
+                  {requestsData.filter(r => r.status === 'pending' && (isManager || r.member_id === myStaff?.id)).length}
+                </Badge>
+              )}
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary scale-x-0 origin-left transition-transform duration-200 group-data-[state=active]:scale-x-100" />
+            </TabsTrigger>
           </TabsList>
         </div>
 
         {/* Tab Contents */}
-        <div className="flex-1 overflow-auto bg-slate-50/30 p-6">
+        <div className={cn("overflow-auto bg-slate-50/30 p-6", isManager ? "flex-1" : "h-auto")}>
           
           {isManager && (
             <TabsContent value="live" className="m-0 mt-0 h-full flex flex-col gap-6 outline-none">
@@ -208,7 +208,12 @@ export function AttendanceClientPage({
                         <h3 className="font-semibold text-base">직원 출퇴근 상태</h3>
                         <div className="relative">
                           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                          <Input placeholder="이름 검색..." className="pl-9 h-8 w-[200px]" />
+                          <Input 
+                            placeholder="이름 검색..." 
+                            className="pl-9 h-8 w-[200px]" 
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                          />
                         </div>
                       </div>
                       
@@ -222,9 +227,22 @@ export function AttendanceClientPage({
                             <Activity className="w-12 h-12 mb-4 opacity-20" />
                             <p>등록된 직원이 없습니다.</p>
                           </div>
+                        ) : staffList.filter(staff => {
+                            const name = staff.name || staff.profile?.full_name || ''
+                            return name.toLowerCase().includes(searchTerm.toLowerCase())
+                          }).length === 0 ? (
+                            <div className="p-12 flex flex-col items-center justify-center text-muted-foreground h-full">
+                              <Search className="w-12 h-12 mb-4 opacity-20" />
+                              <p>검색 결과가 없습니다.</p>
+                            </div>
                         ) : (
                           <div className="divide-y">
-                            {staffList.map(staff => {
+                            {staffList
+                              .filter(staff => {
+                                const name = staff.name || staff.profile?.full_name || ''
+                                return name.toLowerCase().includes(searchTerm.toLowerCase())
+                              })
+                              .map(staff => {
                               const roleInfo = getStaffRoleInfo(staff)
                               const attendance = attendanceData.find(a => a.member_id === staff.id)
                               const status = attendance?.status || 'none'
@@ -359,22 +377,22 @@ export function AttendanceClientPage({
             </TabsContent>
           )}
 
-          <TabsContent value="history" className="m-0 mt-0 h-full flex flex-col outline-none">
-            <div className="bg-white rounded-lg border shadow-sm overflow-hidden flex-1 flex flex-col">
+          <TabsContent value="history" className={cn("m-0 mt-0 flex flex-col outline-none", isManager ? "h-full" : "h-auto")}>
+            <div className={cn("bg-white rounded-lg border shadow-sm overflow-hidden flex flex-col", isManager ? "flex-1" : "h-auto")}>
               <div className="p-4 border-b flex items-center justify-between">
-                <h3 className="font-semibold text-base">전체 출퇴근 기록부</h3>
+                <h3 className="font-semibold text-base">{isManager ? "전체 출퇴근 기록부" : "나의 출퇴근 기록"}</h3>
               </div>
-              <div className="flex-1 overflow-auto">
-                <table className="w-full text-sm text-left">
+              <div className={cn("overflow-auto", isManager ? "flex-1" : "h-auto")}>
+                <table className="w-full text-sm">
                   <thead className="bg-muted/50 text-muted-foreground sticky top-0 z-10">
                     <tr>
-                      <th className="px-4 py-3 font-semibold border-b">이름 (역할)</th>
-                      <th className="px-4 py-3 font-semibold border-b">예정된 스케줄</th>
-                      <th className="px-4 py-3 font-semibold border-b">실제 출근</th>
-                      <th className="px-4 py-3 font-semibold border-b">실제 퇴근</th>
+                      <th className="px-4 py-3 font-semibold border-b text-center">이름 (역할)</th>
+                      <th className="px-4 py-3 font-semibold border-b text-center">예정된 스케줄</th>
+                      <th className="px-4 py-3 font-semibold border-b text-center">실제 출근</th>
+                      <th className="px-4 py-3 font-semibold border-b text-center">실제 퇴근</th>
                       <th className="px-4 py-3 font-semibold border-b text-center">총 근무시간</th>
                       <th className="px-4 py-3 font-semibold border-b text-center">상태</th>
-                      <th className="px-4 py-3 font-semibold border-b text-right"></th>
+                      <th className="px-4 py-3 font-semibold border-b text-center">관리</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -427,19 +445,19 @@ export function AttendanceClientPage({
                       return (
                         <tr key={staff.id} className="hover:bg-muted/20 transition-colors">
                           <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center justify-center gap-2">
                               <span className="font-medium">{staff.name || staff.profile?.full_name}</span>
                               <Badge variant="outline" className="text-[10px] font-normal" style={{ color: roleInfo?.color, borderColor: roleInfo?.color }}>
                                 {roleInfo?.name || '직원'}
                               </Badge>
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-muted-foreground font-medium">{scheduleText}</td>
-                          <td className="px-4 py-3 font-semibold">{formatT(attendance?.clock_in_time)}</td>
-                          <td className="px-4 py-3 font-semibold">{formatT(attendance?.clock_out_time)}</td>
+                          <td className="px-4 py-3 text-center text-muted-foreground font-medium">{scheduleText}</td>
+                          <td className="px-4 py-3 text-center font-semibold">{formatT(attendance?.clock_in_time)}</td>
+                          <td className="px-4 py-3 text-center font-semibold">{formatT(attendance?.clock_out_time)}</td>
                           <td className="px-4 py-3 text-center font-bold">{totalHours}</td>
                           <td className="px-4 py-3 text-center">{stateBadge}</td>
-                          <td className="px-4 py-3 text-right">
+                          <td className="px-4 py-3 text-center">
                             {staff.user_id === currentUserId && (
                               <Button 
                                 variant="ghost" 
@@ -481,21 +499,22 @@ export function AttendanceClientPage({
             </div>
           </TabsContent>
 
-          {isManager && (
-            <TabsContent value="requests" className="m-0 mt-0 h-full flex flex-col outline-none">
-              <div className="bg-white rounded-lg border shadow-sm overflow-hidden flex-1 flex flex-col">
-                <div className="p-4 border-b flex items-center justify-between">
-                  <h3 className="font-semibold text-base">출퇴근 시간 수정 요청 관리</h3>
-                </div>
-                <div className="flex-1 overflow-auto bg-slate-50/50 p-6">
-                  {requestsData.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center text-muted-foreground h-full bg-white rounded-xl border border-dashed border-border/50">
-                      <CheckSquare className="w-12 h-12 mb-4 opacity-20" />
-                      <p>수정 요청 내역이 없습니다.</p>
-                    </div>
-                  ) : (
-                    <div className="grid gap-4 max-w-4xl mx-auto">
-                      {requestsData.map(req => {
+          <TabsContent value="requests" className={cn("m-0 mt-0 flex flex-col outline-none", isManager ? "h-full" : "h-auto")}>
+            <div className={cn("bg-white rounded-lg border shadow-sm overflow-hidden flex flex-col", isManager ? "flex-1" : "h-auto")}>
+              <div className="p-4 border-b flex items-center justify-between">
+                <h3 className="font-semibold text-base">{isManager ? "출퇴근 시간 수정 요청 관리" : "나의 수정 요청 내역"}</h3>
+              </div>
+              <div className={cn("bg-slate-50/50 p-6", isManager ? "flex-1 overflow-auto" : "h-auto")}>
+                {requestsData.filter(r => isManager || r.member_id === myStaff?.id).length === 0 ? (
+                  <div className="flex flex-col items-center justify-center text-muted-foreground p-12 bg-white rounded-xl border border-dashed border-border/50">
+                    <CheckSquare className="w-12 h-12 mb-4 opacity-20" />
+                    <p>수정 요청 내역이 없습니다.</p>
+                  </div>
+                ) : (
+                  <div className="grid gap-4 max-w-4xl mx-auto">
+                    {requestsData
+                      .filter(r => isManager || r.member_id === myStaff?.id)
+                      .map(req => {
                         const formatT = (iso?: string | null) => iso ? format(new Date(iso), 'HH:mm') : '--:--'
                         
                         const handleResolve = async (isApproved: boolean) => {
@@ -576,7 +595,7 @@ export function AttendanceClientPage({
                               </div>
                             </div>
 
-                            {req.status === 'pending' ? (
+                            {req.status === 'pending' && isManager ? (
                               <div className="flex gap-2 justify-end mt-2">
                                 <Button variant="outline" className="text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/20" disabled={actionLoading === req.id} onClick={() => handleResolve(false)}>
                                   <X className="w-4 h-4 mr-1.5" /> 반려
@@ -585,7 +604,7 @@ export function AttendanceClientPage({
                                   <Check className="w-4 h-4 mr-1.5" /> 승인
                                 </Button>
                               </div>
-                            ) : (
+                            ) : req.status === 'pending' ? null : (
                               <div className="flex justify-end mt-1">
                                 <span className="text-xs text-muted-foreground bg-slate-100 px-3 py-1.5 rounded-full border">
                                   처리자: <span className="font-semibold text-foreground">{reviewerName}</span>
@@ -600,7 +619,6 @@ export function AttendanceClientPage({
                 </div>
               </div>
             </TabsContent>
-          )}
 
         </div>
       </Tabs>

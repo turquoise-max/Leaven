@@ -334,17 +334,26 @@ export function LeaveClientPage({
           </TabsContent>
 
           <TabsContent value="balances" className="m-0 mt-0 h-full flex flex-col outline-none">
-            <div className="bg-white rounded-lg border shadow-sm overflow-hidden flex-1 flex flex-col">
+            <div className={cn(
+              "bg-white rounded-lg border shadow-sm overflow-hidden flex flex-col",
+              isManager ? "flex-1" : "h-fit"
+            )}>
               <div className="p-4 border-b flex items-center justify-between">
                 <div className="flex flex-col">
-                  <h3 className="font-semibold text-base">직원별 잔여 연차 관리</h3>
+                  <h3 className="font-semibold text-base">{isManager ? '직원별 잔여 연차 관리' : '나의 잔여 연차 정보'}</h3>
                   <p className="text-xs text-muted-foreground mt-0.5">산정 방식: <span className="font-semibold text-foreground">{leaveCalcType === 'hire_date' ? '입사일 기준' : '회계연도 기준'}</span> (오늘 시점 보유량)</p>
                 </div>
               </div>
-              <div className="flex-1 overflow-auto">
-                <table className="w-full text-sm text-left">
+              <div className={cn("overflow-auto", isManager && "flex-1")}>
+                <table className="w-full text-sm">
                   <thead className="bg-muted/50 text-muted-foreground sticky top-0">
-                    <tr><th className="px-4 py-3 border-b">이름 (역할)</th><th className="px-4 py-3 border-b text-center">근속 기간</th><th className="px-4 py-3 border-b text-center">발생</th><th className="px-4 py-3 border-b text-center">사용</th><th className="px-4 py-3 border-b text-center">잔여</th><th className="px-4 py-3 border-b"></th></tr>
+                    <tr>
+                      <th className="px-4 py-3 border-b text-center">이름 (역할)</th>
+                      <th className="px-4 py-3 border-b text-center">근속 기간</th>
+                      <th className="px-4 py-3 border-b text-center">발생</th>
+                      <th className="px-4 py-3 border-b text-center">사용</th>
+                      <th className="px-4 py-3 border-b text-center">잔여</th>
+                    </tr>
                   </thead>
                   <tbody className="divide-y">
                     {staffList.filter(s => isManager || s.user_id === currentUserId).map(staff => {
@@ -355,15 +364,28 @@ export function LeaveClientPage({
                       const total = balance?.total_days ?? calcTotal
                       const used = balance?.used_days || 0
                       const remain = total - used
+                      const roleInfo = getStaffRoleInfo(staff)
                       return (
                         <tr key={staff.id} className="hover:bg-muted/20">
-                          <td className="px-4 py-3"><div className="font-medium">{staff.name}</div><div className="text-[10px] text-muted-foreground">{hireDate || '입사일 미등록'}</div></td>
+                          <td className="px-4 py-3 text-center">
+                            <div className="flex flex-col items-center gap-1">
+                              <div className="flex items-center gap-1.5 justify-center">
+                                <span className="font-medium">{staff.name}</span>
+                                {roleInfo && (
+                                  <Badge variant="outline" className="text-[9px] px-1 h-4 bg-primary/5 text-primary border-primary/20">
+                                    {roleInfo.name}
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="text-[10px] text-muted-foreground font-medium">
+                                {hireDate ? `입사일: ${hireDate}` : '입사일 미등록'}
+                              </div>
+                            </div>
+                          </td>
                           <td className="px-4 py-3 text-center">{getServicePeriodLabel(hireDate)}</td>
                           <td className="px-4 py-3 text-center font-semibold">{total}일</td>
                           <td className="px-4 py-3 text-center text-muted-foreground">{used}일</td>
                           <td className="px-4 py-3 text-center font-bold text-primary">{remain}일</td>
-                          <td className="px-4 py-3 text-right">
-                          </td>
                         </tr>
                       )
                     })}

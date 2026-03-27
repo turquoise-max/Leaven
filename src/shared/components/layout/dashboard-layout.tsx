@@ -146,7 +146,7 @@ export function DashboardClientLayout({
             <ResizablePanel
               /* @ts-ignore */
               defaultSize={safeDefaultLayout[0].toString()}
-              minSize="12"
+              minSize={safeDefaultLayout[0].toString()}
               maxSize="50"
               collapsible={false}
               className="bg-background"

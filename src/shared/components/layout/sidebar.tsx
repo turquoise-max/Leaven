@@ -61,7 +61,7 @@ export function Sidebar({
     {
       title: '메인',
       items: [
-        ...(isManager ? [{
+        ...(permissions.view_dashboard ? [{
           title: '대시보드',
           href: '/dashboard',
           icon: LayoutDashboard,
@@ -69,7 +69,7 @@ export function Sidebar({
         }] : []),
         ...(permissions.view_tasks ? [{
           title: '할 일',
-          href: isManager ? '/dashboard/my-tasks' : '/dashboard',
+          href: permissions.view_dashboard ? '/dashboard/my-tasks' : '/dashboard',
           icon: CheckSquare,
           isUpcoming: false
         }] : [])
