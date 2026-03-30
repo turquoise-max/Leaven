@@ -84,7 +84,7 @@ export function AnnouncementList({ storeId, announcements, isManager }: Announce
   }
 
   return (
-    <Card className="h-full flex flex-col">
+    <Card className="border-none shadow-md overflow-hidden bg-white dark:bg-slate-900 flex flex-col h-full">
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-lg font-bold flex items-center gap-2">
           <Megaphone className="h-5 w-5 text-primary" />

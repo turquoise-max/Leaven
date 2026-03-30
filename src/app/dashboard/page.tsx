@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Store, Users, CreditCard, Activity, Bell } from 'lucide-react'
+import { Users, CreditCard, Bell, TrendingUp, CalendarDays } from 'lucide-react'
 import { redirect } from 'next/navigation'
 import { getPendingRequestsCount } from '@/features/staff/actions'
 import Link from 'next/link'
@@ -109,70 +109,86 @@ function AdminDashboard({ pendingCount, store, announcements }: { pendingCount: 
         </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-12 h-full">
-        {/* Main Content: Stats (Left) */}
-        <div className="md:col-span-8 lg:col-span-8 flex flex-col gap-6">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-             <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">매장 상태</CardTitle>
-                  <Store className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">영업 중</div>
-                  <p className="text-xs text-muted-foreground">
-                    마감 예정: 22:00
-                  </p>
-                </CardContent>
-              </Card>
+      <div className="grid gap-6 md:grid-cols-12">
+        {/* Main Content (Left) */}
+        <div className="md:col-span-8 lg:col-span-8">
+          <Card className="border-none shadow-md overflow-hidden bg-white dark:bg-slate-900">
+            <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x border-b">
+              {/* Sales Section */}
+              <div className="p-5 space-y-5 bg-slate-50/50 dark:bg-slate-900/50">
+                <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+                  <CreditCard className="h-5 w-5" />
+                  <span className="text-sm font-semibold tracking-wide uppercase">매출 정보</span>
+                </div>
+                
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">금일 매출</p>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-3xl font-extrabold tracking-tight">₩0</span>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-200 dark:border-slate-800">
+                    <div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">월 목표 매출</p>
+                      <p className="text-lg font-bold text-slate-700 dark:text-slate-200">₩0</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">달성율</p>
+                      <div className="flex items-center gap-1.5">
+                        <TrendingUp className="h-4 w-4 text-emerald-500" />
+                        <p className="text-lg font-bold text-emerald-500">0%</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">활성 직원</CardTitle>
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">0명</div>
-                  <p className="text-xs text-muted-foreground">
-                    현재 근무 중: 0명
-                  </p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">오늘 주문</CardTitle>
-                  <Activity className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">0건</div>
-                  <p className="text-xs text-muted-foreground">
-                    지난 시간 대비 +0%
-                  </p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">총 매출</CardTitle>
-                  <CreditCard className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">₩0</div>
-                  <p className="text-xs text-muted-foreground">
-                    지난 달 대비 +0%
-                  </p>
-                </CardContent>
-              </Card>
-          </div>
-          
-          {/* Future Chart Area Placeholder */}
-          <div className="flex-1 min-h-[300px] border rounded-lg flex items-center justify-center text-muted-foreground bg-muted/10 border-dashed">
-              <span className="text-sm">📊 매출 및 주문 통계 그래프 (준비 중)</span>
-          </div>
+              {/* Workforce Status Section */}
+              <div className="p-5 space-y-5">
+                <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+                  <Users className="h-5 w-5" />
+                  <span className="text-sm font-semibold tracking-wide uppercase">근무자 현황</span>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">전체 근무자 현황</p>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-3xl font-extrabold tracking-tight text-blue-600 dark:text-blue-400">전원 출근</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 pt-3 border-t border-slate-200 dark:border-slate-800">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                        <CalendarDays className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">금일 근무자</p>
+                        <p className="text-lg font-bold">0명</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+                        <CalendarDays className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">금일 휴가자</p>
+                        <p className="text-lg font-bold text-orange-600">0명</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
         </div>
 
         {/* Sidebar: Announcements */}
         <div className="md:col-span-4 lg:col-span-4">
-           <div className="sticky top-6 h-[calc(100vh-120px)] flex flex-col">
+           <div className="sticky top-6 flex flex-col">
               <AnnouncementList 
                 storeId={store.id} 
                 announcements={announcements} 
