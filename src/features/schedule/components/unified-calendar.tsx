@@ -865,6 +865,10 @@ export function UnifiedCalendar({
                 if (!isManager) return;
                 handleScheduleClick(sch, staff)
               }}
+              onHeaderDateClick={(date) => {
+                setTimelineDate(date)
+                setViewMode('timeline')
+              }}
               onScheduleDrop={async (scheduleId: string, sourceStaffId: string, targetStaffId: string, targetDate: Date) => {
                 if (!isManager) return;
                 

@@ -26,6 +26,7 @@ interface StaffScheduleMatrixProps {
   onCellClick: (staff: any, date: Date) => void
   onScheduleClick: (sch: any, staff: any) => void
   onScheduleDrop?: (scheduleId: string, sourceStaffId: string, targetStaffId: string, targetDate: Date) => void
+  onHeaderDateClick?: (date: Date) => void
 }
 
 export function StaffScheduleMatrix({
@@ -40,7 +41,8 @@ export function StaffScheduleMatrix({
   isManager = true,
   onCellClick,
   onScheduleClick,
-  onScheduleDrop
+  onScheduleDrop,
+  onHeaderDateClick
 }: StaffScheduleMatrixProps) {
   const dates = Array.from({ length: daysCount }, (_, i) => addDays(startDate, i))
 
@@ -97,12 +99,14 @@ export function StaffScheduleMatrix({
                 return (
                   <th 
                     key={date.toISOString()} 
+                    onClick={() => onHeaderDateClick?.(date)}
                     className={cn(
-                      "p-2 text-center border-b border-r border-black/5 font-medium min-w-[120px]",
-                      isToday ? "bg-primary/5 text-primary" : "text-[#6b6b6b]"
+                      "p-2 text-center border-b border-r border-black/5 font-medium min-w-[120px] transition-colors",
+                      onHeaderDateClick ? "cursor-pointer hover:bg-black/[0.03]" : "",
+                      isToday ? "bg-primary/5 text-primary hover:bg-primary/10" : "text-[#6b6b6b]"
                     )}
                   >
-                    <div className="text-[11px] mb-0.5">{format(date, 'E', { locale: ko })}</div>
+                    <div className="text-[11px] mb-0.5 opacity-70">{format(date, 'E', { locale: ko })}</div>
                     <div className={cn("text-[14px]", isToday && "font-bold")}>{format(date, 'M/d')}</div>
                   </th>
                 )
