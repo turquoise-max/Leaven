@@ -61,7 +61,7 @@ export function AnnouncementDialog({ open, onOpenChange, storeId, initialData }:
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-[500px] w-[95vw]">
         <DialogHeader>
           <DialogTitle>{isEditing ? '공지사항 수정' : '새 공지사항 작성'}</DialogTitle>
         </DialogHeader>
@@ -79,12 +79,12 @@ export function AnnouncementDialog({ open, onOpenChange, storeId, initialData }:
           
           <div className="space-y-2">
             <Label htmlFor="content">내용</Label>
-            <Textarea 
-              id="content" 
-              name="content" 
-              placeholder="공지사항 내용을 입력하세요" 
-              defaultValue={initialData?.content || ''} 
-              className="min-h-[150px]"
+            <Textarea
+              id="content"
+              name="content"
+              placeholder="공지사항 내용을 입력하세요"
+              defaultValue={initialData?.content || ''}
+              className="min-h-[150px] max-h-[300px] resize-y w-full whitespace-pre-wrap break-all"
             />
           </div>
 
