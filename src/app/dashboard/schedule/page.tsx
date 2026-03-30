@@ -99,10 +99,10 @@ export default async function UnifiedSchedulePage() {
   return (
     <div className="flex flex-col h-[calc(100vh-100px)] space-y-4">
       {/* Header Area */}
-      <div className="flex items-center justify-between shrink-0">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">스케줄 관리</h1>
-          <p className="text-muted-foreground">
+      <div className="flex items-center justify-center md:justify-between shrink-0 mb-2 md:mb-0">
+        <div className="text-center md:text-left w-full">
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">스케줄 관리</h1>
+          <p className="hidden md:block text-muted-foreground">
             근무와 업무를 통합하여 한눈에 관리합니다.
           </p>
         </div>

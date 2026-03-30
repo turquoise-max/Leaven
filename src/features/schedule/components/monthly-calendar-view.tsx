@@ -124,7 +124,7 @@ export function MonthlyCalendarView({
       {/* 달력 그리드 */}
       <div className="flex-1 overflow-y-auto bg-[#fbfbfb]">
         {weeks.map((week, weekIndex) => (
-          <div key={weekIndex} className="grid grid-cols-7 border-b border-black/5 last:border-b-0 min-h-[120px]">
+          <div key={weekIndex} className="grid grid-cols-7 border-b border-black/5 last:border-b-0 min-h-[70px] md:min-h-[120px]">
             {week.map((date, dayIndex) => {
               const isCurrentMonth = isSameMonth(date, currentDate)
               const isToday = isSameDay(date, new Date())
@@ -157,14 +157,23 @@ export function MonthlyCalendarView({
                     }
                   }}
                   className={cn(
-                    "border-r border-black/5 last:border-r-0 p-1.5 flex flex-col gap-1 relative transition-all bg-white",
+                    "border-r border-black/5 last:border-r-0 p-1.5 md:p-2 flex flex-col md:gap-1 relative transition-all bg-white",
+                    "items-center md:items-stretch justify-start md:justify-start", // 모바일에서는 중앙(가로) 정렬, PC에서는 기존 유지
                     isToday && "bg-primary/[0.03] ring-1 ring-inset ring-primary/20",
                     isManager ? "group/cell" : ""
                   )}
+                  onClick={() => {
+                    // 모바일 환경에서 닷(dot) 형태가 눌리기 쉽도록 빈 셀 공간 클릭 시 
+                    // 관리자는 추가 모달, 일반 직원은 빈 동작
+                    if (!isManager) return;
+                    // PC 뷰나 빈 영역 클릭 시 
+                    const isMobile = window.innerWidth < 768;
+                    if (isMobile) onDateClick(date);
+                  }}
                 >
                   {/* 날짜 표시 */}
                   <div className={cn(
-                    "text-[12px] font-medium px-1 flex justify-between items-center mb-1",
+                    "text-[13px] md:text-[12px] font-medium px-1 flex md:justify-between items-center mb-1 md:mb-1",
                     !isCurrentMonth ? "text-muted-foreground opacity-50" :
                     isToday ? "text-primary font-bold" :
                     dayIndex === 0 ? "text-red-500" :
@@ -172,19 +181,54 @@ export function MonthlyCalendarView({
                     "text-[#1a1a1a]"
                   )}>
                     <span className={cn(
-                      isToday && "bg-primary text-white w-5 h-5 rounded-full flex items-center justify-center -ml-1"
+                      "flex items-center justify-center",
+                      isToday ? "bg-primary text-white w-6 h-6 md:w-5 md:h-5 rounded-full md:-ml-1" : "w-6 h-6 md:w-auto md:h-auto"
                     )}>
                       {format(date, 'd')}
                     </span>
                     {daySchedules.length > 0 && (
-                      <span className="text-[10px] text-muted-foreground font-normal">
+                      <span className="hidden md:inline-block text-[10px] text-muted-foreground font-normal">
                         {daySchedules.length}건
                       </span>
                     )}
                   </div>
 
-                  {/* 스케줄 목록 */}
-                  <div className="flex flex-col gap-1 pb-1">
+                  {/* 스케줄 목록 (모바일 뷰 - Dot 아이콘) */}
+                  <div className="flex md:hidden flex-wrap gap-1 mt-1 px-1 justify-center">
+                    {daySchedules.slice(0, 3).map(sch => {
+                      const staffId = sch.schedule_members?.[0]?.member_id
+                      const staff = staffList.find(s => s.id === staffId)
+                      const roleInfo = staff ? getStaffRoleInfo(staff) : null
+                      const roleColor = roleInfo?.color || '#534AB7'
+                      
+                      const isActuallyOnLeave = approvedLeaves.some((leave: any) => {
+                        const schDateOnly = format(new Date(sch.start_time), 'yyyy-MM-dd')
+                        return leave.member_id === staffId && 
+                               schDateOnly >= leave.start_date && 
+                               schDateOnly <= leave.end_date
+                      })
+
+                      const currentType = isActuallyOnLeave ? 'leave' : sch.schedule_type
+                      const isLeave = currentType === 'leave'
+                      const scheduleColor = isLeave ? '#64748b' : (sch.color || roleColor)
+
+                      return (
+                        <div 
+                          key={`mob-${sch.id}`}
+                          className="w-1.5 h-1.5 rounded-full"
+                          style={{ backgroundColor: scheduleColor }}
+                        />
+                      )
+                    })}
+                    {daySchedules.length > 3 && (
+                      <div className="text-[9px] text-muted-foreground font-medium leading-none flex items-center">
+                        +{daySchedules.length - 3}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 스케줄 목록 (PC 뷰 - 기존 바(Bar) 형태) */}
+                  <div className="hidden md:flex flex-col gap-1 pb-1">
                     {daySchedules.map(sch => {
                       const staffId = sch.schedule_members?.[0]?.member_id
                       const staff = staffList.find(s => s.id === staffId)
@@ -270,13 +314,16 @@ export function MonthlyCalendarView({
                     })}
                   </div>
 
-                  {/* 빈 공간 클릭을 위한 영역 & Hover Plus Icon */}
+                  {/* 빈 공간 클릭을 위한 영역 & Hover Plus Icon (PC 전용 스타일) */}
                   {isManager && (
                     <div 
                       className={cn(
-                        "flex-1 h-0 min-h-0 group-hover/cell:h-8 group-hover/cell:min-h-[32px] group-hover/cell:mt-1 relative rounded-md transition-all duration-200 overflow-hidden bg-black/[0.02] hover:bg-black/[0.04] cursor-pointer group/add-btn"
+                        "hidden md:block flex-1 h-0 min-h-0 group-hover/cell:h-8 group-hover/cell:min-h-[32px] group-hover/cell:mt-1 relative rounded-md transition-all duration-200 overflow-hidden bg-black/[0.02] hover:bg-black/[0.04] cursor-pointer group/add-btn"
                       )}
-                      onClick={() => onDateClick(date)}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onDateClick(date)
+                      }}
                     >
                       <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/add-btn:opacity-100 transition-opacity pointer-events-none">
                         <div className="bg-white rounded-full p-1 shadow-md border border-black/10 text-black/40">

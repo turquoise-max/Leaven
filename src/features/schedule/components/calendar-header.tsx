@@ -68,34 +68,34 @@ export function CalendarHeader({
   }
 
   return (
-    <div className="px-6 py-4 flex flex-wrap items-center justify-between gap-4 shrink-0 bg-[#fbfbfb] border-b border-black/5">
+    <div className="px-4 md:px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4 shrink-0 bg-[#fbfbfb] border-b border-black/5">
       
       {/* 왼쪽: 뷰 토글 및 날짜 이동 */}
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
         {/* 뷰 토글 */}
-        <div className="flex bg-[#f3f2ef] rounded-md p-0.5 shrink-0 shadow-inner border border-black/5">
+        <div className="flex w-full md:w-auto bg-[#f3f2ef] rounded-md p-0.5 shrink-0 shadow-inner border border-black/5">
           <button 
-            className={`text-[12px] px-4 py-1.5 rounded-md transition-all ${viewMode === 'timeline' ? 'bg-white font-semibold text-[#1a1a1a] shadow-sm' : 'text-[#6b6b6b] hover:text-[#1a1a1a]'}`}
+            className={`hidden md:block flex-1 md:flex-none text-[12px] px-4 py-1.5 rounded-md transition-all ${viewMode === 'timeline' ? 'bg-white font-semibold text-[#1a1a1a] shadow-sm' : 'text-[#6b6b6b] hover:text-[#1a1a1a]'}`}
             onClick={() => setViewMode('timeline')}
           >
             타임라인
           </button>
           <button 
-            className={`text-[12px] px-4 py-1.5 rounded-md transition-all ${viewMode === 'matrix' ? 'bg-white font-semibold text-[#1a1a1a] shadow-sm' : 'text-[#6b6b6b] hover:text-[#1a1a1a]'}`}
+            className={`flex-1 md:flex-none text-[12px] px-4 py-1.5 rounded-md transition-all ${viewMode === 'matrix' ? 'bg-white font-semibold text-[#1a1a1a] shadow-sm' : 'text-[#6b6b6b] hover:text-[#1a1a1a]'}`}
             onClick={() => setViewMode('matrix')}
           >
             직원 스케줄
           </button>
           <button 
-            className={`text-[12px] px-4 py-1.5 rounded-md transition-all ${viewMode === 'calendar' ? 'bg-white font-semibold text-[#1a1a1a] shadow-sm' : 'text-[#6b6b6b] hover:text-[#1a1a1a]'}`}
+            className={`flex-1 md:flex-none text-[12px] px-4 py-1.5 rounded-md transition-all ${viewMode === 'calendar' ? 'bg-white font-semibold text-[#1a1a1a] shadow-sm' : 'text-[#6b6b6b] hover:text-[#1a1a1a]'}`}
             onClick={() => setViewMode('calendar')}
           >
             월간 캘린더
           </button>
         </div>
 
-        {/* 날짜 이동 */}
-        <div className="flex items-center gap-3">
+        {/* 날짜 이동 (PC 뷰 - 기본 스타일) */}
+        <div className="hidden md:flex items-center gap-3">
           {viewMode === 'timeline' ? (
             <>
               <div className="flex gap-1">
@@ -136,10 +136,47 @@ export function CalendarHeader({
             </>
           )}
         </div>
+
+        {/* 날짜 이동 (모바일 뷰 - 양끝 화살표, 중앙 날짜) */}
+        <div className="flex md:hidden items-center justify-between w-full px-2">
+          {viewMode === 'timeline' ? (
+            <>
+              <button className="flex items-center justify-center w-8 h-8 border border-black/15 rounded-md bg-white text-[#6b6b6b] hover:text-[#1a1a1a] transition-colors shadow-sm" onClick={() => setTimelineDate(addDays(timelineDate, -1))}>‹</button>
+              <div className="text-[14px] font-semibold text-[#1a1a1a] text-center flex-1">
+                {format(timelineDate, 'yyyy년 M월 d일 (E)', { locale: ko })}
+              </div>
+              <button className="flex items-center justify-center w-8 h-8 border border-black/15 rounded-md bg-white text-[#6b6b6b] hover:text-[#1a1a1a] transition-colors shadow-sm" onClick={() => setTimelineDate(addDays(timelineDate, 1))}>›</button>
+            </>
+          ) : viewMode === 'matrix' ? (
+            <>
+              <button className="flex items-center justify-center w-8 h-8 border border-black/15 rounded-md bg-white text-[#6b6b6b] hover:text-[#1a1a1a] transition-colors shadow-sm" onClick={() => setMatrixStartDate(addDays(matrixStartDate, -7))}>‹</button>
+              <div className="text-[14px] font-semibold text-[#1a1a1a] text-center flex-1">
+                {format(matrixStartDate, 'M월 d일')} - {format(addDays(matrixStartDate, 6), 'M월 d일', { locale: ko })}
+              </div>
+              <button className="flex items-center justify-center w-8 h-8 border border-black/15 rounded-md bg-white text-[#6b6b6b] hover:text-[#1a1a1a] transition-colors shadow-sm" onClick={() => setMatrixStartDate(addDays(matrixStartDate, 7))}>›</button>
+            </>
+          ) : (
+            <>
+              <button className="flex items-center justify-center w-8 h-8 border border-black/15 rounded-md bg-white text-[#6b6b6b] hover:text-[#1a1a1a] transition-colors shadow-sm" onClick={() => {
+                const newDate = new Date(calendarDate)
+                newDate.setMonth(newDate.getMonth() - 1)
+                setCalendarDate(newDate)
+              }}>‹</button>
+              <div className="text-[14px] font-semibold text-[#1a1a1a] text-center flex-1">
+                {format(calendarDate, 'yyyy년 M월', { locale: ko })}
+              </div>
+              <button className="flex items-center justify-center w-8 h-8 border border-black/15 rounded-md bg-white text-[#6b6b6b] hover:text-[#1a1a1a] transition-colors shadow-sm" onClick={() => {
+                const newDate = new Date(calendarDate)
+                newDate.setMonth(newDate.getMonth() + 1)
+                setCalendarDate(newDate)
+              }}>›</button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* 오른쪽: 필터 칩, 검색창, 액션 버튼 */}
-      <div className="flex items-center gap-3 ml-auto flex-wrap justify-end">
+      <div className="flex items-center gap-3 w-full md:w-auto md:ml-auto flex-wrap justify-between md:justify-end">
         
         {isManager && (
           <>

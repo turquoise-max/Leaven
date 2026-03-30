@@ -86,8 +86,162 @@ export function StaffScheduleMatrix({
   }, [staffList, activeRoleIds, getStaffRoleInfo])
 
   return (
-    <div className="flex flex-col h-full bg-white rounded-xl border border-black/10 shadow-sm overflow-hidden select-none">
-      <div className="flex-1 overflow-auto">
+    <div className="flex flex-col h-full bg-white md:bg-white rounded-xl md:border md:border-black/10 md:shadow-sm overflow-hidden select-none">
+      {/* 
+        모바일 뷰 (세로 타임라인 형태: 날짜가 좌측 라벨, 일정이 우측 리스트)
+        - 자신의 스케줄을 주로 확인하는 모바일 환경에 최적화
+        - 각각 떨어진 카드가 아닌, 하나의 연속된 리스트로 이어지도록 개선
+      */}
+      <div className="block md:hidden flex-1 overflow-auto bg-white">
+        {visibleStaff.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-[14px]">
+            표시할 직원이 없습니다.
+          </div>
+        ) : (
+          <div className="flex flex-col divide-y divide-black/5">
+            {dates.map((date) => {
+              const isToday = isSameDay(date, new Date())
+              const staff = visibleStaff[0]
+              const daySchedules = getSchedulesForStaffAndDate(staff.id, date)
+              
+              const roleInfo = getStaffRoleInfo(staff)
+              const roleColor = roleInfo?.color || '#534AB7'
+
+              return (
+                <div 
+                  key={date.toISOString()}
+                  // 모바일 뷰에서는 타임라인 탭이 숨겨져 있으므로 뷰 전환(onHeaderDateClick) 방지
+                  className={cn(
+                    "flex gap-4 p-4 transition-colors",
+                    isToday ? "bg-primary/[0.02]" : ""
+                  )}
+                >
+                  {/* 좌측 날짜 영역 */}
+                  <div className="flex flex-col items-center w-10 shrink-0 mt-1">
+                    <span className={cn(
+                      "text-[12px] font-medium mb-1",
+                      isToday ? "text-primary" : "text-muted-foreground"
+                    )}>
+                      {format(date, 'E', { locale: ko })}
+                    </span>
+                    <span className={cn(
+                      "text-[18px] font-bold leading-none w-8 h-8 flex items-center justify-center rounded-full",
+                      isToday ? "bg-primary text-white shadow-sm" : "text-[#1a1a1a]"
+                    )}>
+                      {format(date, 'd')}
+                    </span>
+                    {isToday && <div className="text-[10px] text-primary font-bold mt-1">오늘</div>}
+                  </div>
+                  
+                  {/* 우측 일정 영역 */}
+                  <div className="flex-1 flex flex-col gap-2.5 min-w-0 pt-1 border-l-2 border-transparent relative group">
+                    {/* 매니저 권한인 경우 빈 공간에서 추가 아이콘 띄우기 */}
+                    {isManager && daySchedules.length === 0 && (
+                      <div className="absolute inset-y-0 right-0 flex items-center pr-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onCellClick(staff, date)
+                          }}
+                          className="p-1.5 bg-black/5 hover:bg-black/10 text-muted-foreground rounded-full"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+
+                    {daySchedules.length === 0 ? (
+                      <div className="text-[13px] text-muted-foreground/50 py-2">
+                        일정이 없습니다.
+                      </div>
+                    ) : (
+                      daySchedules.map((sch) => {
+                        const start = new Date(sch.start_time)
+                        const end = new Date(sch.end_time)
+                        
+                        const isActuallyOnLeave = approvedLeaves.some((leave: any) => {
+                          const schDateOnly = format(new Date(sch.start_time), 'yyyy-MM-dd')
+                          return leave.member_id === staff.id && 
+                                 schDateOnly >= leave.start_date && 
+                                 schDateOnly <= leave.end_date
+                        })
+
+                        const currentType = isActuallyOnLeave ? 'leave' : sch.schedule_type
+                        const isLeave = currentType === 'leave'
+                        const scheduleColor = isLeave ? '#64748b' : (sch.color || roleColor)
+                        
+                        const typeLabelMap: Record<string, string> = {
+                          'regular': '근무',
+                          'leave': '휴가',
+                          'training': '교육',
+                          'etc': '기타'
+                        }
+                        const displayTitle = typeLabelMap[currentType] || sch.title || '근무'
+
+                        return (
+                          <div 
+                            key={sch.id}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onScheduleClick(sch, staff)
+                            }}
+                            className="relative flex flex-col gap-1 active:opacity-70 transition-opacity"
+                          >
+                            <div className="flex items-start gap-2.5">
+                              {/* 일정 좌측 색상 지시선 */}
+                              <div 
+                                className="w-1 rounded-full mt-1.5 shrink-0" 
+                                style={{ 
+                                  height: '14px',
+                                  backgroundColor: scheduleColor,
+                                  opacity: isLeave ? 0.4 : 1 
+                                }} 
+                              />
+                              <div className="flex flex-col min-w-0 flex-1">
+                                <div className="flex items-baseline justify-between gap-2">
+                                  <span className={cn(
+                                    "text-[15px] font-semibold truncate", 
+                                    isLeave ? "text-slate-600 line-through decoration-slate-400" : "text-[#1a1a1a]"
+                                  )}>
+                                    {displayTitle}
+                                  </span>
+                                  {!isLeave && (
+                                    <span className="text-[13px] font-medium shrink-0" style={{ color: scheduleColor }}>
+                                      {format(start, 'HH:mm')} - {format(end, 'HH:mm')}
+                                    </span>
+                                  )}
+                                </div>
+                                
+                                {/* 할 일 요약 (심플하게) */}
+                                {!isLeave && (sch.task_assignments || []).length > 0 && (
+                                  <div className="text-[12px] text-muted-foreground mt-0.5 truncate">
+                                    {(sch.task_assignments || []).filter((ta:any) => ta.task?.status === 'done').length} / {(sch.task_assignments || []).length}개 완료
+                                    <span className="mx-1.5 text-black/20">•</span>
+                                    {(sch.task_assignments || [])[0]?.task?.title} {(sch.task_assignments || []).length > 1 ? '외...' : ''}
+                                  </div>
+                                )}
+                                
+                                {isLeave && sch.memo && (
+                                  <div className="text-[12px] text-slate-500 mt-0.5 truncate">
+                                    {sch.memo}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* PC 뷰 (가로 스크롤 매트릭스 표 형태) */}
+      <div className="hidden md:block flex-1 overflow-auto">
         <table className="w-full text-left border-collapse min-w-[800px]">
           <thead className="sticky top-0 bg-[#fbfbfb] z-20 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
             <tr>
