@@ -25,6 +25,7 @@ interface StaffScheduleMatrixProps {
   isManager?: boolean
   onCellClick: (staff: any, date: Date) => void
   onScheduleClick: (sch: any, staff: any) => void
+  onScheduleDrop?: (scheduleId: string, sourceStaffId: string, targetStaffId: string, targetDate: Date) => void
 }
 
 export function StaffScheduleMatrix({
@@ -38,7 +39,8 @@ export function StaffScheduleMatrix({
   approvedLeaves = [],
   isManager = true,
   onCellClick,
-  onScheduleClick
+  onScheduleClick,
+  onScheduleDrop
 }: StaffScheduleMatrixProps) {
   const dates = Array.from({ length: daysCount }, (_, i) => addDays(startDate, i))
 
@@ -137,12 +139,34 @@ export function StaffScheduleMatrix({
                       return (
                         <td 
                           key={date.toISOString()} 
+                          onDragOver={(e) => {
+                            if (!isManager) return
+                            e.preventDefault()
+                            e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.02)'
+                          }}
+                          onDragLeave={(e) => {
+                            if (!isManager) return
+                            e.currentTarget.style.backgroundColor = ''
+                          }}
+                          onDrop={(e) => {
+                            if (!isManager) return
+                            e.preventDefault()
+                            e.currentTarget.style.backgroundColor = ''
+                            try {
+                              const data = JSON.parse(e.dataTransfer.getData('text/plain'))
+                              if (data.scheduleId && data.sourceStaffId && onScheduleDrop) {
+                                onScheduleDrop(data.scheduleId, data.sourceStaffId, staff.id, date)
+                              }
+                            } catch (err) {
+                              console.error('Drop error:', err)
+                            }
+                          }}
                           className={cn(
                             "p-1.5 border-b border-r border-black/5 align-top relative transition-all group/cell",
                             isToday ? "bg-primary/[0.02]" : ""
                           )}
                         >
-                          <div className="flex flex-col h-full min-h-[40px]">
+                          <div className="flex flex-col h-full min-h-[40px] pointer-events-none *:pointer-events-auto">
                             <div className="flex flex-col gap-1.5">
                               {daySchedules.map(sch => {
                                 const start = new Date(sch.start_time)
@@ -180,13 +204,26 @@ export function StaffScheduleMatrix({
                                     <Tooltip>
                                     <TooltipTrigger asChild>
                                       <div 
+                                        draggable={isManager && !isLeave}
+                                        onDragStart={(e) => {
+                                          if (!isManager || isLeave) return
+                                          e.dataTransfer.setData('text/plain', JSON.stringify({
+                                            scheduleId: sch.id,
+                                            sourceStaffId: staff.id
+                                          }))
+                                          e.currentTarget.style.opacity = '0.5'
+                                        }}
+                                        onDragEnd={(e) => {
+                                          e.currentTarget.style.opacity = '1'
+                                        }}
                                         onClick={(e) => {
                                           e.stopPropagation()
                                           onScheduleClick(sch, staff)
                                         }}
                                         className={cn(
                                           "px-2 py-1.5 rounded-md text-[11px] font-medium transition-all hover:scale-[1.02] shadow-sm border border-black/5 text-left cursor-pointer flex flex-col justify-center",
-                                          isLeave ? "h-full min-h-[50px] items-center text-center opacity-90 hover:opacity-100" : ""
+                                          isLeave ? "h-full min-h-[50px] items-center text-center opacity-90 hover:opacity-100" : "",
+                                          isManager && !isLeave ? "active:cursor-grabbing cursor-grab" : ""
                                         )}
                                         style={{ 
                                           backgroundColor: hexToRgba(scheduleColor, isLeave ? 0.15 : 0.1), 

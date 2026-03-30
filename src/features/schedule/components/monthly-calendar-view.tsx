@@ -23,6 +23,7 @@ interface MonthlyCalendarViewProps {
   isManager?: boolean
   onDateClick: (date: Date) => void
   onScheduleClick: (sch: any, staff: any) => void
+  onScheduleDrop?: (scheduleId: string, sourceStaffId: string, targetStaffId: string, targetDate: Date) => void
 }
 
 export function MonthlyCalendarView({
@@ -35,7 +36,8 @@ export function MonthlyCalendarView({
   approvedLeaves = [],
   isManager = true,
   onDateClick,
-  onScheduleClick
+  onScheduleClick,
+  onScheduleDrop
 }: MonthlyCalendarViewProps) {
   const monthStart = startOfMonth(currentDate)
   const monthEnd = endOfMonth(monthStart)
@@ -131,6 +133,29 @@ export function MonthlyCalendarView({
               return (
                 <div 
                   key={date.toISOString()} 
+                  onDragOver={(e) => {
+                    if (!isManager) return
+                    e.preventDefault()
+                    e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.02)'
+                  }}
+                  onDragLeave={(e) => {
+                    if (!isManager) return
+                    e.currentTarget.style.backgroundColor = ''
+                  }}
+                  onDrop={(e) => {
+                    if (!isManager) return
+                    e.preventDefault()
+                    e.currentTarget.style.backgroundColor = ''
+                    try {
+                      const data = JSON.parse(e.dataTransfer.getData('text/plain'))
+                      if (data.scheduleId && data.sourceStaffId && onScheduleDrop) {
+                        // 월간 뷰에서는 특정 직원의 셀이 아니므로 날짜만 변경 (targetStaffId는 유지)
+                        onScheduleDrop(data.scheduleId, data.sourceStaffId, data.sourceStaffId, date)
+                      }
+                    } catch (err) {
+                      console.error('Drop error:', err)
+                    }
+                  }}
                   className={cn(
                     "border-r border-black/5 last:border-r-0 p-1.5 flex flex-col gap-1 relative transition-all bg-white",
                     isToday && "bg-primary/[0.03] ring-1 ring-inset ring-primary/20",
@@ -205,11 +230,27 @@ export function MonthlyCalendarView({
                       return (
                         <div
                           key={sch.id}
+                          draggable={isManager && !isLeave}
+                          onDragStart={(e) => {
+                            if (!isManager || isLeave) return
+                            e.stopPropagation()
+                            e.dataTransfer.setData('text/plain', JSON.stringify({
+                              scheduleId: sch.id,
+                              sourceStaffId: staffId
+                            }))
+                            e.currentTarget.style.opacity = '0.5'
+                          }}
+                          onDragEnd={(e) => {
+                            e.currentTarget.style.opacity = '1'
+                          }}
                           onClick={(e) => {
                             e.stopPropagation()
                             if (staff) onScheduleClick(sch, staff)
                           }}
-                          className="px-1.5 py-1 rounded text-[10px] truncate transition-transform hover:scale-[1.02] cursor-pointer shadow-sm border border-black/5"
+                          className={cn(
+                            "px-1.5 py-1 rounded text-[10px] truncate transition-transform hover:scale-[1.02] cursor-pointer shadow-sm border border-black/5",
+                            isManager && !isLeave && "active:cursor-grabbing cursor-grab"
+                          )}
                           style={{ 
                             backgroundColor: hexToRgba(scheduleColor, 0.1), 
                             color: '#1a1a1a',

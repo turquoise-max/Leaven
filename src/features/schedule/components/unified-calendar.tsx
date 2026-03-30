@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { updateTaskStatus } from '@/features/schedule/task-actions'
-import { updateScheduleTime } from '@/features/schedule/actions'
+import { updateScheduleTime, updateSchedule } from '@/features/schedule/actions'
 import { toast } from 'sonner'
 import { toUTCISOString, getDiffInMinutes, addMinutesToTime } from '@/shared/lib/date-utils'
 import { ScheduleDetailPanel, STATUS_INFO } from './schedule-detail-panel'
@@ -776,6 +776,143 @@ export function UnifiedCalendar({
                 if (!isManager) return;
                 handleScheduleClick(sch, staff)
               }}
+              onScheduleDrop={async (scheduleId: string, sourceStaffId: string, targetStaffId: string, targetDate: Date) => {
+                if (!isManager) return;
+                
+                const sch = localSchedulesRef.current.find(s => s.id === scheduleId)
+                if (!sch) return
+
+                const startObj = new Date(sch.start_time)
+                const endObj = new Date(sch.end_time)
+                
+                const oldDateStr = format(startObj, 'yyyy-MM-dd')
+                const newDateStr = format(targetDate, 'yyyy-MM-dd')
+                
+                if (oldDateStr === newDateStr && sourceStaffId === targetStaffId) {
+                  return // 변경된 것이 없음
+                }
+
+                // 새로운 시작/종료 시간 계산 (UTC 기준)
+                const startTimeStr = format(startObj, 'HH:mm:ss')
+                const endTimeStr = format(endObj, 'HH:mm:ss')
+                
+                const newStartUTC = toUTCISOString(newDateStr, startTimeStr)
+                let newEndUTC = toUTCISOString(newDateStr, endTimeStr)
+                
+                // 종료 시간이 시작 시간보다 작다면 (자정을 넘긴 경우)
+                if (endTimeStr < startTimeStr) {
+                  const nextDateStr = format(addDays(targetDate, 1), 'yyyy-MM-dd')
+                  newEndUTC = toUTCISOString(nextDateStr, endTimeStr)
+                }
+
+                // 오버랩 체크 (같은 직원, 같은 날짜일 경우 겹치는 스케줄 있는지 확인)
+                const startUtcDate = new Date(newStartUTC)
+                const endUtcDate = new Date(newEndUTC)
+                
+                const isOverlap = localSchedulesRef.current.some(s => {
+                  if (s.id === sch.id) return false;
+                  const hasMember = s.schedule_members?.some((sm: any) => sm.member_id === targetStaffId);
+                  if (!hasMember) return false;
+                  if (!isSameDay(new Date(s.start_time), startUtcDate)) return false;
+                  return startUtcDate < new Date(s.end_time) && endUtcDate > new Date(s.start_time);
+                });
+
+                if (isOverlap) {
+                  toast.error('해당 시간대에 이미 스케줄이 존재합니다.')
+                  return
+                }
+
+                const loadingToast = toast.loading('스케줄을 이동 중입니다...')
+                
+                const targetStaff = staffList.find(st => st.id === targetStaffId)
+                const targetRoleInfo = targetStaff ? getStaffRoleInfo(targetStaff) : null
+                const newColor = targetRoleInfo?.color || sch.color
+
+                try {
+                  const formData = new FormData()
+                  formData.append('userIds', JSON.stringify([targetStaffId]))
+                  formData.append('date', newDateStr)
+                  formData.append('startTime', format(startObj, 'HH:mm'))
+                  formData.append('endTime', format(endObj, 'HH:mm'))
+                  if (sch.memo) formData.append('memo', sch.memo)
+                  if (sch.title) formData.append('title', sch.title)
+                  if (newColor) formData.append('color', newColor)
+                  formData.append('schedule_type', sch.schedule_type || 'regular')
+
+                  
+                  // 기존 상태 백업
+                  const previousSchedules = [...localSchedulesRef.current]
+
+                  // 로컬 상태 낙관적 업데이트
+                  setLocalSchedules(prev => prev.map(s => {
+                    if (s.id === sch.id) {
+                      // 하위 태스크의 시간과 날짜도 계산해서 밀어줌 (낙관적 업데이트용)
+                      let updatedAssignments = s.task_assignments;
+                      const oldDateStr = format(startObj, 'yyyy-MM-dd')
+                      const deltaMs = targetDate.getTime() - new Date(oldDateStr).getTime()
+                      const deltaMinutes = Math.round(deltaMs / 60000)
+
+                      if (updatedAssignments && updatedAssignments.length > 0) {
+                         updatedAssignments = updatedAssignments.map((ta: any) => {
+                            // 날짜 및 직원 ID(user_id) 갱신
+                            // ta의 기존 user_id를 targetStaff(새 직원)의 user_id로 교체
+                            const updatedTa = { 
+                               ...ta, 
+                               assigned_date: newDateStr,
+                               user_id: targetStaff?.user_id || ta.user_id 
+                            }
+                            
+                            if (!ta.start_time || deltaMinutes === 0) {
+                               return updatedTa
+                            }
+                            
+                            // 시간 이동 적용
+                            const newStartStr = addMinutesToTime(ta.start_time, deltaMinutes)
+                            let newEndStr = ta.end_time;
+                            if (ta.end_time) {
+                              newEndStr = addMinutesToTime(ta.end_time, deltaMinutes)
+                              newEndStr = newEndStr.length === 5 ? newEndStr + ':00' : newEndStr
+                            }
+                            
+                            return {
+                              ...updatedTa,
+                              start_time: newStartStr.length === 5 ? newStartStr + ':00' : newStartStr,
+                              end_time: newEndStr
+                            }
+                         })
+                      }
+
+                      return {
+                        ...s,
+                        start_time: newStartUTC,
+                        end_time: newEndUTC,
+                        color: newColor,
+                        schedule_members: [{
+                          member_id: targetStaffId,
+                          member: staffList.find(st => st.id === targetStaffId)
+                        }],
+                        task_assignments: updatedAssignments
+                      }
+                    }
+                    return s
+                  }))
+
+                  const result = await updateSchedule(storeId, sch.id, formData)
+                  if (result.error) {
+                    // 에러 발생 시 원래 상태로 롤백
+                    setLocalSchedules(previousSchedules)
+                    toast.error(result.error, { id: loadingToast })
+                    return
+                  }
+
+                  toast.success('스케줄이 이동되었습니다.', { id: loadingToast })
+
+                } catch (error) {
+                  // 원래 상태로 롤백 (catch 블록에서는 이전 상태를 가져올 방법이 제한적이므로 바로 위의 previousSchedules 사용)
+                  setLocalSchedules(localSchedulesRef.current) 
+                  toast.error('스케줄 이동에 실패했습니다.', { id: loadingToast })
+                }
+              }}
             />
           ) : (
             <MonthlyCalendarView 
@@ -802,6 +939,142 @@ export function UnifiedCalendar({
               onScheduleClick={(sch, staff) => {
                 if (!isManager) return;
                 handleScheduleClick(sch, staff)
+              }}
+              onScheduleDrop={async (scheduleId: string, sourceStaffId: string, targetStaffId: string, targetDate: Date) => {
+                if (!isManager) return;
+                
+                const sch = localSchedulesRef.current.find(s => s.id === scheduleId)
+                if (!sch) return
+
+                const startObj = new Date(sch.start_time)
+                const endObj = new Date(sch.end_time)
+                
+                const oldDateStr = format(startObj, 'yyyy-MM-dd')
+                const newDateStr = format(targetDate, 'yyyy-MM-dd')
+                
+                if (oldDateStr === newDateStr && sourceStaffId === targetStaffId) {
+                  return // 변경된 것이 없음
+                }
+
+                // 새로운 시작/종료 시간 계산 (UTC 기준)
+                const startTimeStr = format(startObj, 'HH:mm:ss')
+                const endTimeStr = format(endObj, 'HH:mm:ss')
+                
+                const newStartUTC = toUTCISOString(newDateStr, startTimeStr)
+                let newEndUTC = toUTCISOString(newDateStr, endTimeStr)
+                
+                // 종료 시간이 시작 시간보다 작다면 (자정을 넘긴 경우)
+                if (endTimeStr < startTimeStr) {
+                  const nextDateStr = format(addDays(targetDate, 1), 'yyyy-MM-dd')
+                  newEndUTC = toUTCISOString(nextDateStr, endTimeStr)
+                }
+
+                // 오버랩 체크 (같은 직원, 같은 날짜일 경우 겹치는 스케줄 있는지 확인)
+                const startUtcDate = new Date(newStartUTC)
+                const endUtcDate = new Date(newEndUTC)
+                
+                const isOverlap = localSchedulesRef.current.some(s => {
+                  if (s.id === sch.id) return false;
+                  const hasMember = s.schedule_members?.some((sm: any) => sm.member_id === targetStaffId);
+                  if (!hasMember) return false;
+                  if (!isSameDay(new Date(s.start_time), startUtcDate)) return false;
+                  return startUtcDate < new Date(s.end_time) && endUtcDate > new Date(s.start_time);
+                });
+
+                if (isOverlap) {
+                  toast.error('해당 시간대에 이미 스케줄이 존재합니다.')
+                  return
+                }
+
+                const loadingToast = toast.loading('스케줄을 이동 중입니다...')
+                
+                const targetStaff = staffList.find(st => st.id === targetStaffId)
+                const targetRoleInfo = targetStaff ? getStaffRoleInfo(targetStaff) : null
+                const newColor = targetRoleInfo?.color || sch.color
+
+                try {
+                  const formData = new FormData()
+                  formData.append('userIds', JSON.stringify([targetStaffId]))
+                  formData.append('date', newDateStr)
+                  formData.append('startTime', format(startObj, 'HH:mm'))
+                  formData.append('endTime', format(endObj, 'HH:mm'))
+                  if (sch.memo) formData.append('memo', sch.memo)
+                  if (sch.title) formData.append('title', sch.title)
+                  if (newColor) formData.append('color', newColor)
+                  formData.append('schedule_type', sch.schedule_type || 'regular')
+
+                  // 기존 상태 백업
+                  const previousSchedules = [...localSchedulesRef.current]
+
+                  // 로컬 상태 낙관적 업데이트
+                  setLocalSchedules(prev => prev.map(s => {
+                    if (s.id === sch.id) {
+                      // 하위 태스크의 시간과 날짜도 계산해서 밀어줌 (낙관적 업데이트용)
+                      let updatedAssignments = s.task_assignments;
+                      const oldDateStr = format(startObj, 'yyyy-MM-dd')
+                      const deltaMs = targetDate.getTime() - new Date(oldDateStr).getTime()
+                      const deltaMinutes = Math.round(deltaMs / 60000)
+
+                      if (updatedAssignments && updatedAssignments.length > 0) {
+                         updatedAssignments = updatedAssignments.map((ta: any) => {
+                            // 날짜 및 직원 ID(user_id) 갱신
+                            // ta의 기존 user_id를 targetStaff(새 직원)의 user_id로 교체
+                            const updatedTa = { 
+                               ...ta, 
+                               assigned_date: newDateStr,
+                               user_id: targetStaff?.user_id || ta.user_id 
+                            }
+                            
+                            if (!ta.start_time || deltaMinutes === 0) {
+                               return updatedTa
+                            }
+                            
+                            // 시간 이동 적용
+                            const newStartStr = addMinutesToTime(ta.start_time, deltaMinutes)
+                            let newEndStr = ta.end_time;
+                            if (ta.end_time) {
+                              newEndStr = addMinutesToTime(ta.end_time, deltaMinutes)
+                              newEndStr = newEndStr.length === 5 ? newEndStr + ':00' : newEndStr
+                            }
+                            
+                            return {
+                              ...updatedTa,
+                              start_time: newStartStr.length === 5 ? newStartStr + ':00' : newStartStr,
+                              end_time: newEndStr
+                            }
+                         })
+                      }
+
+                      return {
+                        ...s,
+                        start_time: newStartUTC,
+                        end_time: newEndUTC,
+                        color: newColor,
+                        schedule_members: [{
+                          member_id: targetStaffId,
+                          member: staffList.find(st => st.id === targetStaffId)
+                        }],
+                        task_assignments: updatedAssignments
+                      }
+                    }
+                    return s
+                  }))
+
+                  const updateResult = await updateSchedule(storeId, sch.id, formData)
+                  if (updateResult.error) {
+                     // 에러 발생 시 원래 상태로 롤백
+                    setLocalSchedules(previousSchedules)
+                    toast.error(updateResult.error, { id: loadingToast })
+                    return
+                  }
+
+                  toast.success('스케줄이 이동되었습니다.', { id: loadingToast })
+
+                } catch (error) {
+                  // 원래 상태로 롤백
+                  setLocalSchedules(localSchedulesRef.current)
+                  toast.error('스케줄 이동에 실패했습니다.', { id: loadingToast })
+                }
               }}
             />
           )}
