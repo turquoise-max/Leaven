@@ -40,37 +40,38 @@ export function StaffAnnouncementList({ announcements }: StaffAnnouncementListPr
 
   return (
     <>
-      <div className="w-full mb-6">
-        <div className="flex items-center gap-2 mb-2 px-1">
-          <Megaphone className="h-4 w-4 text-primary" />
-          <h2 className="text-sm font-semibold">매장 공지사항</h2>
+      <div className="w-full mb-3 md:mb-6">
+        <div className="flex items-center gap-2 mb-1.5 md:mb-2 px-1">
+          <Megaphone className="h-3.5 w-3.5 md:h-4 md:w-4 text-primary" />
+          <h2 className="text-xs md:text-sm font-semibold">매장 공지사항</h2>
           {announcements.length > displayAnnouncements.length && (
-            <span className="text-xs text-muted-foreground cursor-pointer hover:underline ml-auto"
+            <span className="text-[10px] md:text-xs text-muted-foreground cursor-pointer hover:underline ml-auto"
                   onClick={() => setShowAllList(true)}>
               전체보기 ({announcements.length})
             </span>
           )}
         </div>
         
-        <div className="flex gap-3 overflow-x-auto pb-2 snap-x scrollbar-hide">
+        <div className="flex flex-col md:flex-row gap-2 md:gap-3 overflow-x-auto pb-1 md:pb-2 snap-x scrollbar-hide">
           {displayAnnouncements.map((announcement) => (
             <div 
               key={announcement.id} 
               onClick={() => setSelectedAnnouncement(announcement)}
-              className={`flex-none w-[280px] md:w-[320px] p-3 rounded-lg border cursor-pointer snap-start transition-colors hover:bg-muted/50 ${
+              className={`flex-none w-full md:w-[320px] p-2 md:p-3 rounded-lg border cursor-pointer snap-start transition-colors hover:bg-muted/50 ${
                 announcement.is_important ? 'bg-primary/5 border-primary/20 shadow-sm' : 'bg-card shadow-sm'
               }`}
             >
-              <div className="flex items-center gap-2 mb-1.5">
+              <div className="flex items-center gap-2 mb-0 md:mb-1.5">
                 {announcement.is_important && (
-                  <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4">중요</Badge>
+                  <Badge variant="destructive" className="text-[9px] md:text-[10px] px-1 md:px-1.5 py-0 h-3.5 md:h-4">중요</Badge>
                 )}
-                <h4 className="font-semibold text-sm truncate flex-1">{announcement.title}</h4>
+                <h4 className="font-semibold text-xs md:text-sm truncate flex-1">{announcement.title}</h4>
+                <ChevronRight className="md:hidden h-3 w-3 text-muted-foreground shrink-0" />
               </div>
-              <p className="text-xs text-muted-foreground line-clamp-1 mb-2">
+              <p className="hidden md:block text-xs text-muted-foreground line-clamp-1 mb-2">
                 {announcement.content}
               </p>
-              <div className="flex justify-between items-center text-[10px] text-muted-foreground">
+              <div className="hidden md:flex justify-between items-center text-[10px] text-muted-foreground">
                 <span>{format(new Date(announcement.created_at), 'yyyy.MM.dd', { locale: ko })}</span>
                 <span className="flex items-center">자세히 보기 <ChevronRight className="h-3 w-3 ml-0.5" /></span>
               </div>
@@ -80,30 +81,30 @@ export function StaffAnnouncementList({ announcements }: StaffAnnouncementListPr
       </div>
 
       <Dialog open={showAllList} onOpenChange={setShowAllList}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="w-[95%] sm:max-w-[500px] p-4 md:p-6 rounded-xl">
           <DialogHeader>
-            <DialogTitle>전체 공지사항</DialogTitle>
+            <DialogTitle className="text-base md:text-lg text-center md:text-left w-full">전체 공지사항</DialogTitle>
           </DialogHeader>
-          <ScrollArea className="max-h-[60vh] mt-4 pr-4">
-            <div className="flex flex-col gap-3">
+          <ScrollArea className="max-h-[60vh] mt-2 md:mt-4 pr-0 md:pr-4">
+            <div className="flex flex-col gap-2 md:gap-3">
               {announcements.map((announcement) => (
                 <div 
                   key={announcement.id} 
                   onClick={() => setSelectedAnnouncement(announcement)}
-                  className={`p-3 rounded-lg border cursor-pointer transition-colors hover:bg-muted/50 ${
+                  className={`p-2.5 md:p-3 rounded-lg border cursor-pointer transition-colors hover:bg-muted/50 ${
                     announcement.is_important ? 'bg-primary/5 border-primary/20 shadow-sm' : 'bg-card shadow-sm'
                   }`}
                 >
-                  <div className="flex items-center gap-2 mb-1.5">
+                  <div className="flex items-center gap-2 mb-1 md:mb-1.5">
                     {announcement.is_important && (
-                      <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4">중요</Badge>
+                      <Badge variant="destructive" className="text-[9px] md:text-[10px] px-1.5 py-0 h-3.5 md:h-4">중요</Badge>
                     )}
-                    <h4 className="font-semibold text-sm truncate flex-1">{announcement.title}</h4>
+                    <h4 className="font-semibold text-xs md:text-sm md:truncate flex-1 break-all whitespace-normal">{announcement.title}</h4>
                   </div>
-                  <p className="text-xs text-muted-foreground line-clamp-1 mb-2">
+                  <p className="text-[11px] md:text-xs text-muted-foreground line-clamp-1 mb-1 md:mb-2">
                     {announcement.content}
                   </p>
-                  <div className="flex justify-between items-center text-[10px] text-muted-foreground">
+                  <div className="flex justify-between items-center text-[9px] md:text-[10px] text-muted-foreground">
                     <span>{format(new Date(announcement.created_at), 'yyyy.MM.dd', { locale: ko })}</span>
                     <span>{announcement.author?.full_name || '관리자'}</span>
                   </div>

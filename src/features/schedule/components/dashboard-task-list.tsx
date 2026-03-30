@@ -342,27 +342,31 @@ export function DashboardTaskList({ storeId, roleId, attendanceStatus, currentUs
   return (
     <>
       <div className="flex flex-col h-full bg-white rounded-xl border border-black/10 shadow-sm overflow-hidden select-none">
-      <div className="p-4 border-b border-black/5 bg-[#fbfbfb] flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-4">
-            <h2 className="text-[16px] font-semibold text-[#1a1a1a] flex items-center gap-2">
-                <Clock className="w-[18px] h-[18px] text-[#1a1a1a]" />
-                오늘의 타임라인
+      <div className="p-3 md:p-4 border-b border-black/5 bg-[#fbfbfb] flex items-center justify-between shrink-0 gap-2">
+          <div className="flex items-center gap-2 md:gap-4 min-w-0">
+            <h2 className="text-[14px] md:text-[16px] font-semibold text-[#1a1a1a] flex items-center gap-1.5 shrink-0">
+                <Clock className="w-4 h-4 md:w-[18px] md:h-[18px] text-[#1a1a1a]" />
+                <span className="truncate">오늘의 타임라인</span>
             </h2>
-            <div className="w-px h-4 bg-black/10 mx-1" />
-            <div className="flex items-center gap-2">
+            <div className="hidden xs:block w-px h-4 bg-black/10 mx-0.5 md:mx-1 shrink-0" />
+            <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
               <Switch 
                 id="show-guide" 
                 checked={showPlaybook} 
                 onCheckedChange={setShowPlaybook} 
-                className="scale-90"
+                className="scale-[0.75] md:scale-90"
               />
-              <Label htmlFor="show-guide" className="text-[12px] font-medium text-[#6b6b6b] cursor-pointer">루틴 업무 표시</Label>
+              <Label htmlFor="show-guide" className="text-[10px] md:text-[12px] font-medium text-[#6b6b6b] cursor-pointer whitespace-nowrap">
+                <span className="hidden xs:inline">루틴 업무</span>
+                <span className="xs:hidden">루틴</span>
+              </Label>
             </div>
           </div>
           
-          <div className="flex items-center gap-3">
-            <Badge variant="outline" className="text-[11px] font-medium bg-white text-[#6b6b6b] border-black/10">
-                {formattedDate}
+          <div className="flex items-center gap-1.5 md:gap-3 shrink-0">
+            <Badge variant="outline" className="text-[10px] md:text-[11px] font-medium bg-white text-[#6b6b6b] border-black/10 px-1.5 md:px-2.5">
+                <span className="hidden sm:inline">{formattedDate}</span>
+                <span className="sm:hidden">{now.getMonth() + 1}/{now.getDate()}</span>
             </Badge>
             <TooltipProvider delayDuration={200}>
               <Tooltip>
@@ -370,7 +374,7 @@ export function DashboardTaskList({ storeId, roleId, attendanceStatus, currentUs
                   <Button 
                     variant="outline" 
                     size="icon" 
-                    className="h-7 w-7 rounded-md border-black/10 shadow-sm"
+                    className="h-6 w-6 md:h-7 md:w-7 rounded-md border-black/10 shadow-sm"
                     onClick={() => {
                       setCreateForm({
                         title: '개인 업무',
@@ -391,19 +395,19 @@ export function DashboardTaskList({ storeId, roleId, attendanceStatus, currentUs
           </div>
       </div>
 
-      <ScrollArea className="flex-1 p-5 h-full relative bg-[#fbfbfb]" ref={scrollRef}>
-          <div className="flex flex-col min-h-full pt-4 pb-32">
+      <ScrollArea className="flex-1 p-3 md:p-5 h-full relative bg-[#fbfbfb]" ref={scrollRef}>
+          <div className="flex flex-col min-h-full pt-2 md:pt-4 pb-32">
             
             {/* 상시 업무 및 플레이북 영역 (시간 미지정) */}
             {mergedAnytimeTasks.length > 0 && (
-              <div className="mb-8">
-                <div className="flex items-center gap-2 mb-3">
-                  <Calendar className="w-4 h-4 text-[#6b6b6b]" />
-                  <h3 className="text-[13px] font-bold text-[#1a1a1a]">상시 업무 {showPlaybook && '& 루틴'}</h3>
-                  <span className="text-[11px] text-[#6b6b6b] font-medium bg-black/5 px-1.5 py-0.5 rounded-md">시간 미지정</span>
-                  <Badge variant="secondary" className="ml-auto bg-black/5 text-[#1a1a1a] font-bold shadow-none border-none">{mergedAnytimeTasks.length}</Badge>
+              <div className="mb-4 md:mb-8">
+                <div className="flex items-center gap-2 mb-2 md:mb-3">
+                  <Calendar className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#6b6b6b]" />
+                  <h3 className="text-[12px] md:text-[13px] font-bold text-[#1a1a1a]">상시 업무 {showPlaybook && '& 루틴'}</h3>
+                  <span className="hidden xs:inline text-[10px] md:text-[11px] text-[#6b6b6b] font-medium bg-black/5 px-1.5 py-0.5 rounded-md">시간 미지정</span>
+                  <Badge variant="secondary" className="ml-auto bg-black/5 text-[#1a1a1a] font-bold shadow-none border-none text-[10px] md:text-[11px] px-1.5 h-5">{mergedAnytimeTasks.length}</Badge>
                 </div>
-                <div className="space-y-2.5">
+                <div className="space-y-2 md:space-y-2.5">
                   {mergedAnytimeTasks.map(task => {
                     const rStatus = task.is_template ? routineStatus[task.id] : undefined;
                     return (
@@ -424,9 +428,9 @@ export function DashboardTaskList({ storeId, roleId, attendanceStatus, currentUs
             )}
 
             {/* 타임라인 영역 */}
-            <div className="relative flex-1 pl-12 pr-1 mt-2">
+            <div className="relative flex-1 pl-10 md:pl-12 pr-0 md:pr-1 mt-1 md:mt-2">
               {/* 왼쪽 수직 기준선 */}
-              <div className="absolute left-[54px] top-2 bottom-4 w-px bg-black/10" />
+              <div className="absolute left-[46px] md:left-[54px] top-2 bottom-4 w-px bg-black/10" />
 
               {groupedTasks.length === 0 && mergedAnytimeTasks.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
@@ -437,15 +441,15 @@ export function DashboardTaskList({ storeId, roleId, attendanceStatus, currentUs
 
               {groupedTasks.map((group, i) => {
                 // 이전 업무와의 시간 차이에 비례한 여백 계산
-                let marginTopClass = "mt-4"
+                let marginTopClass = "mt-3 md:mt-4"
                 if (i > 0) {
                    const prev = groupedTasks[i-1]
                    const diffMins = (group.hour * 60 + group.minute) - (prev.hour * 60 + prev.minute)
                    
-                   if (diffMins <= 30) marginTopClass = "mt-2"
-                   else if (diffMins <= 60) marginTopClass = "mt-6"
-                   else if (diffMins <= 120) marginTopClass = "mt-10"
-                   else marginTopClass = "mt-16"
+                   if (diffMins <= 30) marginTopClass = "mt-1.5 md:mt-2"
+                   else if (diffMins <= 60) marginTopClass = "mt-4 md:mt-6"
+                   else if (diffMins <= 120) marginTopClass = "mt-6 md:mt-10"
+                   else marginTopClass = "mt-10 md:mt-16"
                 }
 
                 // 과거인지 판단
@@ -455,19 +459,19 @@ export function DashboardTaskList({ storeId, roleId, attendanceStatus, currentUs
                   <div key={group.time} className={cn("relative z-10", marginTopClass)}>
                     <div className="flex items-center">
                       {/* 시간 라벨 (왼쪽) */}
-                      <div className="absolute -left-[54px] w-[46px] text-right">
-                        <span className="text-xs font-semibold text-muted-foreground bg-transparent py-1">
+                      <div className="absolute -left-[46px] md:-left-[54px] w-[38px] md:w-[46px] text-right">
+                        <span className="text-[10px] md:text-xs font-semibold text-muted-foreground bg-transparent py-1">
                           {group.time}
                         </span>
                       </div>
 
                       {/* 노드 (점) */}
                       <div className="absolute -left-[4.5px] flex items-center justify-center">
-                        <div className="w-2.5 h-2.5 rounded-full bg-[#1a1a1a] border-2 border-[#fbfbfb] shadow-sm z-10" />
+                        <div className="w-2 md:w-2.5 h-2 md:h-2.5 rounded-full bg-[#1a1a1a] border-2 border-[#fbfbfb] shadow-sm z-10" />
                       </div>
 
                       {/* 카드 목록 */}
-                      <div className={cn("flex-1 flex flex-col gap-2 pl-4 transition-opacity", isPast ? "opacity-60 hover:opacity-100" : "")}>
+                      <div className={cn("flex-1 flex flex-col gap-1.5 md:gap-2 pl-3 md:pl-4 transition-opacity", isPast ? "opacity-60 hover:opacity-100" : "")}>
                         {group.tasks.map(task => {
                           const rStatus = task.is_template ? routineStatus[task.id] : undefined;
                           return (
@@ -488,13 +492,13 @@ export function DashboardTaskList({ storeId, roleId, attendanceStatus, currentUs
                     
                     {/* 현재 시간 표시선 (이 그룹 직후가 현재 시간일 때) */}
                     {i === currentLineGroupIndex && (
-                       <div className="relative h-12 flex items-center -ml-[54px] z-20">
-                          <div className="w-[50px] text-right pr-[7px] shrink-0 flex justify-end">
-                            <div className="bg-[#1D9E75] text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md shadow-[0_2px_4px_rgba(29,158,117,0.4)] whitespace-nowrap">
+                       <div className="relative h-8 md:h-12 flex items-center -ml-[46px] md:-ml-[54px] z-20">
+                          <div className="w-[42px] md:w-[50px] text-right pr-[7px] shrink-0 flex justify-end">
+                            <div className="bg-[#1D9E75] text-white text-[8px] md:text-[9px] font-bold px-1 md:px-1.5 py-0.5 rounded-md shadow-[0_2px_4px_rgba(29,158,117,0.4)] whitespace-nowrap">
                               {now.getHours().toString().padStart(2, '0')}:{now.getMinutes().toString().padStart(2, '0')}
                             </div>
                           </div>
-                          <div className="w-[7px] h-[7px] rounded-full bg-[#1D9E75] border-[1.5px] border-white shrink-0 z-20 -ml-[3.5px] shadow-[0_0_4px_rgba(29,158,117,0.6)]" />
+                          <div className="w-1.5 md:w-[7px] h-1.5 md:h-[7px] rounded-full bg-[#1D9E75] border-[1.5px] border-white shrink-0 z-20 -ml-[3px] md:-ml-[3.5px] shadow-[0_0_4px_rgba(29,158,117,0.6)]" />
                           <div className="flex-1 h-[1.5px] bg-gradient-to-r from-[rgba(29,158,117,0.8)] via-[rgba(29,158,117,0.3)] to-transparent" />
                        </div>
                     )}
@@ -506,12 +510,12 @@ export function DashboardTaskList({ storeId, roleId, attendanceStatus, currentUs
               {/* 타임라인 시작 전일 경우 시간 표시선 (제일 위에) */}
               {groupedTasks.length > 0 && currentLineGroupIndex === -1 && (
                  <div className="absolute top-0 left-0 right-0 h-0 flex items-center z-20">
-                    <div className="w-[50px] text-right pr-[7px] shrink-0 flex justify-end">
-                      <div className="bg-[#1D9E75] text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md shadow-[0_2px_4px_rgba(29,158,117,0.4)] whitespace-nowrap">
+                    <div className="w-[42px] md:w-[50px] text-right pr-[7px] shrink-0 flex justify-end">
+                      <div className="bg-[#1D9E75] text-white text-[8px] md:text-[9px] font-bold px-1 md:px-1.5 py-0.5 rounded-md shadow-[0_2px_4px_rgba(29,158,117,0.4)] whitespace-nowrap">
                         {now.getHours().toString().padStart(2, '0')}:{now.getMinutes().toString().padStart(2, '0')}
                       </div>
                     </div>
-                    <div className="w-[7px] h-[7px] rounded-full bg-[#1D9E75] border-[1.5px] border-white shrink-0 z-20 -ml-[3.5px] shadow-[0_0_4px_rgba(29,158,117,0.6)]" />
+                    <div className="w-1.5 md:w-[7px] h-1.5 md:h-[7px] rounded-full bg-[#1D9E75] border-[1.5px] border-white shrink-0 z-20 -ml-[3px] md:-ml-[3.5px] shadow-[0_0_4px_rgba(29,158,117,0.6)]" />
                     <div className="flex-1 h-[1.5px] bg-gradient-to-r from-[rgba(29,158,117,0.8)] via-[rgba(29,158,117,0.3)] to-transparent" />
                  </div>
               )}
@@ -573,37 +577,37 @@ function TaskCard({ task, now, routineStatus, onCheck, onStatusChange, onDelete,
 
   return (
     <div className={cn(
-        "transition-all border-l-[3px] rounded-r-lg bg-white shadow-sm hover:shadow border-t border-r border-b border-black/5 flex flex-col p-3.5 gap-2",
+        "transition-all border-l-[3px] rounded-r-lg bg-white shadow-sm hover:shadow border-t border-r border-b border-black/5 flex flex-col p-2 md:p-3.5 gap-1 md:gap-2",
         isTemplate ? "border-l-[#534AB7]/40 bg-slate-50/50" : statusColorClass // 템플릿은 별도 컬러 처리
     )}>
-        <div className="flex items-start gap-2.5">
+        <div className="flex items-start gap-2 md:gap-2.5">
             <Checkbox 
                 checked={isDone}
                 onCheckedChange={() => onStatusChange(task.id, isDone ? 'todo' : 'done', isTemplate)}
                 className={cn(
-                    "w-[18px] h-[18px] mt-0.5 rounded-md transition-colors",
+                    "w-4 h-4 md:w-[18px] md:h-[18px] mt-0.5 rounded-md transition-colors",
                     isTemplate ? "border-black/20 data-[state=checked]:bg-[#534AB7] data-[state=checked]:border-[#534AB7]" : checkboxClass
                 )}
             />
             
-            <div className="flex flex-col gap-1 min-w-0 flex-1">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-2 flex-wrap min-w-0">
-                  <h4 className={cn("font-bold text-[13px] text-[#1a1a1a] leading-tight truncate", isDone && "line-through text-muted-foreground opacity-60")}>
+            <div className="flex flex-col gap-0.5 md:gap-1 min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-2 md:gap-4">
+                <div className="flex items-center gap-1.5 md:gap-2 flex-wrap min-w-0">
+                  <h4 className={cn("font-bold text-[12px] md:text-[13px] text-[#1a1a1a] leading-tight md:truncate break-all whitespace-normal", isDone && "line-through text-muted-foreground opacity-60")}>
                       {task.title}
                   </h4>
                   {isTemplate ? (
-                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-[18px] font-medium bg-[#534AB7]/10 text-[#534AB7] border-none">루틴</Badge>
+                    <Badge variant="secondary" className="text-[8px] md:text-[9px] px-1 md:px-1.5 py-0 h-4 md:h-[18px] font-medium bg-[#534AB7]/10 text-[#534AB7] border-none">루틴</Badge>
                   ) : isRoleTask ? (
-                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-[18px] font-medium bg-blue-500/10 text-blue-600 border-none">역할 업무</Badge>
+                    <Badge variant="secondary" className="text-[8px] md:text-[9px] px-1 md:px-1.5 py-0 h-4 md:h-[18px] font-medium bg-blue-500/10 text-blue-600 border-none">역할 업무</Badge>
                   ) : (
-                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-[18px] font-medium bg-amber-500/10 text-amber-700 border-none">개인</Badge>
+                    <Badge variant="secondary" className="text-[8px] md:text-[9px] px-1 md:px-1.5 py-0 h-4 md:h-[18px] font-medium bg-amber-500/10 text-amber-700 border-none">개인</Badge>
                   )}
                 </div>
                 
                 {isPersonal && (
                   <button 
-                    className="shrink-0 w-6 h-6 flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-red-50 rounded-md transition-colors disabled:opacity-50"
+                    className="shrink-0 w-5 h-5 md:w-6 md:h-6 flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-red-50 rounded-md transition-colors disabled:opacity-50"
                     title="업무 삭제"
                     disabled={isDeleting}
                     onClick={(e) => {
@@ -625,26 +629,26 @@ function TaskCard({ task, now, routineStatus, onCheck, onStatusChange, onDelete,
         </div>
         
         {task.checklist && task.checklist.length > 0 && (
-          <div className="pl-7 space-y-2 mt-1">
+          <div className="pl-6 md:pl-7 space-y-1.5 md:space-y-2 mt-0.5 md:mt-1">
             {task.checklist.map(item => {
               const isItemCompleted = isTemplate 
                 ? (routineStatus?.checkedItems?.includes(item.id) || false) 
                 : item.is_completed
               
               return (
-                <div key={item.id} className="flex items-start gap-2">
+                <div key={item.id} className="flex items-start gap-1.5 md:gap-2">
                    <Checkbox 
                       checked={isItemCompleted}
                       onCheckedChange={(c) => onCheck(task.id, item.id, !!c, isTemplate)}
                       className={cn(
-                        "w-3.5 h-3.5 mt-0.5 rounded-sm border-black/20 transition-colors", 
+                        "w-3 md:w-3.5 h-3 md:h-3.5 mt-0.5 rounded-sm border-black/20 transition-colors", 
                         isTemplate 
                           ? (isItemCompleted && "data-[state=checked]:bg-[#534AB7] data-[state=checked]:border-[#534AB7]")
                           : (isItemCompleted && "data-[state=checked]:bg-[#1D9E75] data-[state=checked]:border-[#1D9E75]")
                       )}
                    />
                    <span className={cn(
-                     "text-[11px] font-medium text-[#1a1a1a] transition-all", 
+                     "text-[10px] md:text-[11px] font-medium text-[#1a1a1a] transition-all", 
                      isItemCompleted && "line-through text-muted-foreground opacity-60"
                    )}>
                      {item.text}
