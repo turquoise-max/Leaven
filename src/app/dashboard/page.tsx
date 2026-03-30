@@ -1,15 +1,15 @@
 import { createClient } from '@/lib/supabase/server'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 import { Users, CreditCard, Bell, TrendingUp, CalendarDays } from 'lucide-react'
 import { redirect } from 'next/navigation'
 import { getPendingRequestsCount } from '@/features/staff/actions'
 import Link from 'next/link'
 import { cookies } from 'next/headers'
-import { DashboardTaskList } from '@/features/schedule/components/dashboard-task-list'
 import { getCurrentSchedule } from '@/features/schedule/actions'
 import { AnnouncementList } from '@/features/store/components/announcement-list'
 import { getStoreAnnouncements } from '@/features/store/announcement-actions'
 import { hasPermission } from '@/features/auth/permissions'
+import { getTodayDashboardStats } from '@/features/schedule/dashboard-actions'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,7 +42,8 @@ export default async function DashboardPage() {
 
   // 선택된 매장 찾기
   let activeMember = members.find(m => {
-    const store = m.store as any
+    const storeData = m.store
+    const store = Array.isArray(storeData) ? storeData[0] : storeData
     return store?.id === selectedStoreId
   })
 
@@ -71,18 +72,24 @@ export default async function DashboardPage() {
   }
 
   // 병렬로 데이터 조회
-  const [pendingCount, currentSchedule, announcements] = await Promise.all([
+  const [pendingCount, _currentSchedule, announcements, dashboardStats] = await Promise.all([
     getPendingRequestsCount(store.id),
     getCurrentSchedule(store.id),
-    getStoreAnnouncements(store.id)
+    getStoreAnnouncements(store.id),
+    getTodayDashboardStats(store.id)
   ])
 
   return (
-    <AdminDashboard pendingCount={pendingCount} store={store} announcements={announcements} />
+    <AdminDashboard 
+      pendingCount={pendingCount} 
+      store={store} 
+      announcements={announcements} 
+      stats={dashboardStats}
+    />
   )
 }
 
-function AdminDashboard({ pendingCount, store, announcements }: { pendingCount: number, store: any, announcements: any[] }) {
+function AdminDashboard({ pendingCount, store, announcements, stats }: { pendingCount: number, store: { id: string, name: string, [key: string]: unknown }, announcements: any[], stats: { scheduledMembersCount: number, leaveMembersCount: number } }) {
   return (
     <div className="flex flex-col gap-8 h-full">
       {pendingCount > 0 && (
@@ -167,7 +174,7 @@ function AdminDashboard({ pendingCount, store, announcements }: { pendingCount: 
                       </div>
                       <div>
                         <p className="text-xs text-slate-500 dark:text-slate-400">금일 근무자</p>
-                        <p className="text-lg font-bold">0명</p>
+                        <p className="text-lg font-bold">{stats.scheduledMembersCount}명</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
@@ -176,7 +183,7 @@ function AdminDashboard({ pendingCount, store, announcements }: { pendingCount: 
                       </div>
                       <div>
                         <p className="text-xs text-slate-500 dark:text-slate-400">금일 휴가자</p>
-                        <p className="text-lg font-bold text-orange-600">0명</p>
+                        <p className="text-lg font-bold text-orange-600">{stats.leaveMembersCount}명</p>
                       </div>
                     </div>
                   </div>
