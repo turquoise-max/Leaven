@@ -136,8 +136,8 @@ function AdminDashboard({ pendingCount, store, announcements, stats }: { pending
       <div className="grid gap-6 md:grid-cols-12">
         {/* Main Content (Left) */}
         <div className="md:col-span-8 lg:col-span-8">
-          <Card className="border-none shadow-md overflow-hidden bg-white dark:bg-slate-900">
-            <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x border-b">
+          <Card className="border shadow-sm overflow-hidden bg-white dark:bg-slate-900">
+            <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x">
               {/* Sales Section */}
               <div className="p-5 space-y-5 bg-slate-50/50 dark:bg-slate-900/50">
                 <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
@@ -153,7 +153,7 @@ function AdminDashboard({ pendingCount, store, announcements, stats }: { pending
                     </div>
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-200 dark:border-slate-800">
+                  <div className="grid grid-cols-2 gap-4 pt-4">
                     <div>
                       <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">월 목표 매출</p>
                       <p className="text-lg font-bold text-slate-700 dark:text-slate-200">₩0</p>
@@ -186,7 +186,7 @@ function AdminDashboard({ pendingCount, store, announcements, stats }: { pending
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 pt-3 border-t border-slate-200 dark:border-slate-800">
+                  <div className="grid grid-cols-2 gap-4 pt-3">
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
                         <CalendarDays className="h-4 w-4 text-blue-600 dark:text-blue-400" />
@@ -214,7 +214,7 @@ function AdminDashboard({ pendingCount, store, announcements, stats }: { pending
 
         {/* Sidebar: Announcements */}
         <div className="md:col-span-4 lg:col-span-4">
-           <div className="sticky top-6 flex flex-col">
+           <div className="sticky top-6 flex flex-col h-[calc(100vh-12rem)] min-h-[400px]">
               <AnnouncementList 
                 storeId={store.id} 
                 announcements={announcements} 
