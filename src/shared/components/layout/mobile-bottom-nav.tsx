@@ -28,14 +28,14 @@ export function MobileBottomNav({ role, permissions = {} }: MobileBottomNavProps
       icon: CalendarDays,
     },
     {
-      title: '할 일',
-      href: isManager ? '/dashboard/my-tasks' : '/dashboard',
-      icon: CheckSquare,
-    },
-    {
       title: '주간 스케줄',
       href: '/dashboard/schedule',
       icon: CalendarRange,
+    },
+    {
+      title: '할 일',
+      href: isManager ? '/dashboard/my-tasks' : '/dashboard',
+      icon: CheckSquare,
     },
     {
       title: '휴가 신청',

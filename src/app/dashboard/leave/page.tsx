@@ -50,15 +50,16 @@ export default async function LeavePage() {
   return (
     <div className="h-[calc(100vh-100px)] flex flex-col space-y-4">
       {/* Header Area */}
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-3xl font-bold tracking-tight">휴가 및 연차</h1>
+      <div className="relative flex items-center justify-center md:justify-between w-full min-h-[40px]">
+        <div className="text-center md:text-left">
+          <div className="flex items-center justify-center md:justify-start gap-2">
+            <h1 className="text-xl md:text-3xl font-bold tracking-tight">휴가 및 연차</h1>
           </div>
-          <p className="text-muted-foreground mt-1">
+          <p className="hidden md:block text-muted-foreground mt-1">
             직원 휴가 신청을 관리하고 스케줄 누수를 방지합니다.
           </p>
         </div>
+        {/* The Plus button will be rendered by LeaveClientPage via absolute positioning to this relative container's level */}
       </div>
 
       <div className="flex-1 min-h-0">
