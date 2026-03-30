@@ -66,8 +66,29 @@ export async function getTodayDashboardStats(storeId: string) {
     console.error('Error fetching today leaves for dashboard:', leaveError)
   }
 
+  // 3. 금일 출근한 직원 수
+  // store_attendance 테이블에서 clock_in_time이 존재하고 target_date가 오늘 날짜와 일치하는 경우
+  const { data: attendanceData, error: attendanceError } = await supabase
+    .from('store_attendance')
+    .select('member_id')
+    .eq('store_id', storeId)
+    .eq('target_date', todayStr)
+    .not('clock_in_time', 'is', null)
+
+  let clockedInMembersCount = 0
+  if (!attendanceError && attendanceData) {
+    const attendanceMemberSet = new Set<string>()
+    attendanceData.forEach((attendance: any) => {
+      if (attendance.member_id) attendanceMemberSet.add(attendance.member_id)
+    })
+    clockedInMembersCount = attendanceMemberSet.size
+  } else {
+    console.error('Error fetching today attendance for dashboard:', attendanceError)
+  }
+
   return {
     scheduledMembersCount,
-    leaveMembersCount
+    leaveMembersCount,
+    clockedInMembersCount
   }
 }

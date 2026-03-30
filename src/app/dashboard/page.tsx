@@ -89,7 +89,24 @@ export default async function DashboardPage() {
   )
 }
 
-function AdminDashboard({ pendingCount, store, announcements, stats }: { pendingCount: number, store: { id: string, name: string, [key: string]: unknown }, announcements: any[], stats: { scheduledMembersCount: number, leaveMembersCount: number } }) {
+function AdminDashboard({ pendingCount, store, announcements, stats }: { pendingCount: number, store: { id: string, name: string, [key: string]: unknown }, announcements: any[], stats: { scheduledMembersCount: number, leaveMembersCount: number, clockedInMembersCount: number } }) {
+  
+  // 근무자 현황 표시 텍스트 로직
+  let attendanceStatusText = '전원 출근'
+  let attendanceStatusColor = 'text-blue-600 dark:text-blue-400'
+
+  if (stats.scheduledMembersCount === 0) {
+    attendanceStatusText = '금일 일정 없음'
+    attendanceStatusColor = 'text-slate-500 dark:text-slate-400'
+  } else if (stats.scheduledMembersCount > stats.clockedInMembersCount) {
+    const unclockedCount = stats.scheduledMembersCount - stats.clockedInMembersCount
+    attendanceStatusText = `${unclockedCount}명 미출근`
+    attendanceStatusColor = 'text-orange-600 dark:text-orange-400'
+  } else {
+    attendanceStatusText = '전원 출근 완료'
+    attendanceStatusColor = 'text-emerald-600 dark:text-emerald-400'
+  }
+
   return (
     <div className="flex flex-col gap-8 h-full">
       {pendingCount > 0 && (
@@ -163,7 +180,9 @@ function AdminDashboard({ pendingCount, store, announcements, stats }: { pending
                   <div>
                     <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">전체 근무자 현황</p>
                     <div className="flex items-baseline gap-2">
-                      <span className="text-3xl font-extrabold tracking-tight text-blue-600 dark:text-blue-400">전원 출근</span>
+                      <span className={`text-3xl font-extrabold tracking-tight ${attendanceStatusColor}`}>
+                        {attendanceStatusText}
+                      </span>
                     </div>
                   </div>
 
