@@ -13,8 +13,10 @@ interface CalendarHeaderProps {
   getStaffRoleInfo: (staff: any) => any
   hexToRgba: (hex: string, alpha: number) => string
   
-  viewMode: 'matrix' | 'calendar'
-  setViewMode: (mode: 'matrix' | 'calendar') => void
+  viewMode: 'timeline' | 'matrix' | 'calendar'
+  setViewMode: (mode: 'timeline' | 'matrix' | 'calendar') => void
+  timelineDate: Date
+  setTimelineDate: (date: Date) => void
   matrixStartDate: Date
   setMatrixStartDate: (date: Date) => void
   calendarDate: Date
@@ -40,6 +42,8 @@ export function CalendarHeader({
   
   viewMode,
   setViewMode,
+  timelineDate,
+  setTimelineDate,
   matrixStartDate,
   setMatrixStartDate,
   calendarDate,
@@ -71,6 +75,12 @@ export function CalendarHeader({
         {/* 뷰 토글 */}
         <div className="flex bg-[#f3f2ef] rounded-md p-0.5 shrink-0 shadow-inner border border-black/5">
           <button 
+            className={`text-[12px] px-4 py-1.5 rounded-md transition-all ${viewMode === 'timeline' ? 'bg-white font-semibold text-[#1a1a1a] shadow-sm' : 'text-[#6b6b6b] hover:text-[#1a1a1a]'}`}
+            onClick={() => setViewMode('timeline')}
+          >
+            타임라인
+          </button>
+          <button 
             className={`text-[12px] px-4 py-1.5 rounded-md transition-all ${viewMode === 'matrix' ? 'bg-white font-semibold text-[#1a1a1a] shadow-sm' : 'text-[#6b6b6b] hover:text-[#1a1a1a]'}`}
             onClick={() => setViewMode('matrix')}
           >
@@ -86,7 +96,17 @@ export function CalendarHeader({
 
         {/* 날짜 이동 */}
         <div className="flex items-center gap-3">
-          {viewMode === 'matrix' ? (
+          {viewMode === 'timeline' ? (
+            <>
+              <div className="flex gap-1">
+                <button className="flex items-center justify-center w-7 h-7 border border-black/15 rounded-md bg-white text-[#6b6b6b] hover:text-[#1a1a1a] hover:bg-black/5 transition-colors shadow-sm" onClick={() => setTimelineDate(addDays(timelineDate, -1))}>‹</button>
+                <button className="flex items-center justify-center w-7 h-7 border border-black/15 rounded-md bg-white text-[#6b6b6b] hover:text-[#1a1a1a] hover:bg-black/5 transition-colors shadow-sm" onClick={() => setTimelineDate(addDays(timelineDate, 1))}>›</button>
+              </div>
+              <div className="text-[14px] font-semibold text-[#1a1a1a]">
+                {format(timelineDate, 'yyyy년 M월 d일 (E)', { locale: ko })}
+              </div>
+            </>
+          ) : viewMode === 'matrix' ? (
             <>
               <div className="flex gap-1">
                 <button className="flex items-center justify-center w-7 h-7 border border-black/15 rounded-md bg-white text-[#6b6b6b] hover:text-[#1a1a1a] hover:bg-black/5 transition-colors shadow-sm" onClick={() => setMatrixStartDate(addDays(matrixStartDate, -7))}>‹</button>

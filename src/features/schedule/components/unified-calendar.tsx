@@ -13,17 +13,16 @@ import { updateScheduleTime, updateSchedule } from '@/features/schedule/actions'
 import { toast } from 'sonner'
 import { toUTCISOString, getDiffInMinutes, addMinutesToTime } from '@/shared/lib/date-utils'
 import { ScheduleDetailPanel, STATUS_INFO } from './schedule-detail-panel'
-import { ScheduleCreateDialog } from './schedule-create-dialog'
 import { UnifiedAutoScheduleDialog } from './unified-auto-schedule-dialog'
 import { UnifiedBulkDeleteDialog } from './unified-bulk-delete-dialog'
 import { Trash2 } from 'lucide-react'
 import { deleteStaffSchedules } from '@/features/schedule/actions'
-import { MiniCalendar } from './mini-calendar'
 import { CalendarHeader } from './calendar-header'
 import { TimelineTooltip } from './timeline-tooltip'
 import { SingleDayDeleteModal, ConfirmMoveModal } from './schedule-action-modals'
 import { StaffScheduleMatrix } from './staff-schedule-matrix'
 import { MonthlyCalendarView } from './monthly-calendar-view'
+import { DailyTimelineView } from './daily-timeline-view'
 
 // 자동 파생 상태 계산 헬퍼 (시간 기반)
 export function getDerivedTaskStatus(ta: any, scheduleDateStr: string, now: Date): 'todo' | 'in_progress' | 'pending' | 'done' {
@@ -86,9 +85,10 @@ export function UnifiedCalendar({
   isManager = true,
   currentUserId
 }: UnifiedCalendarProps) {
-  const [viewMode, setViewMode] = useState<'matrix' | 'calendar'>('matrix')
+  const [viewMode, setViewMode] = useState<'timeline' | 'matrix' | 'calendar'>('matrix')
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null)
   
+  const [timelineDate, setTimelineDate] = useState<Date>(new Date())
   const [matrixStartDate, setMatrixStartDate] = useState<Date>(startOfWeek(new Date(), { weekStartsOn: 0 }))
   const [calendarDate, setCalendarDate] = useState<Date>(new Date())
   
@@ -655,8 +655,8 @@ export function UnifiedCalendar({
 
   // Get dynamic hours from storeOpeningHours
   const hours = useMemo(() => {
-    let minHour = 6;
-    let maxHour = 30; // 06:00 next day
+    let minHour = 0;
+    let maxHour = 24;
     
     if (storeOpeningHours) {
       let earliest = 24;
@@ -684,11 +684,8 @@ export function UnifiedCalendar({
       });
       
       if (foundAny) {
-        // Add 1 hour padding before and after, ensuring we don't go negative or wrap weirdly
-        minHour = Math.max(0, earliest - 1);
-        maxHour = latest + 1;
-        // If the gap is less than 6 hours (weird setup), at least show 12 hours
-        if (maxHour - minHour < 12) maxHour = minHour + 12;
+        minHour = 0; // 항상 00:00부터 시작
+        maxHour = Math.max(24, latest); // 기본 24시, 새벽 마감이면 그 이상
       }
     }
     
@@ -731,6 +728,8 @@ export function UnifiedCalendar({
         hexToRgba={hexToRgba}
         viewMode={viewMode}
         setViewMode={setViewMode}
+        timelineDate={timelineDate}
+        setTimelineDate={setTimelineDate}
         matrixStartDate={matrixStartDate}
         setMatrixStartDate={setMatrixStartDate}
         calendarDate={calendarDate}
@@ -749,7 +748,40 @@ export function UnifiedCalendar({
         {/* Main View Area */}
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           
-          {viewMode === 'matrix' ? (
+          {viewMode === 'timeline' ? (
+            <DailyTimelineView
+              currentDate={timelineDate}
+              staffList={filteredStaff}
+              localSchedules={localSchedules}
+              roles={roles}
+              activeRoleIds={activeRoleIds}
+              getStaffRoleInfo={getStaffRoleInfo}
+              approvedLeaves={approvedLeaves}
+              isManager={isManager}
+              hours={hours}
+              onCellClick={(staff, date, hour) => {
+                if (!isManager) return;
+                const displayHour = Math.floor(hour) >= 24 ? Math.floor(hour) - 24 : Math.floor(hour);
+                const startStr = `${displayHour.toString().padStart(2, '0')}:00`;
+                const endHour = displayHour + 1;
+                const endStr = `${endHour.toString().padStart(2, '0')}:00`;
+                
+                setCreateForm({
+                  title: '근무',
+                  date: format(date, 'yyyy-MM-dd'),
+                  startTime: startStr,
+                  endTime: endStr,
+                  staffId: staff.id,
+                  scheduleType: 'regular'
+                })
+                setIsCreateModalOpen(true)
+              }}
+              onScheduleClick={(sch, staff) => {
+                if (!isManager) return;
+                handleScheduleClick(sch, staff)
+              }}
+            />
+          ) : viewMode === 'matrix' ? (
             <StaffScheduleMatrix 
               startDate={matrixStartDate}
               daysCount={7}
@@ -1080,35 +1112,43 @@ export function UnifiedCalendar({
           )}
         </div>
 
-        {/* 우측 패널 (스케줄 선택 시 표시) */}
-        {selectedSchedule && (
-          <div className="w-[320px] shrink-0">
+      </div>
+
+      {/* 상세 일정 및 수정/추가 통합 모달 */}
+      <Dialog 
+        open={!!selectedSchedule || isCreateModalOpen} 
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedSchedule(null)
+            setIsCreateModalOpen(false)
+          }
+        }}
+      >
+        <DialogContent className={`p-0 gap-0 outline-none border-black/10 shadow-lg overflow-hidden ${isCreateModalOpen ? 'sm:max-w-[420px]' : 'sm:max-w-[750px]'}`} aria-describedby={undefined}>
+          <DialogTitle className="sr-only">{isCreateModalOpen ? '일정 추가' : '일정 상세'}</DialogTitle>
+          {(selectedSchedule || isCreateModalOpen) && (
             <ScheduleDetailPanel
+              mode={isCreateModalOpen ? 'create' : 'edit'}
               storeId={storeId}
               selectedSchedule={selectedSchedule}
               setSelectedSchedule={setSelectedSchedule}
               staffList={staffList}
               setLocalSchedules={setLocalSchedules}
+              localSchedules={localSchedules}
               handleTaskToggle={handleTaskToggle}
               now={now}
               approvedLeaves={approvedLeaves}
+              createForm={createForm}
+              setCreateForm={setCreateForm}
+              checkOverlap={checkOverlap}
+              onClose={() => {
+                setSelectedSchedule(null)
+                setIsCreateModalOpen(false)
+              }}
             />
-          </div>
-        )}
-      </div>
-
-      {/* Create Schedule Modal */}
-      <ScheduleCreateDialog
-        storeId={storeId}
-        isOpen={isCreateModalOpen}
-        setIsOpen={setIsCreateModalOpen}
-        createForm={createForm}
-        setCreateForm={setCreateForm}
-        staffList={staffList}
-        checkOverlap={checkOverlap}
-        setLocalSchedules={setLocalSchedules}
-        localSchedules={localSchedules}
-      />
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Auto Schedule Modal */}
       <UnifiedAutoScheduleDialog
