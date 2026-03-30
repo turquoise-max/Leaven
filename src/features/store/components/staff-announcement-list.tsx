@@ -26,6 +26,7 @@ interface StaffAnnouncementListProps {
 
 export function StaffAnnouncementList({ announcements }: StaffAnnouncementListProps) {
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null)
+  const [showAllList, setShowAllList] = useState(false)
 
   if (!announcements || announcements.length === 0) {
     return null
@@ -45,7 +46,7 @@ export function StaffAnnouncementList({ announcements }: StaffAnnouncementListPr
           <h2 className="text-sm font-semibold">매장 공지사항</h2>
           {announcements.length > displayAnnouncements.length && (
             <span className="text-xs text-muted-foreground cursor-pointer hover:underline ml-auto"
-                  onClick={() => setSelectedAnnouncement(announcements[0])}>
+                  onClick={() => setShowAllList(true)}>
               전체보기 ({announcements.length})
             </span>
           )}
@@ -77,6 +78,41 @@ export function StaffAnnouncementList({ announcements }: StaffAnnouncementListPr
           ))}
         </div>
       </div>
+
+      <Dialog open={showAllList} onOpenChange={setShowAllList}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>전체 공지사항</DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh] mt-4 pr-4">
+            <div className="flex flex-col gap-3">
+              {announcements.map((announcement) => (
+                <div 
+                  key={announcement.id} 
+                  onClick={() => setSelectedAnnouncement(announcement)}
+                  className={`p-3 rounded-lg border cursor-pointer transition-colors hover:bg-muted/50 ${
+                    announcement.is_important ? 'bg-primary/5 border-primary/20 shadow-sm' : 'bg-card shadow-sm'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1.5">
+                    {announcement.is_important && (
+                      <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4">중요</Badge>
+                    )}
+                    <h4 className="font-semibold text-sm truncate flex-1">{announcement.title}</h4>
+                  </div>
+                  <p className="text-xs text-muted-foreground line-clamp-1 mb-2">
+                    {announcement.content}
+                  </p>
+                  <div className="flex justify-between items-center text-[10px] text-muted-foreground">
+                    <span>{format(new Date(announcement.created_at), 'yyyy.MM.dd', { locale: ko })}</span>
+                    <span>{announcement.author?.full_name || '관리자'}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!selectedAnnouncement} onOpenChange={(open) => !open && setSelectedAnnouncement(null)}>
         <DialogContent className="sm:max-w-[500px]">
