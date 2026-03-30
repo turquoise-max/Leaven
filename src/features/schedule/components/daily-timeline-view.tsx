@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useMemo, useRef, useState } from 'react'
+import React, { useMemo, useRef, useState, useEffect } from 'react'
 import { format, isSameDay } from 'date-fns'
 import { ko } from 'date-fns/locale'
 
@@ -15,8 +15,21 @@ interface DailyTimelineViewProps {
   isManager: boolean
   onCellClick: (staff: any, date: Date, hour: number) => void
   onScheduleClick: (sch: any, staff: any) => void
+  onScheduleCreateDrag?: (staffId: string, date: Date, startTimeStr: string, endTimeStr: string) => void
+  onScheduleUpdateDrag?: (scheduleId: string, date: Date, startTimeStr: string, endTimeStr: string) => void
   hours: number[]
 }
+
+type InteractionState = {
+  type: 'create' | 'move' | 'resizeLeft' | 'resizeRight'
+  staffId: string
+  scheduleId?: string
+  startPx: number
+  currentPx: number
+  trackWidth: number
+  originalStartMins?: number
+  originalEndMins?: number
+} | null
 
 function hexToRgba(hex: string, alpha: number) {
   if (!hex) return `rgba(0,0,0,${alpha})`
@@ -37,9 +50,13 @@ export function DailyTimelineView({
   isManager,
   onCellClick,
   onScheduleClick,
+  onScheduleCreateDrag,
+  onScheduleUpdateDrag,
   hours
 }: DailyTimelineViewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const [interactionState, setInteractionState] = useState<InteractionState>(null)
+  const draggedRef = useRef(false)
 
   // 필터링 및 정렬된 직원 목록
   const displayStaff = useMemo(() => {
@@ -85,7 +102,7 @@ export function DailyTimelineView({
     }
 
     const minHour = hours[0]
-    const maxHour = hours[hours.length - 1] + 1 // +1 because maxHour in array is e.g. 24, so range is 0~25 hours
+    const maxHour = hours[hours.length - 1] // +1 제거 (배경 그리드는 24칸으로 분할됨)
 
     // If schedule is completely outside the timeline view hours, ignore
     if (endHour <= minHour || startHour >= maxHour) return null
@@ -98,8 +115,102 @@ export function DailyTimelineView({
     const leftPercent = ((renderStart - minHour) / totalHours) * 100
     const widthPercent = ((renderEnd - renderStart) / totalHours) * 100
 
-    return { left: `${leftPercent}%`, width: `${widthPercent}%` }
+    return { left: `${leftPercent}%`, width: `${widthPercent}%`, startMins: Math.round(startHour * 60), endMins: Math.round(endHour * 60) }
   }
+
+  const pxToMins = (x: number, trackWidth: number) => {
+    const totalHours = hours[hours.length - 1] - hours[0]
+    const totalMins = totalHours * 60
+    const percentage = Math.max(0, Math.min(x / trackWidth, 1))
+    let mins = Math.round((percentage * totalMins) / 30) * 30
+    return mins + hours[0] * 60
+  }
+
+  const minsToTimeStr = (mins: number) => {
+    const h = Math.floor(mins / 60)
+    const m = Math.floor(mins % 60)
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
+  }
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!interactionState) return
+      const trackElement = document.getElementById(`track-${interactionState.staffId}`)
+      if (!trackElement) return
+      
+      const rect = trackElement.getBoundingClientRect()
+      let x = e.clientX - rect.left
+      
+      if (Math.abs(x - interactionState.startPx) > 5) {
+        draggedRef.current = true
+      }
+
+      setInteractionState(prev => prev ? { ...prev, currentPx: x } : null)
+    }
+
+    const handleMouseUp = (e: MouseEvent) => {
+      if (!interactionState) return
+      
+      const { type, staffId, scheduleId, startPx, currentPx, trackWidth, originalStartMins, originalEndMins } = interactionState
+      const minHour = hours[0]
+      const maxHour = hours[hours.length - 1]
+      const maxMins = maxHour * 60
+
+      if (type === 'create') {
+        const minPx = Math.min(startPx, currentPx)
+        const maxPx = Math.max(startPx, currentPx)
+        let startMins = pxToMins(minPx, trackWidth)
+        let endMins = pxToMins(maxPx, trackWidth)
+        if (endMins === startMins) endMins = startMins + 60 // 기본 1시간
+        if (Math.abs(currentPx - startPx) > 10) { // 약간의 드래그가 있었을 때만
+          onScheduleCreateDrag?.(staffId, currentDate, minsToTimeStr(startMins), minsToTimeStr(endMins))
+        }
+      } else if (type === 'move' && originalStartMins !== undefined && originalEndMins !== undefined) {
+        const dxPx = currentPx - startPx
+        const dxMins = Math.round((dxPx / trackWidth) * (maxHour - minHour) * 60 / 30) * 30
+        if (dxMins !== 0) {
+          let newStartMins = originalStartMins + dxMins
+          let newEndMins = originalEndMins + dxMins
+          if (newStartMins < minHour * 60) {
+            const diff = minHour * 60 - newStartMins
+            newStartMins += diff
+            newEndMins += diff
+          }
+          if (newEndMins > maxMins) {
+            const diff = newEndMins - maxMins
+            newStartMins -= diff
+            newEndMins -= diff
+          }
+          onScheduleUpdateDrag?.(scheduleId!, currentDate, minsToTimeStr(newStartMins), minsToTimeStr(newEndMins))
+        }
+      } else if (type === 'resizeLeft' && originalStartMins !== undefined && originalEndMins !== undefined) {
+        const currentMins = pxToMins(currentPx, trackWidth)
+        let newStartMins = currentMins
+        if (newStartMins >= originalEndMins) newStartMins = originalEndMins - 30
+        if (newStartMins !== originalStartMins) {
+          onScheduleUpdateDrag?.(scheduleId!, currentDate, minsToTimeStr(newStartMins), minsToTimeStr(originalEndMins))
+        }
+      } else if (type === 'resizeRight' && originalStartMins !== undefined && originalEndMins !== undefined) {
+        const currentMins = pxToMins(currentPx, trackWidth)
+        let newEndMins = currentMins
+        if (newEndMins <= originalStartMins) newEndMins = originalStartMins + 30
+        if (newEndMins !== originalEndMins) {
+          onScheduleUpdateDrag?.(scheduleId!, currentDate, minsToTimeStr(originalStartMins), minsToTimeStr(newEndMins))
+        }
+      }
+      
+      setInteractionState(null)
+    }
+
+    if (interactionState) {
+      window.addEventListener('mousemove', handleMouseMove)
+      window.addEventListener('mouseup', handleMouseUp)
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [interactionState, currentDate, onScheduleCreateDrag, onScheduleUpdateDrag, hours])
 
   return (
     <div className="flex flex-col h-full bg-white rounded-lg border border-black/10 overflow-hidden shadow-sm">
@@ -114,14 +225,22 @@ export function DailyTimelineView({
             
             {/* Hours */}
             <div className="flex flex-1 relative min-w-0">
-              {hours.map((hour) => (
+              {hours.slice(0, -1).map((hour, index) => (
                 <div 
                   key={`header-${hour}`} 
-                  className="flex-1 flex items-end px-0.5 lg:px-1 pb-1 border-r border-black/5"
+                  className="flex-1 flex items-end border-r border-black/5 relative h-8"
                 >
-                  <span className="text-[9px] lg:text-[10px] text-[#6b6b6b] whitespace-nowrap truncate">{formatTimeStr(hour)}</span>
+                  <span className={`absolute bottom-1 text-[9px] lg:text-[10px] text-[#6b6b6b] whitespace-nowrap bg-[#fbfbfb] px-0.5 z-10 ${index === 0 ? 'left-1' : 'left-0 transform -translate-x-1/2'}`}>
+                    {formatTimeStr(hour)}
+                  </span>
                 </div>
               ))}
+              {/* Last hour label */}
+              {hours.length > 0 && (
+                <span className="absolute right-1 bottom-1 text-[9px] lg:text-[10px] text-[#6b6b6b] whitespace-nowrap bg-[#fbfbfb] px-0.5 z-10">
+                  {formatTimeStr(hours[hours.length - 1])}
+                </span>
+              )}
             </div>
           </div>
 
@@ -164,19 +283,50 @@ export function DailyTimelineView({
                   </div>
 
                   {/* Timeline Grid for this Staff */}
-                  <div className="flex flex-1 relative min-w-0">
+                  <div 
+                    id={`track-${staff.id}`}
+                    className="flex flex-1 relative min-w-0"
+                    onMouseDown={(e) => {
+                      if (!isManager || isStaffOnLeave) return
+                      // Only trigger create on background grid
+                      if ((e.target as HTMLElement).id === `track-${staff.id}` || (e.target as HTMLElement).classList.contains('bg-grid-cell')) {
+                        const rect = e.currentTarget.getBoundingClientRect()
+                        const x = e.clientX - rect.left
+                        draggedRef.current = false
+                        setInteractionState({
+                          type: 'create',
+                          staffId: staff.id,
+                          startPx: x,
+                          currentPx: x,
+                          trackWidth: rect.width
+                        })
+                      }
+                    }}
+                  >
                     {/* Background Grid Cells */}
-                    {hours.map(hour => (
+                    {hours.slice(0, -1).map(hour => (
                       <div 
                         key={`cell-${staff.id}-${hour}`}
-                        className={`flex-1 border-r border-black/5 transition-colors ${isStaffOnLeave ? 'cursor-not-allowed' : 'cursor-pointer hover:bg-black/5'}`}
+                        className={`flex-1 border-r border-black/5 transition-colors bg-grid-cell ${isStaffOnLeave ? 'cursor-not-allowed' : 'cursor-pointer hover:bg-black/5'}`}
                         onClick={() => {
+                          if (draggedRef.current) return
                           if (!isStaffOnLeave) {
                             onCellClick(staff, currentDate, hour)
                           }
                         }}
                       />
                     ))}
+
+                    {/* Interaction Ghost Render (Create Mode) */}
+                    {interactionState?.type === 'create' && interactionState.staffId === staff.id && (
+                      <div 
+                        className="absolute top-1.5 bottom-1.5 rounded-md bg-black/10 border-2 border-black border-dashed pointer-events-none z-10"
+                        style={{
+                          left: `${Math.min(interactionState!.startPx, interactionState!.currentPx)}px`,
+                          width: `${Math.abs(interactionState!.currentPx - interactionState!.startPx)}px`,
+                        }}
+                      />
+                    )}
 
                     {/* Leave Overlay Block */}
                     {isStaffOnLeave && (
@@ -200,30 +350,122 @@ export function DailyTimelineView({
 
                       const sRoleColor = sch.color || roleColor
 
+                      // Moving/Resizing styles
+                      const isInteractingThis = interactionState?.scheduleId === sch.id
+                      const isMove = isInteractingThis && interactionState?.type === 'move'
+                      const isResizeLeft = isInteractingThis && interactionState?.type === 'resizeLeft'
+                      const isResizeRight = isInteractingThis && interactionState?.type === 'resizeRight'
+                      
+                      let renderLeft = pos.left
+                      let renderWidth = pos.width
+                      
+                      if (isInteractingThis) {
+                        const trackW = interactionState!.trackWidth
+                        const dxPercent = ((interactionState!.currentPx - interactionState!.startPx) / trackW) * 100
+                        
+                        if (isMove) {
+                           const originalLeft = ((pos.startMins - hours[0]*60) / ((hours[hours.length-1] - hours[0])*60)) * 100
+                           renderLeft = `${originalLeft + dxPercent}%`
+                        } else if (isResizeLeft) {
+                           const originalLeft = ((pos.startMins - hours[0]*60) / ((hours[hours.length-1] - hours[0])*60)) * 100
+                           const originalWidth = ((pos.endMins - pos.startMins) / ((hours[hours.length-1] - hours[0])*60)) * 100
+                           const newLeft = originalLeft + dxPercent
+                           const newWidth = originalWidth - dxPercent
+                           renderLeft = `${newLeft}%`
+                           renderWidth = `${newWidth}%`
+                        } else if (isResizeRight) {
+                           const originalWidth = ((pos.endMins - pos.startMins) / ((hours[hours.length-1] - hours[0])*60)) * 100
+                           const newWidth = originalWidth + dxPercent
+                           renderWidth = `${newWidth}%`
+                        }
+                      }
+
                       return (
                         <div
                           key={sch.id}
-                          className="absolute top-1.5 bottom-1.5 rounded-md shadow-sm border overflow-hidden cursor-pointer hover:ring-2 hover:ring-black/20 transition-all flex flex-col justify-center px-1.5"
+                          className={`absolute top-1.5 bottom-1.5 rounded-md shadow-sm border overflow-hidden transition-colors flex flex-col justify-center px-1.5 group/sch ${isInteractingThis ? 'opacity-80 z-20 scale-105 shadow-md' : 'hover:ring-2 hover:ring-black/20 z-10 cursor-pointer'}`}
                           style={{
-                            left: pos.left,
-                            width: pos.width, // percentage
+                            left: renderLeft,
+                            width: renderWidth,
                             minWidth: '4px',
                             backgroundColor: hexToRgba(sRoleColor, 0.15),
                             borderColor: hexToRgba(sRoleColor, 0.3),
-                            color: sRoleColor
+                            color: sRoleColor,
+                            transition: isInteractingThis ? 'none' : 'left 0.2s, width 0.2s, background-color 0.2s'
+                          }}
+                          onMouseDown={(e) => {
+                            if (!isManager) return
+                            e.stopPropagation()
+                            const rect = document.getElementById(`track-${staff.id}`)?.getBoundingClientRect()
+                            if (!rect) return
+                            draggedRef.current = false
+                            setInteractionState({
+                              type: 'move',
+                              staffId: staff.id,
+                              scheduleId: sch.id,
+                              startPx: e.clientX - rect.left,
+                              currentPx: e.clientX - rect.left,
+                              trackWidth: rect.width,
+                              originalStartMins: pos.startMins,
+                              originalEndMins: pos.endMins
+                            })
                           }}
                           onClick={(e) => {
                             e.stopPropagation()
+                            if (draggedRef.current) return
                             onScheduleClick(sch, staff)
                           }}
                         >
-                          {/* 내용이 너무 짧으면 숨김 처리 (퍼센트 너비이므로 truncate 의존) */}
-                          <div className="text-[10px] font-bold truncate leading-tight">
+                          <div className="text-[10px] font-bold truncate leading-tight select-none">
                             {sch.title || '근무'}
                           </div>
-                          <div className="text-[9px] opacity-80 truncate leading-tight hidden md:block">
+                          <div className="text-[9px] opacity-80 truncate leading-tight hidden md:block select-none">
                             {format(new Date(sch.start_time), 'HH:mm')} - {format(new Date(sch.end_time), 'HH:mm')}
                           </div>
+
+                          {/* Resize Handles */}
+                          {isManager && !isInteractingThis && (
+                            <>
+                              <div 
+                                className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-black/10 transition-colors opacity-0 group-hover/sch:opacity-100"
+                                onMouseDown={(e) => {
+                                  e.stopPropagation()
+                                  const rect = document.getElementById(`track-${staff.id}`)?.getBoundingClientRect()
+                                  if (!rect) return
+                                  draggedRef.current = false
+                                  setInteractionState({
+                                    type: 'resizeLeft',
+                                    staffId: staff.id,
+                                    scheduleId: sch.id,
+                                    startPx: e.clientX - rect.left,
+                                    currentPx: e.clientX - rect.left,
+                                    trackWidth: rect.width,
+                                    originalStartMins: pos.startMins,
+                                    originalEndMins: pos.endMins
+                                  })
+                                }}
+                              />
+                              <div 
+                                className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-black/10 transition-colors opacity-0 group-hover/sch:opacity-100"
+                                onMouseDown={(e) => {
+                                  e.stopPropagation()
+                                  const rect = document.getElementById(`track-${staff.id}`)?.getBoundingClientRect()
+                                  if (!rect) return
+                                  draggedRef.current = false
+                                  setInteractionState({
+                                    type: 'resizeRight',
+                                    staffId: staff.id,
+                                    scheduleId: sch.id,
+                                    startPx: e.clientX - rect.left,
+                                    currentPx: e.clientX - rect.left,
+                                    trackWidth: rect.width,
+                                    originalStartMins: pos.startMins,
+                                    originalEndMins: pos.endMins
+                                  })
+                                }}
+                              />
+                            </>
+                          )}
                         </div>
                       )
                     })}

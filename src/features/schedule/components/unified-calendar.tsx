@@ -780,6 +780,63 @@ export function UnifiedCalendar({
                 if (!isManager) return;
                 handleScheduleClick(sch, staff)
               }}
+              onScheduleCreateDrag={(staffId, date, startStr, endStr) => {
+                if (!isManager) return;
+                setCreateForm({
+                  title: '근무',
+                  date: format(date, 'yyyy-MM-dd'),
+                  startTime: startStr,
+                  endTime: endStr,
+                  staffId: staffId,
+                  scheduleType: 'regular'
+                })
+                setIsCreateModalOpen(true)
+              }}
+              onScheduleUpdateDrag={(scheduleId, date, startStr, endStr) => {
+                if (!isManager) return;
+                const sch = localSchedulesRef.current.find(s => s.id === scheduleId)
+                if (!sch) return;
+
+                const dateStr = format(date, 'yyyy-MM-dd')
+                const newStartUTC = toUTCISOString(dateStr, startStr)
+                const newEndUTC = toUTCISOString(dateStr, endStr)
+
+                // 기존과 동일하면 스킵
+                if (sch.start_time === newStartUTC && sch.end_time === newEndUTC) return;
+
+                // 겹침 체크
+                const startUtcDate = new Date(newStartUTC)
+                const endUtcDate = new Date(newEndUTC)
+                const staffId = sch.schedule_members?.[0]?.member_id;
+                
+                const isOverlap = localSchedulesRef.current.some(s => {
+                  if (s.id === sch.id) return false;
+                  const hasMember = s.schedule_members?.some((sm: any) => sm.member_id === staffId);
+                  if (!hasMember) return false;
+                  if (!isSameDay(new Date(s.start_time), startUtcDate)) return false;
+                  return startUtcDate < new Date(s.end_time) && endUtcDate > new Date(s.start_time);
+                });
+
+                if (staffId && isOverlap) {
+                  toast.error('해당 시간대에 이미 스케줄이 존재합니다.')
+                  return
+                }
+
+                const deltaMinutes = getDiffInMinutes(sch.start_time, newStartUTC)
+                const hasTimeSpecificTasks = sch.task_assignments?.some((ta: any) => ta.start_time)
+                
+                if (hasTimeSpecificTasks) {
+                  setConfirmMoveModal({
+                    isOpen: true,
+                    scheduleId: sch.id,
+                    newStartUTC,
+                    newEndUTC,
+                    deltaMinutes
+                  })
+                } else {
+                  processScheduleUpdate(sch.id, newStartUTC, newEndUTC, false, deltaMinutes)
+                }
+              }}
             />
           ) : viewMode === 'matrix' ? (
             <StaffScheduleMatrix 
