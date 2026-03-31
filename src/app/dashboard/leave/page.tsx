@@ -48,7 +48,7 @@ export default async function LeavePage() {
   const leaveCalcType = storeObj?.leave_calc_type || 'hire_date'
 
   return (
-    <div className="h-[calc(100vh-100px)] flex flex-col space-y-4">
+    <div className="h-[calc(100vh-100px)] flex flex-col space-y-4 overflow-x-hidden">
       {/* Header Area */}
       <div className="pt-8 pb-4 px-4 border-b flex flex-col justify-center items-center bg-white md:bg-transparent md:items-start md:flex-row md:justify-between -mx-4 -mt-4 mb-0 md:m-0 md:p-0 md:border-none md:mb-6">
         <div className="text-center md:text-left w-full">

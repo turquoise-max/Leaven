@@ -110,7 +110,7 @@ export function AttendanceClientPage({
   const managerView = (
     <div className={cn(
       "flex flex-col bg-white md:rounded-xl md:border md:shadow-sm overflow-hidden",
-      isManager ? "h-full" : "h-auto"
+      isManager ? "h-full" : "h-full"
     )}>
       {/* Header / Controls */}
       <div className="flex flex-col md:flex-row justify-between p-3 md:p-4 border-b bg-slate-50/50 shrink-0 gap-3 md:gap-4">
@@ -486,7 +486,15 @@ export function AttendanceClientPage({
                         if (attendance.status === 'completed') {
                           statusBadge = <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-200">퇴근 완료</Badge>
                         } else if (attendance.status === 'working') {
-                          statusBadge = <Badge className="bg-primary/10 text-primary">근무 중</Badge>
+                          statusBadge = (
+                            <div className="flex items-center justify-center gap-1.5 border border-emerald-200 bg-emerald-50 px-2 py-0.5 rounded-full">
+                              <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                              </span>
+                              <span className="font-bold text-xs text-emerald-600">근무 중</span>
+                            </div>
+                          )
                         }
                       } else if (staffSchedule) {
                         const now = new Date()
@@ -583,19 +591,27 @@ export function AttendanceClientPage({
                     
                     const isLate = attendance && schStartTime && attStartTime && attStartTime > schStartTime + (5 * 60 * 1000)
 
-                    let statusBadge = <Badge variant="secondary" className="bg-slate-100 text-slate-500 text-[10px]">대기/정상</Badge>
+                    let statusBadge = <Badge variant="secondary" className="bg-slate-100 text-slate-500 text-[9px] px-1.5 h-4 font-normal">대기/정상</Badge>
                     
                     if (attendance) {
                       if (attendance.status === 'completed') {
-                        statusBadge = <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-200 text-[10px]">퇴근 완료</Badge>
+                        statusBadge = <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-200 text-[9px] px-1.5 h-4 font-normal">퇴근 완료</Badge>
                       } else if (attendance.status === 'working') {
-                        statusBadge = <Badge className="bg-primary/10 text-primary text-[10px]">근무 중</Badge>
+                        statusBadge = (
+                          <div className="flex items-center gap-1 border border-emerald-200 bg-emerald-50 px-1.5 h-4 rounded-full">
+                            <span className="relative flex h-1 w-1">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-1 w-1 bg-emerald-500"></span>
+                            </span>
+                            <span className="font-normal text-[9px] text-emerald-600">근무 중</span>
+                          </div>
+                        )
                       }
                     } else if (staffSchedule) {
                       const now = new Date()
                       const isToday = selectedDate === format(now, 'yyyy-MM-dd')
                       if (isToday && schStartTime && now.getTime() > schStartTime + (5 * 60 * 1000)) {
-                        statusBadge = <Badge variant="destructive" className="bg-red-100 text-red-700 border-red-200 text-[10px]">결근/미출근</Badge>
+                        statusBadge = <Badge variant="destructive" className="bg-red-100 text-red-700 border-red-200 text-[9px] px-1.5 h-4 font-normal">결근/미출근</Badge>
                       }
                     }
 
@@ -611,21 +627,14 @@ export function AttendanceClientPage({
 
                     return (
                       <div key={staff.id} className="bg-white border rounded-xl shadow-sm p-4 flex flex-col gap-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex items-center gap-3">
-                            <Avatar className="h-10 w-10 border">
-                              <AvatarFallback>{staff.name.substring(0, 2)}</AvatarFallback>
-                            </Avatar>
-                            <div className="flex flex-col justify-center">
-                              <div className="flex items-center gap-1.5">
-                                <span className="font-bold text-sm">{staff.name || staff.profile?.full_name}</span>
-                                <Badge variant="outline" className="text-[9px] font-normal px-1 h-4" style={{ color: roleInfo?.color, borderColor: roleInfo?.color }}>
-                                  {roleInfo?.name || '직원'}
-                                </Badge>
-                              </div>
-                            </div>
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-sm leading-none">{staff.name || staff.profile?.full_name}</span>
+                            <Badge variant="outline" className="text-[9px] font-normal px-1 h-4 flex items-center justify-center" style={{ color: roleInfo?.color, borderColor: roleInfo?.color }}>
+                              {roleInfo?.name || '직원'}
+                            </Badge>
                           </div>
-                          <div className="shrink-0 pt-0.5">
+                          <div className="shrink-0 flex items-center">
                             {stateBadge}
                           </div>
                         </div>
@@ -636,7 +645,6 @@ export function AttendanceClientPage({
                             {isLate ? (
                               <div className="flex items-center gap-1 text-red-600">
                                 <span className="text-sm font-bold">{formatT(attendance?.clock_in_time)}</span>
-                                <span className="text-[9px] bg-red-100 text-red-700 px-1 rounded-sm font-bold">지각</span>
                               </div>
                             ) : (
                               <span className="text-sm font-bold">{formatT(attendance?.clock_in_time)}</span>

@@ -40,38 +40,54 @@ export function StaffAnnouncementList({ announcements }: StaffAnnouncementListPr
 
   return (
     <>
-      <div className="w-full mb-3 md:mb-6">
-        <div className="flex items-center gap-2 mb-1.5 md:mb-2 px-1">
-          <Megaphone className="h-3.5 w-3.5 md:h-4 md:w-4 text-primary" />
-          <h2 className="text-xs md:text-sm font-semibold">매장 공지사항</h2>
+      {/* 모바일 뷰: 컴팩트한 확성기 버튼 */}
+      <div className="md:hidden flex justify-end h-full">
+        <button 
+          onClick={() => setShowAllList(true)}
+          className="flex flex-col items-center justify-center gap-1 bg-white border shadow-sm px-3 rounded-xl h-full w-[72px] text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shrink-0"
+        >
+          <div className="relative">
+            <Megaphone className="h-5 w-5 text-primary" />
+            <span className="absolute -top-1.5 -right-2 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white border-2 border-white shadow-sm">
+              {announcements.length}
+            </span>
+          </div>
+          <span className="text-[10px]">공지사항</span>
+        </button>
+      </div>
+
+      {/* 데스크탑 뷰: 기존 리스트 형태 */}
+      <div className="hidden md:block w-full h-full">
+        <div className="flex items-center gap-2 mb-2 px-1">
+          <Megaphone className="h-4 w-4 text-primary" />
+          <h2 className="text-sm font-semibold">매장 공지사항</h2>
           {announcements.length > displayAnnouncements.length && (
-            <span className="text-[10px] md:text-xs text-muted-foreground cursor-pointer hover:underline ml-auto"
+            <span className="text-xs text-muted-foreground cursor-pointer hover:underline ml-auto"
                   onClick={() => setShowAllList(true)}>
               전체보기 ({announcements.length})
             </span>
           )}
         </div>
         
-        <div className="flex flex-col md:flex-row gap-2 md:gap-3 overflow-x-auto pb-1 md:pb-2 snap-x scrollbar-hide">
+        <div className="flex flex-row gap-3 overflow-x-auto pb-2 snap-x scrollbar-hide">
           {displayAnnouncements.map((announcement) => (
             <div 
               key={announcement.id} 
               onClick={() => setSelectedAnnouncement(announcement)}
-              className={`flex-none w-full md:w-[320px] p-2 md:p-3 rounded-lg border cursor-pointer snap-start transition-colors hover:bg-muted/50 ${
+              className={`flex-none w-[320px] p-3 rounded-md border cursor-pointer snap-start transition-colors hover:bg-muted/50 flex flex-col justify-center ${
                 announcement.is_important ? 'bg-primary/5 border-primary/20 shadow-sm' : 'bg-card shadow-sm'
               }`}
             >
-              <div className="flex items-center gap-2 mb-0 md:mb-1.5">
+              <div className="flex items-center gap-2 mb-1.5">
                 {announcement.is_important && (
-                  <Badge variant="destructive" className="text-[9px] md:text-[10px] px-1 md:px-1.5 py-0 h-3.5 md:h-4">중요</Badge>
+                  <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4">중요</Badge>
                 )}
-                <h4 className="font-semibold text-xs md:text-sm truncate flex-1">{announcement.title}</h4>
-                <ChevronRight className="md:hidden h-3 w-3 text-muted-foreground shrink-0" />
+                <h4 className="font-semibold text-sm truncate flex-1 text-slate-800">{announcement.title}</h4>
               </div>
-              <p className="hidden md:block text-xs text-muted-foreground line-clamp-1 mb-2">
+              <p className="block text-xs text-muted-foreground line-clamp-1 mb-2">
                 {announcement.content}
               </p>
-              <div className="hidden md:flex justify-between items-center text-[10px] text-muted-foreground">
+              <div className="flex justify-between items-center text-[10px] text-muted-foreground">
                 <span>{format(new Date(announcement.created_at), 'yyyy.MM.dd', { locale: ko })}</span>
                 <span className="flex items-center">자세히 보기 <ChevronRight className="h-3 w-3 ml-0.5" /></span>
               </div>

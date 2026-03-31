@@ -68,22 +68,22 @@ export function MobileBottomNav({ role, permissions = {} }: MobileBottomNavProps
             key={item.href}
             href={item.href}
             className={cn(
-              "flex flex-col items-center justify-center w-full h-full gap-1 transition-colors relative",
+              "flex flex-col items-center justify-center w-full h-full transition-colors relative",
               isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
             )}
           >
             <div className={cn(
-              "flex items-center justify-center w-12 h-8 rounded-full transition-colors",
-              isActive && "bg-primary/10"
+              "flex flex-col items-center justify-center px-4 py-1.5 gap-1 rounded-xl transition-colors",
+              isActive && "bg-muted"
             )}>
               <item.icon className={cn("h-5 w-5", isActive && "stroke-[2.5px]")} />
+              <span className={cn(
+                "text-[10px] font-medium tracking-tight",
+                isActive && "font-bold"
+              )}>
+                {item.title}
+              </span>
             </div>
-            <span className={cn(
-              "text-[10px] font-medium tracking-tight",
-              isActive && "font-bold"
-            )}>
-              {item.title}
-            </span>
           </Link>
         )
       })}

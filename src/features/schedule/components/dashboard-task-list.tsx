@@ -364,9 +364,8 @@ export function DashboardTaskList({ storeId, roleId, attendanceStatus, currentUs
           </div>
           
           <div className="flex items-center gap-1.5 md:gap-3 shrink-0">
-            <Badge variant="outline" className="text-[10px] md:text-[11px] font-medium bg-white text-[#6b6b6b] border-black/10 px-1.5 md:px-2.5">
-                <span className="hidden sm:inline">{formattedDate}</span>
-                <span className="sm:hidden">{now.getMonth() + 1}/{now.getDate()}</span>
+            <Badge variant="outline" className="hidden sm:inline-flex text-[10px] md:text-[11px] font-medium bg-white text-[#6b6b6b] border-black/10 px-1.5 md:px-2.5">
+                <span>{formattedDate}</span>
             </Badge>
             <TooltipProvider delayDuration={200}>
               <Tooltip>

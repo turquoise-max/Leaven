@@ -110,51 +110,51 @@ export function StaffScheduleMatrix({
               return (
                 <div 
                   key={date.toISOString()}
-                  // 모바일 뷰에서는 타임라인 탭이 숨겨져 있으므로 뷰 전환(onHeaderDateClick) 방지
                   className={cn(
-                    "flex flex-col gap-1.5 py-2 px-3 transition-colors",
+                    "flex flex-row items-center gap-3 py-2 px-3 transition-colors min-h-[44px]",
                     isToday ? "bg-primary/[0.02]" : ""
                   )}
                 >
-                  {/* 상단 날짜 영역 (가로 배치로 변경) */}
-                  <div className="flex items-center gap-2">
+                  {/* 좌측 날짜 영역 */}
+                  <div className="flex flex-col items-center justify-center min-w-[32px] shrink-0">
                     <span className={cn(
-                      "text-[14px] font-bold leading-none w-6 h-6 flex items-center justify-center rounded-full",
-                      isToday ? "bg-primary text-white shadow-sm" : "bg-black/5 text-[#1a1a1a]"
-                    )}>
-                      {format(date, 'd')}
-                    </span>
-                    <span className={cn(
-                      "text-[12px] font-medium",
+                      "text-[10px] font-medium leading-none mb-0.5",
                       isToday ? "text-primary" : "text-muted-foreground"
                     )}>
                       {format(date, 'E', { locale: ko })}
                     </span>
+                    <span className={cn(
+                      "text-[13px] font-bold leading-none flex items-center justify-center rounded-full w-6 h-6",
+                      isToday ? "bg-primary text-white shadow-sm" : "text-[#1a1a1a]"
+                    )}>
+                      {format(date, 'd')}
+                    </span>
                   </div>
                   
-                  {/* 하단 일정 영역 */}
-                  <div className="flex flex-col gap-1.5 w-full relative group">
+                  {/* 우측 일정 영역 */}
+                  <div className="flex-1 flex flex-col justify-center min-w-0 relative group">
                     {/* 매니저 권한인 경우 빈 공간에서 추가 아이콘 띄우기 */}
                     {isManager && daySchedules.length === 0 && (
-                      <div className="absolute inset-y-0 right-0 flex items-center pr-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="absolute inset-y-0 right-0 flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
                         <button 
                           onClick={(e) => {
                             e.stopPropagation()
                             onCellClick(staff, date)
                           }}
-                          className="p-1.5 bg-black/5 hover:bg-black/10 text-muted-foreground rounded-full"
+                          className="p-1 bg-black/5 hover:bg-black/10 text-muted-foreground rounded-full"
                         >
-                          <Plus className="w-4 h-4" />
+                          <Plus className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     )}
 
                     {daySchedules.length === 0 ? (
-                      <div className="text-[12px] text-muted-foreground/50 py-1">
+                      <div className="text-[12px] text-muted-foreground/50 py-1 pl-1">
                         일정이 없습니다.
                       </div>
                     ) : (
-                      daySchedules.map((sch) => {
+                      <div className="flex flex-col gap-1 w-full">
+                        {daySchedules.map((sch) => {
                         const start = new Date(sch.start_time)
                         const end = new Date(sch.end_time)
                         
@@ -177,48 +177,49 @@ export function StaffScheduleMatrix({
                         }
                         const displayTitle = typeLabelMap[currentType] || sch.title || '근무'
 
-                        return (
-                          <div 
-                            key={sch.id}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              onScheduleClick(sch, staff)
-                            }}
-                            className="relative flex items-center justify-between gap-2 active:opacity-70 transition-opacity bg-black/[0.02] rounded px-2 py-1.5"
-                          >
-                            {/* 일정 좌측 색상 지시선과 타이틀 */}
-                            <div className="flex items-center gap-2 min-w-0">
-                              <div 
-                                className="w-1 rounded-full shrink-0" 
-                                style={{ 
-                                  height: '12px',
-                                  backgroundColor: scheduleColor,
-                                  opacity: isLeave ? 0.4 : 1 
-                                }} 
-                              />
-                              <span className={cn(
-                                "text-[14px] font-semibold truncate", 
-                                isLeave ? "text-slate-600 line-through decoration-slate-400" : "text-[#1a1a1a]"
-                              )}>
-                                {displayTitle}
-                              </span>
-                            </div>
+                          return (
+                            <div 
+                              key={sch.id}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                onScheduleClick(sch, staff)
+                              }}
+                              className="relative flex flex-row items-center justify-between gap-2 active:opacity-70 transition-opacity bg-black/[0.02] rounded px-2 py-1.5 w-full"
+                            >
+                              {/* 일정 좌측 색상 지시선과 타이틀 */}
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <div 
+                                  className="w-1 rounded-full shrink-0" 
+                                  style={{ 
+                                    height: '10px',
+                                    backgroundColor: scheduleColor,
+                                    opacity: isLeave ? 0.4 : 1 
+                                  }} 
+                                />
+                                <span className={cn(
+                                  "text-[13px] font-semibold truncate leading-none", 
+                                  isLeave ? "text-slate-600 line-through decoration-slate-400" : "text-[#1a1a1a]"
+                                )}>
+                                  {displayTitle}
+                                </span>
+                              </div>
 
-                            {/* 우측 시간 (또는 메모) */}
-                            <div className="shrink-0 flex items-center">
-                              {!isLeave ? (
-                                <span className="text-[12px] font-medium" style={{ color: scheduleColor }}>
-                                  {format(start, 'HH:mm')} - {format(end, 'HH:mm')}
-                                </span>
-                              ) : sch.memo ? (
-                                <span className="text-[11px] text-slate-500 truncate max-w-[80px]">
-                                  {sch.memo}
-                                </span>
-                              ) : null}
+                              {/* 우측 시간 (또는 메모) */}
+                              <div className="shrink-0 flex items-center">
+                                {!isLeave ? (
+                                  <span className="text-[11px] font-medium leading-none" style={{ color: scheduleColor }}>
+                                    {format(start, 'HH:mm')} - {format(end, 'HH:mm')}
+                                  </span>
+                                ) : sch.memo ? (
+                                  <span className="text-[10px] text-slate-500 truncate max-w-[80px] leading-none">
+                                    {sch.memo}
+                                  </span>
+                                ) : null}
+                              </div>
                             </div>
-                          </div>
-                        )
-                      })
+                          )
+                        })}
+                      </div>
                     )}
                   </div>
                 </div>

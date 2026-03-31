@@ -105,48 +105,56 @@ export function CreatePersonalTaskDialog({ storeId, open, onOpenChange, onSucces
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>나의 할 일 추가</DialogTitle>
+      <DialogContent className="sm:max-w-md p-5 w-[92vw] rounded-xl">
+        <DialogHeader className="pb-1">
+          <DialogTitle className="text-lg">나의 할 일 추가</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="title">할 일 이름 <span className="text-red-500">*</span></Label>
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="title" className="text-sm">할 일 이름 <span className="text-red-500">*</span></Label>
             <Input 
               id="title" 
               placeholder="예: 분리수거하기, 매장 환기 등" 
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              className="h-9"
               autoFocus
             />
           </div>
 
-          <div className="space-y-3">
-            <Label>하위 할 일 (체크리스트)</Label>
+          <div className="space-y-2">
+            <Label className="text-sm">하위 할 일 (체크리스트)</Label>
             <div className="space-y-2">
-              {checklist.length > 0 && (
-                <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1 custom-scrollbar">
-                  {checklist.map((item) => (
-                    <div key={item.id} className="flex items-center gap-2 bg-black/5 px-3 py-2 rounded-md">
-                      <div className="w-4 h-4 rounded-sm border border-black/20 bg-white shrink-0" />
-                      <span className="text-sm flex-1">{item.text}</span>
-                      <button 
-                        onClick={() => handleRemoveChecklist(item.id)}
-                        className="text-muted-foreground hover:text-red-500 transition-colors"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
+              <div className="h-[120px] bg-muted/10 rounded-lg p-1 border border-black/5">
+                <div className="space-y-1.5 h-full overflow-y-auto pr-1 custom-scrollbar">
+                  {checklist.length === 0 ? (
+                    <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
+                      체크리스트 항목이 없습니다.
                     </div>
-                  ))}
+                  ) : (
+                    checklist.map((item) => (
+                      <div key={item.id} className="flex items-center gap-2 bg-black/5 px-2 py-1.5 rounded-md">
+                        <div className="w-3.5 h-3.5 rounded-sm border border-black/20 bg-white shrink-0" />
+                        <span className="text-sm flex-1 leading-none">{item.text}</span>
+                        <button 
+                          onClick={() => handleRemoveChecklist(item.id)}
+                          className="text-muted-foreground hover:text-red-500 transition-colors p-0.5"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))
+                  )}
                 </div>
-              )}
-              <div className="flex gap-2">
+              </div>
+              <div className="flex gap-1.5">
                 <Input 
-                  placeholder="체크리스트 항목 추가..." 
+                  placeholder="항목 추가 후 엔터..." 
                   value={newChecklistItem}
                   onChange={(e) => setNewChecklistItem(e.target.value)}
                   onKeyDown={handleAddChecklist}
+                  className="h-8 text-sm"
                 />
                 <Button 
                   type="button" 
@@ -154,6 +162,7 @@ export function CreatePersonalTaskDialog({ storeId, open, onOpenChange, onSucces
                   size="icon" 
                   onClick={handleAddChecklist}
                   disabled={!newChecklistItem.trim()}
+                  className="h-8 w-8 shrink-0"
                 >
                   <Plus className="w-4 h-4" />
                 </Button>
@@ -161,37 +170,38 @@ export function CreatePersonalTaskDialog({ storeId, open, onOpenChange, onSucces
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="description">메모 (선택)</Label>
+          <div className="space-y-1.5">
+            <Label htmlFor="description" className="text-sm">메모 (선택)</Label>
             <Textarea 
               id="description" 
-              placeholder="추가로 남길 내용을 입력하세요" 
+              placeholder="추가 내용을 입력하세요" 
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="resize-none"
-              rows={3}
+              className="resize-none min-h-[60px] text-sm py-2"
+              rows={2}
             />
           </div>
 
-          <div className="space-y-3 p-4 border rounded-xl bg-muted/30">
+          <div className="space-y-2.5 p-3 border rounded-lg bg-muted/30">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label className="text-sm font-semibold">업무 시간 설정</Label>
-                <p className="text-[12px] text-muted-foreground">
-                  {isAnytime ? "특정 시간 없이 오늘 중 완료" : "업무를 시작할 시간을 지정하세요"}
+                <Label className="text-sm font-medium">업무 시간</Label>
+                <p className="text-[11px] text-muted-foreground leading-tight">
+                  {isAnytime ? "특정 시간 없이 완료" : "업무 시작 시간 지정"}
                 </p>
               </div>
-              <div className="flex items-center gap-3 bg-white/50 px-3 py-1.5 rounded-full border border-black/5 shadow-sm">
-                <span className="text-xs font-medium text-muted-foreground">종일</span>
+              <div className="flex items-center gap-2 bg-white/50 px-2.5 py-1 rounded-full border border-black/5 shadow-sm">
+                <span className="text-[11px] font-medium text-muted-foreground">종일</span>
                 <Switch 
                   checked={isAnytime} 
-                  onCheckedChange={setIsAnytime} 
+                  onCheckedChange={setIsAnytime}
+                  className="scale-90 data-[state=checked]:bg-primary"
                 />
               </div>
             </div>
             
             {!isAnytime && (
-              <div className="pt-1 animate-in fade-in slide-in-from-top-1 duration-200">
+              <div className="pt-0.5 animate-in fade-in slide-in-from-top-1 duration-200">
                 <TimePicker 
                   value={startTime} 
                   onChange={setStartTime} 
@@ -201,12 +211,12 @@ export function CreatePersonalTaskDialog({ storeId, open, onOpenChange, onSucces
           </div>
         </div>
 
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading} className="h-9 px-4 text-sm">
             취소
           </Button>
-          <Button onClick={handleSubmit} disabled={loading || !title.trim()}>
-            {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+          <Button onClick={handleSubmit} disabled={loading || !title.trim()} className="h-9 px-4 text-sm">
+            {loading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : null}
             저장하기
           </Button>
         </div>
