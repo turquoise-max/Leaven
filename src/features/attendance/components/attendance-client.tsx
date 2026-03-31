@@ -178,7 +178,7 @@ export function AttendanceClientPage({
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className={cn("flex flex-col min-h-0", isManager ? "flex-1" : "h-auto")}>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className={cn("flex flex-col min-h-0", "flex-1")}>
         <div className="px-4 md:px-6 pt-2 md:pt-4 border-b overflow-x-auto no-scrollbar">
           <TabsList className="bg-transparent h-9 md:h-10 p-0 gap-4 md:gap-8 justify-start flex-nowrap w-max min-w-full">
             {isManager && (
@@ -219,7 +219,7 @@ export function AttendanceClientPage({
         </div>
 
         {/* Tab Contents */}
-        <div className={cn("overflow-auto bg-slate-50/30 p-6", isManager ? "flex-1" : "h-auto")}>
+        <div className={cn("overflow-auto bg-slate-50/30 p-6", "flex-1")}>
           
           {isManager && (
             <TabsContent value="live" className="m-0 mt-0 h-full flex flex-col gap-6 outline-none">
@@ -438,12 +438,12 @@ export function AttendanceClientPage({
             </TabsContent>
           )}
 
-          <TabsContent value="history" className={cn("m-0 mt-0 flex flex-col outline-none", isManager ? "h-full" : "h-auto")}>
-            <div className={cn("bg-white md:rounded-lg border-y md:border shadow-none md:shadow-sm overflow-hidden flex flex-col", isManager ? "flex-1" : "h-auto")}>
+          <TabsContent value="history" className={cn("m-0 mt-0 flex flex-col outline-none", "h-full")}>
+            <div className={cn("bg-white md:rounded-lg border-y md:border shadow-none md:shadow-sm overflow-hidden flex flex-col", "flex-1")}>
               <div className="p-4 border-b hidden md:flex items-center justify-between bg-white md:bg-transparent">
                 <h1 className="text-base md:text-2xl font-semibold md:font-bold tracking-tight text-center md:text-left w-full md:w-auto">{isManager ? "전체 출퇴근 기록부" : "출퇴근 관리"}</h1>
               </div>
-              <div className={cn("overflow-auto", isManager ? "flex-1" : "h-auto")}>
+              <div className={cn("overflow-auto", "flex-1")}>
                 {/* Desktop View Table */}
                 <table className="w-full text-sm hidden md:table">
                   <thead className="bg-muted/50 text-muted-foreground sticky top-0 z-10">
@@ -701,12 +701,12 @@ export function AttendanceClientPage({
             </div>
           </TabsContent>
 
-          <TabsContent value="requests" className={cn("m-0 mt-0 flex flex-col outline-none", isManager ? "h-full" : "h-auto")}>
-            <div className={cn("bg-white md:rounded-lg border-y md:border shadow-none md:shadow-sm overflow-hidden flex flex-col", isManager ? "flex-1" : "h-auto")}>
+          <TabsContent value="requests" className={cn("m-0 mt-0 flex flex-col outline-none", "h-full")}>
+            <div className={cn("bg-white md:rounded-lg border-y md:border shadow-none md:shadow-sm overflow-hidden flex flex-col", "flex-1")}>
               <div className="p-4 border-b flex items-center justify-center md:justify-between">
                 <h3 className="font-semibold text-base">{isManager ? "출퇴근 시간 수정 요청 관리" : "나의 수정 요청 내역"}</h3>
               </div>
-              <div className={cn("bg-slate-50/50 p-4 md:p-6", isManager ? "flex-1 overflow-auto" : "h-auto")}>
+              <div className={cn("bg-slate-50/50 p-4 md:p-6", "flex-1 overflow-auto")}>
                 {requestsData.filter(r => isManager || r.member_id === myStaff?.id).length === 0 ? (
                   <div className="flex flex-col items-center justify-center text-muted-foreground p-12 bg-white rounded-xl border border-dashed border-border/50">
                     <CheckSquare className="w-12 h-12 mb-4 opacity-20" />

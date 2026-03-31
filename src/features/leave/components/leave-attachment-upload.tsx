@@ -71,10 +71,10 @@ export function LeaveAttachmentUpload({ onUpload, storeId }: LeaveAttachmentUplo
   }
 
   return (
-    <div className="space-y-2">
+    <div className="w-full">
       <div 
         className={cn(
-          "border-2 border-dashed rounded-lg p-4 transition-colors flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-muted/50",
+          "border border-dashed rounded-xl p-2.5 transition-colors flex items-center justify-center gap-3 cursor-pointer hover:bg-muted/50",
           fileName ? "border-primary/50 bg-primary/5" : "border-muted-foreground/20"
         )}
         onClick={() => !isUploading && !fileName && fileInputRef.current?.click()}
@@ -88,44 +88,44 @@ export function LeaveAttachmentUpload({ onUpload, storeId }: LeaveAttachmentUplo
         />
 
         {isUploading ? (
-          <div className="flex flex-col items-center gap-2 py-2">
-            <Loader2 className="w-6 h-6 animate-spin text-primary" />
-            <p className="text-xs font-medium text-muted-foreground">업로드 중...</p>
+          <div className="flex items-center gap-2.5 py-1">
+            <Loader2 className="w-4 h-4 animate-spin text-primary" />
+            <p className="text-xs font-semibold text-slate-500">업로드 중...</p>
           </div>
         ) : fileName ? (
-          <div className="flex items-center justify-between w-full gap-3 px-2">
-            <div className="flex items-center gap-3 overflow-hidden">
-              <div className="bg-primary/10 p-2 rounded-md">
-                <FileText className="w-5 h-5 text-primary" />
+          <div className="flex items-center justify-between w-full gap-2 px-1">
+            <div className="flex items-center gap-2.5 overflow-hidden">
+              <div className="bg-primary/10 p-1.5 rounded-lg shrink-0">
+                <FileText className="w-4 h-4 text-primary" />
               </div>
               <div className="flex flex-col overflow-hidden">
-                <span className="text-sm font-semibold truncate">{fileName}</span>
-                <span className="text-[10px] text-muted-foreground">증빙 자료 등록됨</span>
+                <span className="text-xs font-bold truncate leading-none mb-0.5">{fileName}</span>
+                <span className="text-[10px] text-primary font-medium leading-none">증빙 자료 등록됨</span>
               </div>
             </div>
             <Button
               type="button"
               variant="ghost"
               size="icon"
-              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+              className="h-7 w-7 rounded-lg text-slate-400 hover:text-destructive hover:bg-destructive/10 shrink-0"
               onClick={(e) => {
                 e.stopPropagation()
                 handleRemove()
               }}
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </Button>
           </div>
         ) : (
-          <>
-            <div className="bg-muted p-3 rounded-full">
-              <Upload className="w-5 h-5 text-muted-foreground" />
+          <div className="flex items-center gap-2.5 py-0.5">
+            <div className="bg-slate-100 p-1.5 rounded-lg shrink-0">
+              <Upload className="w-4 h-4 text-slate-500" />
             </div>
-            <div className="text-center">
-              <p className="text-sm font-semibold">증빙 자료 업로드</p>
-              <p className="text-xs text-muted-foreground mt-1">병원 진단서, 청첩장 등 (이미지, PDF)</p>
+            <div className="flex flex-col">
+              <p className="text-xs font-bold text-slate-600 leading-none mb-1">증빙 자료 업로드</p>
+              <p className="text-[10px] text-slate-400 font-medium leading-none">병원 진단서, 청첩장 등 (이미지, PDF)</p>
             </div>
-          </>
+          </div>
         )}
       </div>
     </div>

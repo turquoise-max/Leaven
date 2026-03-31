@@ -210,7 +210,7 @@ export function StaffScheduleMatrix({
                                   <span className="text-[11px] font-medium leading-none" style={{ color: scheduleColor }}>
                                     {format(start, 'HH:mm')} - {format(end, 'HH:mm')}
                                   </span>
-                                ) : sch.memo ? (
+                                ) : sch.memo && sch.memo !== '자동 생성됨' ? (
                                   <span className="text-[10px] text-slate-500 truncate max-w-[80px] leading-none">
                                     {sch.memo}
                                   </span>

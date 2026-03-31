@@ -47,9 +47,8 @@ export function MonthlyCalendarView({
   const calendarDays = []
   let day = startDate
   
-  // 최소 5주(35일) 또는 6주(42일)가 렌더링되도록 보장
-  // startDate부터 계산하여 달력이 항상 화면의 일정한 높이를 차지하도록 함
-  while (day <= endDate || calendarDays.length < 35) {
+  // 4~6주가 유동적으로 렌더링되도록 처리
+  while (day <= endDate) {
     calendarDays.push(day)
     day = addDays(day, 1)
   }

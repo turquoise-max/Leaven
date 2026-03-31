@@ -620,7 +620,7 @@ function TaskCard({ task, now, routineStatus, onCheck, onStatusChange, onDelete,
               </div>
               
               {task.description && (
-                <p className={cn("text-[11px] whitespace-pre-wrap leading-snug", isTemplate ? "text-muted-foreground" : "text-[#6b6b6b]", isDone && !isTemplate && "opacity-60")}>
+                <p className={cn("text-[11px] whitespace-pre-wrap leading-snug break-all", isTemplate ? "text-muted-foreground" : "text-[#6b6b6b]", isDone && !isTemplate && "opacity-60")}>
                     {task.description}
                 </p>
               )}
@@ -640,14 +640,14 @@ function TaskCard({ task, now, routineStatus, onCheck, onStatusChange, onDelete,
                       checked={isItemCompleted}
                       onCheckedChange={(c) => onCheck(task.id, item.id, !!c, isTemplate)}
                       className={cn(
-                        "w-3 md:w-3.5 h-3 md:h-3.5 mt-0.5 rounded-sm border-black/20 transition-colors", 
+                        "w-3 md:w-3.5 h-3 md:h-3.5 mt-0.5 rounded-sm border-black/20 transition-colors shrink-0", 
                         isTemplate 
                           ? (isItemCompleted && "data-[state=checked]:bg-[#534AB7] data-[state=checked]:border-[#534AB7]")
                           : (isItemCompleted && "data-[state=checked]:bg-[#1D9E75] data-[state=checked]:border-[#1D9E75]")
                       )}
                    />
                    <span className={cn(
-                     "text-[10px] md:text-[11px] font-medium text-[#1a1a1a] transition-all", 
+                     "text-[10px] md:text-[11px] font-medium text-[#1a1a1a] transition-all break-all", 
                      isItemCompleted && "line-through text-muted-foreground opacity-60"
                    )}>
                      {item.text}

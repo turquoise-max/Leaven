@@ -131,10 +131,10 @@ export function LeaveClientPage({
   const remain = total - used
 
   const view = (
-    <div className="flex flex-col h-full bg-white md:rounded-xl md:border md:shadow-sm relative">
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-        <div className="px-4 md:px-6 border-b bg-slate-50/50 flex justify-between items-center h-14 shrink-0">
-          <TabsList className="bg-transparent h-full p-0 gap-4 md:gap-8 justify-start w-full md:w-auto overflow-x-auto no-scrollbar">
+    <div className="flex flex-col bg-white md:rounded-xl md:border md:shadow-sm relative h-full w-full max-w-full overflow-hidden">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full min-h-0 w-full max-w-full">
+        <div className="px-4 md:px-6 border-b bg-slate-50/50 flex justify-between items-center h-14 shrink-0 z-10">
+          <TabsList className="bg-transparent h-full p-0 gap-4 md:gap-8 justify-start w-full md:w-auto overflow-x-auto overflow-y-hidden no-scrollbar">
             <TabsTrigger 
               value="calendar" 
               className="relative rounded-none px-1 pb-3 pt-2 text-sm md:text-base font-semibold text-muted-foreground hover:text-foreground data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none outline-none focus-visible:outline-none !shadow-none bg-transparent group whitespace-nowrap"
@@ -169,55 +169,123 @@ export function LeaveClientPage({
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary scale-x-0 origin-left transition-transform duration-200 group-data-[state=active]:scale-x-100" />
             </TabsTrigger>
           </TabsList>
-          
-          <Button className="shadow-sm px-3 h-9 md:h-10" onClick={() => setIsRequestModalOpen(true)}>
-            <Plus className="w-4 h-4 md:mr-2" />
-            <span className="hidden md:inline">휴가 신청</span>
-          </Button>
         </div>
 
-        <div className="flex-1 overflow-auto bg-slate-50/30 p-4 md:p-6">
-          <TabsContent value="calendar" className="m-0 mt-0 h-full flex flex-col gap-2 md:gap-6 outline-none">
-            <div className="bg-transparent md:bg-white md:rounded-lg md:border md:shadow-sm overflow-hidden flex-1 flex flex-col">
-              <div className="p-4 border-b flex items-center justify-between shrink-0 bg-white md:bg-slate-50/50">
-                <h1 className="text-base md:text-2xl font-semibold md:font-bold tracking-tight w-full text-center md:text-left">{isManager ? '직원 휴가 캘린더' : '전체 휴가 캘린더'}</h1>
-                <div className="hidden md:flex gap-2 text-[11px] font-medium w-full md:w-auto justify-center md:justify-end">
-                  <div className="flex items-center gap-1.5 bg-blue-50 text-blue-700 px-2 py-1 rounded border border-blue-200">
-                    <div className="w-2 h-2 rounded-full bg-blue-500" /> 연차
-                  </div>
-                  <div className="flex items-center gap-1.5 bg-red-50 text-red-700 px-2 py-1 rounded border border-red-200">
-                    <div className="w-2 h-2 rounded-full bg-red-500" /> 병가
-                  </div>
-                  <div className="flex items-center gap-1.5 bg-slate-100 text-slate-700 px-2 py-1 rounded border border-slate-200">
-                    <div className="w-2 h-2 rounded-full bg-slate-400" /> 무급휴가
-                  </div>
-                </div>
-              </div>
-              <div className="flex-1 p-0 md:p-4 overflow-hidden relative leave-calendar-container">
+        <div className={cn("bg-slate-50/30 p-4 md:p-6 flex-1 min-h-0 overflow-y-auto no-scrollbar relative flex flex-col", activeTab === 'requests' ? 'pb-24 md:pb-6' : 'pb-4 md:pb-6')}>
+          <TabsContent value="calendar" className="m-0 mt-0 flex flex-col gap-2 md:gap-6 outline-none h-full flex-1">
+            <div className="bg-transparent md:bg-white md:rounded-lg md:border md:shadow-sm flex flex-col h-full">
+              <div className="p-0 md:p-3 relative leave-calendar-container h-full">
                 <style>{`
-                  .leave-calendar-container .fc { height: 100%; font-size: 13px; }
-                  .leave-calendar-container .fc-theme-standard th { border-color: rgba(0,0,0,0.05); padding: 8px 0; background: #f8fafc; font-weight: 600; color: #475569; }
+                  .leave-calendar-container .fc { height: 100%; font-size: 12px; }
+                  .leave-calendar-container .fc-theme-standard th { border-color: rgba(0,0,0,0.05); padding: 4px 0; background: #f8fafc; font-weight: 600; color: #475569; font-size: 11px; }
                   .leave-calendar-container .fc-theme-standard td { border-color: rgba(0,0,0,0.05); }
-                  .leave-calendar-container .fc-daygrid-day-number { padding: 4px 8px; color: #334155; font-weight: 500; }
-                  .leave-calendar-container .fc-event { border: none; border-radius: 4px; padding: 2px 4px; margin: 1px 4px; font-size: 11px; font-weight: 600; }
+                  .leave-calendar-container .fc-daygrid-day-top { display: flex; justify-content: center; width: 100%; padding-top: 2px; }
+                  .leave-calendar-container .fc-daygrid-day-number { padding: 2px; color: #334155; font-weight: 500; text-align: center; font-size: 11px; }
+                  .leave-calendar-container .fc-event { border: none; border-radius: 3px; padding: 1px 3px; margin: 1px 2px; font-size: 9.5px; font-weight: 600; line-height: 1.2; }
+                  .leave-calendar-container .fc-daygrid-day-events { margin-bottom: 2px !important; }
                   .leave-calendar-container .fc .fc-today-button:disabled { opacity: 1 !important; pointer-events: auto !important; cursor: pointer !important; }
                   
+                  /* Weekend Colors */
+                  .leave-calendar-container .fc-day-sun .fc-daygrid-day-number,
+                  .leave-calendar-container .fc-theme-standard th.fc-day-sun .fc-col-header-cell-cushion { color: #ef4444 !important; }
+                  .leave-calendar-container .fc-day-sat .fc-daygrid-day-number,
+                  .leave-calendar-container .fc-theme-standard th.fc-day-sat .fc-col-header-cell-cushion { color: #3b82f6 !important; }
+
                   /* Mobile specific header layout */
                   @media (max-width: 768px) {
-                    .leave-calendar-container .fc-header-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5em !important; margin-top: 0.5em !important; }
-                    .leave-calendar-container .fc-toolbar-chunk:nth-child(1) { order: 1; } /* prev */
-                    .leave-calendar-container .fc-toolbar-chunk:nth-child(2) { order: 2; flex: 1; text-align: center; } /* title */
-                    .leave-calendar-container .fc-toolbar-chunk:nth-child(3) { order: 3; } /* next */
-                    .leave-calendar-container .fc-today-button { display: none !important; }
-                    .leave-calendar-container .fc-toolbar-title { font-size: 1.1em !important; font-weight: 700; }
+                    .leave-calendar-container .fc-header-toolbar { 
+                      display: flex !important; 
+                      margin-bottom: 0.5rem !important; 
+                      margin-top: 0 !important; 
+                    }
+                    /* 첫 번째 청크(prev, next, title 포함)가 전체 너비를 차지하고 요소들을 양끝/중앙 배치하도록 수정 */
+                    .leave-calendar-container .fc-toolbar-chunk:nth-child(1) { 
+                      display: flex !important; 
+                      width: 100% !important; 
+                      justify-content: space-between !important; 
+                      align-items: center !important; 
+                    }
+                    .leave-calendar-container .fc-toolbar-chunk:nth-child(1) > .fc-button-group {
+                      display: contents !important; /* 내부의 prev, next가 독립된 flex 아이템처럼 동작하도록 */
+                    }
+                    .leave-calendar-container .fc-prev-button { 
+                      order: 1 !important; 
+                      margin: 0 !important;
+                      flex: 0 0 auto !important;
+                      width: 28px !important;
+                      min-width: 28px !important;
+                      max-width: 28px !important;
+                    }
+                    .leave-calendar-container .fc-toolbar-title { 
+                      order: 2 !important; 
+                      text-align: center !important; 
+                      font-size: 14px !important; 
+                      font-weight: 600 !important; 
+                      color: #1a1a1a !important; 
+                      margin: 0 !important;
+                      flex: 1 1 auto !important;
+                    }
+                    .leave-calendar-container .fc-next-button { 
+                      order: 3 !important; 
+                      margin: 0 !important;
+                      flex: 0 0 auto !important;
+                      width: 28px !important;
+                      min-width: 28px !important;
+                      max-width: 28px !important;
+                    }
+                    
+                    .leave-calendar-container .fc-toolbar-chunk:nth-child(2),
+                    .leave-calendar-container .fc-toolbar-chunk:nth-child(3) { display: none !important; }
+
+                    /* 캘린더 날짜칸 높이 줄이기 (모바일) - 초소형 컴팩트 */
+                    .leave-calendar-container .fc-daygrid-day-frame {
+                      min-height: 40px !important; 
+                    }
+                    .leave-calendar-container .fc-scroller-liquid-absolute {
+                      position: relative !important;
+                      height: auto !important;
+                      overflow: hidden !important;
+                    }
+                    .leave-calendar-container .fc-view-harness {
+                      height: auto !important;
+                    }
+                  }
+
+                  /* Button Customization for Schedule Calendar Match */
+                  .leave-calendar-container .fc-button-primary {
+                    background-color: #fff !important;
+                    border: 1px solid rgba(0,0,0,0.15) !important;
+                    color: #6b6b6b !important;
+                    box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05) !important;
+                    padding: 0;
+                    width: 28px;
+                    height: 28px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    border-radius: 6px !important;
+                    transition: all 0.2s;
+                  }
+                  .leave-calendar-container .fc-button-primary:hover {
+                    background-color: rgba(0,0,0,0.05) !important;
+                    color: #1a1a1a !important;
+                  }
+                  .leave-calendar-container .fc-button-primary .fc-icon {
+                    font-size: 1.2em;
+                  }
+                  .leave-calendar-container .fc-today-button {
+                    width: auto !important;
+                    padding: 0 12px !important;
+                    font-size: 12px !important;
+                    font-weight: 500 !important;
                   }
 
                   /* Desktop header: align title and prev/next close together */
                   @media (min-width: 769px) {
-                    .leave-calendar-container .fc-header-toolbar { display: flex; justify-content: flex-start; gap: 1.5rem; align-items: center; }
-                    .leave-calendar-container .fc-toolbar-chunk { display: flex; align-items: center; gap: 0.5rem; }
-                    .leave-calendar-container .fc-toolbar-chunk:last-child { margin-left: auto; } /* today button to the right */
-                    .leave-calendar-container .fc-toolbar-title { font-size: 1.25rem; font-weight: 700; margin: 0; min-width: 120px; text-align: center; }
+                    .leave-calendar-container .fc-header-toolbar { display: flex; justify-content: flex-start; gap: 0.75rem; align-items: center; }
+                    .leave-calendar-container .fc-toolbar-chunk { display: flex; align-items: center; gap: 0.25rem; }
+                    .leave-calendar-container .fc-toolbar-chunk:nth-child(2) { margin-right: auto; } /* Title */
+                    .leave-calendar-container .fc-toolbar-title { font-size: 14px !important; font-weight: 600 !important; color: #1a1a1a !important; margin: 0; min-width: auto; text-align: left; }
                   }
                 `}</style>
                 <FullCalendar
@@ -235,10 +303,15 @@ export function LeaveClientPage({
                     }
                   }}
                   headerToolbar={{ 
-                    left: 'prev', 
-                    center: 'title', 
-                    right: 'next today' 
+                    left: 'prev,next title', 
+                    center: '', 
+                    right: 'today' 
                   }}
+                  buttonText={{
+                    today: '오늘'
+                  }}
+                  fixedWeekCount={false}
+                  dayCellContent={(arg) => arg.date.getDate()}
                   events={requests.filter(r => r.status === 'approved').map(r => {
                     let color = '#94a3b8'
                     if (r.leave_type === 'annual') color = '#3b82f6'
@@ -250,25 +323,25 @@ export function LeaveClientPage({
                     endDateObj.setDate(endDateObj.getDate() + 1)
                     return { id: r.id, title: `${name} (${label})`, start: r.start_date, end: endDateObj.toISOString().substring(0, 10), backgroundColor: color, textColor: '#fff', allDay: true }
                   })}
-                  height="100%"
+                  height="auto"
                 />
               </div>
             </div>
           </TabsContent>
 
-          <TabsContent value="requests" className="m-0 mt-0 h-full flex flex-col outline-none">
-            <div className="bg-white md:rounded-lg border shadow-sm overflow-hidden flex-1 flex flex-col">
-              <div className="p-4 border-b flex items-center justify-between bg-white md:bg-transparent">
+          <TabsContent value="requests" className="m-0 mt-0 flex flex-col outline-none h-full min-h-0 flex-1">
+            <div className="bg-white md:rounded-lg border shadow-sm flex flex-col h-full overflow-hidden">
+              <div className="p-4 border-b flex items-center justify-between bg-white md:bg-transparent shrink-0">
                 <h1 className="text-base md:text-2xl font-semibold md:font-bold tracking-tight w-full text-center md:text-left">{isManager ? '휴가 및 연차 신청함' : '나의 휴가 신청 내역'}</h1>
               </div>
-              <div className="flex-1 overflow-auto bg-slate-50/50 p-6">
+              <div className="bg-slate-50/50 p-6 overflow-y-auto no-scrollbar flex-1">
                 {(isManager ? requests : myRequests).length === 0 ? (
-                  <div className="flex flex-col items-center justify-center text-muted-foreground h-full bg-white rounded-xl border border-dashed border-border/50">
+                  <div className="flex flex-col items-center justify-center text-muted-foreground min-h-[200px] h-full bg-white rounded-xl border border-dashed border-border/50">
                     <FileText className="w-12 h-12 mb-4 opacity-20" />
                     <p>등록된 휴가 신청이 없습니다.</p>
                   </div>
                 ) : (
-                  <div className="grid gap-4 max-w-4xl mx-auto">
+                  <div className="grid gap-4 max-w-4xl mx-auto pb-6">
                     {(isManager ? requests : myRequests).map(req => {
                       const handleResolve = async (status: 'approved' | 'rejected') => {
                         if (!isManager) return
@@ -281,17 +354,16 @@ export function LeaveClientPage({
                         } catch (e) { toast.error('오류 발생'); } finally { setActionLoading(null); }
                       }
                       const leaveTypeLabel = req.leave_type === 'annual' ? '연차' : req.leave_type === 'sick' ? '병가' : req.leave_type === 'unpaid' ? '무급휴가' : '반차'
+                      const memberStaff = staffList.find(s => s.id === req.member_id || s.id === req.member?.id) || req.member
+                      const roleInfo = getStaffRoleInfo(memberStaff)
                       return (
                         <div key={req.id} className={cn("bg-white border shadow-sm rounded-xl p-4 md:p-5 flex flex-col gap-3 md:gap-4 transition-colors", req.status !== 'pending' && "opacity-80 bg-slate-50/50")}>
                           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-0">
                             <div className="flex items-center gap-2.5 md:gap-3">
-                              <Avatar className="h-9 w-9 md:h-10 md:w-10 border shrink-0">
-                                <AvatarFallback>{req.member?.name?.substring(0,2)}</AvatarFallback>
-                              </Avatar>
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-1.5 flex-wrap">
                                   <span className="font-bold text-sm md:text-base truncate">{req.member?.name || req.member?.profile?.full_name}</span>
-                                  <Badge variant="outline" className="text-[9px] md:text-[10px] px-1 h-4 md:h-5 shrink-0">{req.member?.role_info?.name || '직원'}</Badge>
+                                  <Badge variant="outline" className="text-[9px] md:text-[10px] px-1 h-4 md:h-5 shrink-0 font-normal" style={{ color: roleInfo?.color, borderColor: roleInfo?.color }}>{roleInfo?.name || '직원'}</Badge>
                                 </div>
                                 <div className="text-xs md:text-sm text-muted-foreground mt-0.5 font-medium whitespace-nowrap overflow-hidden text-ellipsis">
                                   {req.start_date} ~ {req.end_date} 
@@ -379,18 +451,17 @@ export function LeaveClientPage({
             </div>
           </TabsContent>
 
-          <TabsContent value="balances" className="m-0 mt-0 h-full flex flex-col outline-none">
+          <TabsContent value="balances" className="m-0 mt-0 flex flex-col outline-none h-full min-h-0 flex-1">
             <div className={cn(
-              "bg-white md:rounded-lg border shadow-sm overflow-hidden flex flex-col",
-              isManager ? "flex-1" : "h-fit"
+              "bg-white md:rounded-lg border shadow-sm flex flex-col overflow-hidden h-full flex-1"
             )}>
-              <div className="p-4 border-b flex items-center justify-between bg-white md:bg-transparent">
+              <div className="p-4 border-b flex items-center justify-between bg-white md:bg-transparent shrink-0">
                 <div className="flex flex-col w-full text-center md:text-left">
                   <h1 className="text-base md:text-2xl font-semibold md:font-bold tracking-tight">{isManager ? '직원별 잔여 연차 관리' : '나의 잔여 연차 정보'}</h1>
                   <p className="text-[10px] md:text-xs text-muted-foreground mt-0.5">산정 방식: <span className="font-semibold text-foreground">{leaveCalcType === 'hire_date' ? '입사일 기준' : '회계연도 기준'}</span> (오늘 시점 보유량)</p>
                 </div>
               </div>
-              <div className={cn("overflow-auto", isManager && "flex-1")}>
+              <div className="overflow-y-auto no-scrollbar flex-1 bg-white">
                 {/* Desktop View Table */}
                 <table className="w-full text-sm hidden md:table">
                   <thead className="bg-muted/50 text-muted-foreground sticky top-0">
@@ -419,7 +490,7 @@ export function LeaveClientPage({
                               <div className="flex items-center gap-1.5 justify-center">
                                 <span className="font-medium">{staff.name}</span>
                                 {roleInfo && (
-                                  <Badge variant="outline" className="text-[9px] px-1 h-4 bg-primary/5 text-primary border-primary/20">
+                                  <Badge variant="outline" className="text-[9px] px-1 h-4 font-normal" style={{ color: roleInfo?.color, borderColor: roleInfo?.color }}>
                                     {roleInfo.name}
                                   </Badge>
                                 )}
@@ -457,7 +528,7 @@ export function LeaveClientPage({
                         <div className="flex flex-col items-center gap-1.5 mb-6">
                           <span className="text-base font-bold">{staff.name}</span>
                           {roleInfo && (
-                            <Badge variant="outline" className="text-[10px] px-2 py-0.5 bg-primary/5 text-primary border-primary/20">
+                            <Badge variant="outline" className="text-[10px] px-2 py-0.5 font-normal" style={{ color: roleInfo?.color, borderColor: roleInfo?.color }}>
                               {roleInfo.name}
                             </Badge>
                           )}
@@ -495,48 +566,87 @@ export function LeaveClientPage({
         </div>
       </Tabs>
 
+      {/* Floating Action Button (FAB) for Mobile/Desktop */}
+      {activeTab === 'requests' && (
+        <Button 
+          className="fixed bottom-24 right-6 h-14 w-14 rounded-full shadow-lg z-50 md:bottom-10 md:right-10 md:h-16 md:w-16 transition-transform hover:scale-110 active:scale-95" 
+          onClick={() => setIsRequestModalOpen(true)}
+        >
+          <Plus className="w-6 h-6 md:w-8 md:h-8" />
+          <span className="sr-only">휴가 신청</span>
+        </Button>
+      )}
+
       <Dialog open={isRequestModalOpen} onOpenChange={setIsRequestModalOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader><DialogTitle>휴가 및 연차 신청</DialogTitle></DialogHeader>
-          <div className="grid gap-4 py-4 text-sm">
+        <DialogContent className="sm:max-w-[400px] p-0 overflow-hidden border-none sm:border sm:rounded-2xl shadow-2xl">
+          {/* Mobile Handle Bar */}
+          <div className="h-1 w-10 bg-slate-200 rounded-full mx-auto mt-2.5 mb-0.5 sm:hidden" />
+          
+          <DialogHeader className="px-5 pt-3 pb-2 text-center sm:text-left border-b border-slate-50">
+            <DialogTitle className="text-base sm:text-lg font-bold tracking-tight">휴가 신청</DialogTitle>
+          </DialogHeader>
+
+          <div className="px-5 py-3 flex flex-col gap-3 text-sm max-h-[70vh] overflow-y-auto no-scrollbar">
             {isManager ? (
-              <div className="flex flex-col gap-1.5">
-                <Label>대상 직원</Label>
+              <div className="flex flex-col gap-1">
+                <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-0.5">대상 직원</Label>
                 <Select value={requestDraft.memberId} onValueChange={(v) => setRequestDraft(prev => ({...prev, memberId: v}))}>
-                  <SelectTrigger><SelectValue placeholder="직원 선택" /></SelectTrigger>
-                  <SelectContent>{staffList.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                  <SelectTrigger className="h-9 bg-slate-50/50 border-slate-100 text-xs"><SelectValue placeholder="직원 선택" /></SelectTrigger>
+                  <SelectContent className="rounded-xl shadow-xl border-slate-100">{staffList.map(s => <SelectItem key={s.id} value={s.id} className="text-xs">{s.name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-            ) : <div className="p-3 bg-muted/50 rounded-lg">신청자: <span className="font-bold">{myStaff?.name}</span></div>}
-            <div className="flex flex-col gap-1.5">
-              <Label>휴가 종류</Label>
+            ) : (
+              <div className="flex flex-col gap-1">
+                <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-0.5">신청자</Label>
+                <div className="flex h-9 w-full items-center justify-between rounded-md border border-slate-100 bg-slate-50/50 px-3 py-2 text-xs opacity-70 cursor-not-allowed">
+                  <span className="text-foreground">{myStaff?.name}</span>
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-col gap-1">
+              <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-0.5">휴가 종류</Label>
               <Select value={requestDraft.leaveType} onValueChange={(v) => setRequestDraft(prev => ({...prev, leaveType: v}))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="annual">연차 (1일)</SelectItem>
-                  <SelectItem value="sick">병가</SelectItem>
-                  <SelectItem value="unpaid">무급휴가</SelectItem>
+                <SelectTrigger className="h-9 bg-slate-50/50 border-slate-100 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent className="rounded-xl shadow-xl border-slate-100">
+                  <SelectItem value="annual" className="text-xs">연차 (1일)</SelectItem>
+                  <SelectItem value="sick" className="text-xs">병가</SelectItem>
+                  <SelectItem value="unpaid" className="text-xs">무급휴가</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-1.5"><Label>시작일</Label><Input type="date" value={requestDraft.startDate} onChange={(e) => setRequestDraft(prev => ({...prev, startDate: e.target.value}))} /></div>
-              <div className="flex flex-col gap-1.5"><Label>종료일</Label><Input type="date" value={requestDraft.endDate} onChange={(e) => setRequestDraft(prev => ({...prev, endDate: e.target.value}))} /></div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1">
+                <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-0.5">시작일</Label>
+                <Input type="date" value={requestDraft.startDate} onChange={(e) => setRequestDraft(prev => ({...prev, startDate: e.target.value}))} className="h-9 bg-slate-50/50 border-slate-100 text-xs" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-0.5">종료일</Label>
+                <Input type="date" value={requestDraft.endDate} onChange={(e) => setRequestDraft(prev => ({...prev, endDate: e.target.value}))} className="h-9 bg-slate-50/50 border-slate-100 text-xs" />
+              </div>
             </div>
-            <div className="flex flex-col gap-1.5"><Label>사유</Label><Textarea placeholder="사유를 입력하세요" value={requestDraft.reason} onChange={(e) => setRequestDraft(prev => ({...prev, reason: e.target.value}))} className="h-20" /></div>
-            <div className="flex flex-col gap-1.5"><Label>증빙 (선택)</Label><LeaveAttachmentUpload storeId={storeId} onUpload={(url) => setRequestDraft(prev => ({...prev, attachmentUrl: url || ''}))} /></div>
+
+            <div className="flex flex-col gap-1">
+              <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-0.5">사유 및 증빙</Label>
+              <Textarea placeholder="사유를 입력하세요" value={requestDraft.reason} onChange={(e) => setRequestDraft(prev => ({...prev, reason: e.target.value}))} className="min-h-[60px] bg-slate-50/50 border-slate-100 focus:bg-white transition-colors resize-none rounded-lg p-2.5 text-xs" />
+              <div className="mt-1 bg-slate-50/50 rounded-lg border border-dashed border-slate-200 p-0.5">
+                <LeaveAttachmentUpload storeId={storeId} onUpload={(url) => setRequestDraft(prev => ({...prev, attachmentUrl: url || ''}))} />
+              </div>
+            </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsRequestModalOpen(false)}>취소</Button>
-            <Button disabled={submitLoading || !requestDraft.reason.trim()} onClick={async () => {
+
+          <div className="px-5 pb-5 pt-1 flex gap-2">
+            <Button variant="ghost" className="flex-1 h-12 rounded-xl text-slate-500 hover:bg-slate-100" onClick={() => setIsRequestModalOpen(false)}>취소</Button>
+            <Button disabled={submitLoading || !requestDraft.reason.trim()} className="flex-[2] h-12 rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-[0.98]" onClick={async () => {
               setSubmitLoading(true);
               try {
                 let days = differenceInDays(parseISO(requestDraft.endDate), parseISO(requestDraft.startDate)) + 1;
                 const res = await createLeaveRequest(storeId, requestDraft.memberId, requestDraft.leaveType, requestDraft.startDate, requestDraft.endDate, days, requestDraft.reason, requestDraft.attachmentUrl);
-                if (res.error) toast.error(res.error); else { toast.success('신청 완료'); setIsRequestModalOpen(false); fetchData(); }
-              } catch(e) { toast.error('오류'); } finally { setSubmitLoading(false); }
+                if (res.error) toast.error(res.error); else { toast.success('신청이 완료되었습니다.'); setIsRequestModalOpen(false); fetchData(); }
+              } catch(e) { toast.error('오류가 발생했습니다.'); } finally { setSubmitLoading(false); }
             }}>신청하기</Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

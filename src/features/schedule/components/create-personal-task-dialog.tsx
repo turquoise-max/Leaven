@@ -105,12 +105,12 @@ export function CreatePersonalTaskDialog({ storeId, open, onOpenChange, onSucces
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md p-5 w-[92vw] rounded-xl">
+      <DialogContent className="sm:max-w-md p-4 sm:p-5 w-[95vw] sm:w-[92vw] rounded-xl">
         <DialogHeader className="pb-1">
           <DialogTitle className="text-lg">나의 할 일 추가</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="title" className="text-sm">할 일 이름 <span className="text-red-500">*</span></Label>
             <Input 
@@ -118,7 +118,7 @@ export function CreatePersonalTaskDialog({ storeId, open, onOpenChange, onSucces
               placeholder="예: 분리수거하기, 매장 환기 등" 
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="h-9"
+              className="h-8 sm:h-9"
               autoFocus
             />
           </div>
@@ -126,7 +126,7 @@ export function CreatePersonalTaskDialog({ storeId, open, onOpenChange, onSucces
           <div className="space-y-2">
             <Label className="text-sm">하위 할 일 (체크리스트)</Label>
             <div className="space-y-2">
-              <div className="h-[120px] bg-muted/10 rounded-lg p-1 border border-black/5">
+              <div className="h-[100px] sm:h-[120px] bg-muted/10 rounded-lg p-1 border border-black/5">
                 <div className="space-y-1.5 h-full overflow-y-auto pr-1 custom-scrollbar">
                   {checklist.length === 0 ? (
                     <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
@@ -177,12 +177,12 @@ export function CreatePersonalTaskDialog({ storeId, open, onOpenChange, onSucces
               placeholder="추가 내용을 입력하세요" 
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="resize-none min-h-[60px] text-sm py-2"
+              className="w-full resize-none min-h-[50px] sm:min-h-[60px] text-sm py-1.5 sm:py-2 break-all"
               rows={2}
             />
           </div>
 
-          <div className="space-y-2.5 p-3 border rounded-lg bg-muted/30">
+          <div className="space-y-2 sm:space-y-2.5 p-2.5 sm:p-3 border rounded-lg bg-muted/30">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <Label className="text-sm font-medium">업무 시간</Label>
@@ -211,11 +211,11 @@ export function CreatePersonalTaskDialog({ storeId, open, onOpenChange, onSucces
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 pt-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading} className="h-9 px-4 text-sm">
+        <div className="flex justify-end gap-2 pt-1 sm:pt-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading} className="h-8 sm:h-9 px-3 sm:px-4 text-sm">
             취소
           </Button>
-          <Button onClick={handleSubmit} disabled={loading || !title.trim()} className="h-9 px-4 text-sm">
+          <Button onClick={handleSubmit} disabled={loading || !title.trim()} className="h-8 sm:h-9 px-3 sm:px-4 text-sm">
             {loading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : null}
             저장하기
           </Button>
