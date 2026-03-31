@@ -131,17 +131,9 @@ export function LeaveClientPage({
   const remain = total - used
 
   const view = (
-    <div className="flex flex-col h-full bg-white rounded-xl border shadow-sm relative">
-      {/* Mobile-only absolute button to appear in the header area */}
-      {/* We removed overflow-hidden from the container above to make this visible */}
-      <div className="absolute -top-[52px] right-0 md:hidden z-10">
-        <Button className="shadow-sm px-3 h-9" onClick={() => setIsRequestModalOpen(true)}>
-          <Plus className="w-4 h-4" />
-        </Button>
-      </div>
-
+    <div className="flex flex-col h-full bg-white md:rounded-xl md:border md:shadow-sm relative">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-        <div className="px-6 border-b bg-slate-50/50 flex justify-between items-center h-14 shrink-0">
+        <div className="px-4 md:px-6 border-b bg-slate-50/50 flex justify-between items-center h-14 shrink-0">
           <TabsList className="bg-transparent h-full p-0 gap-4 md:gap-8 justify-start w-full md:w-auto overflow-x-auto no-scrollbar">
             <TabsTrigger 
               value="calendar" 
@@ -178,16 +170,17 @@ export function LeaveClientPage({
             </TabsTrigger>
           </TabsList>
           
-          <Button className="hidden md:flex shadow-sm px-3" onClick={() => setIsRequestModalOpen(true)}>
-            <Plus className="w-4 h-4 mr-2" /> 휴가 신청
+          <Button className="shadow-sm px-3 h-9 md:h-10" onClick={() => setIsRequestModalOpen(true)}>
+            <Plus className="w-4 h-4 md:mr-2" />
+            <span className="hidden md:inline">휴가 신청</span>
           </Button>
         </div>
 
         <div className="flex-1 overflow-auto bg-slate-50/30 p-4 md:p-6">
           <TabsContent value="calendar" className="m-0 mt-0 h-full flex flex-col gap-2 md:gap-6 outline-none">
             <div className="bg-transparent md:bg-white md:rounded-lg md:border md:shadow-sm overflow-hidden flex-1 flex flex-col">
-              <div className="p-0 md:p-4 border-none md:border-b flex items-center justify-between shrink-0 bg-transparent md:bg-slate-50/50">
-                <h3 className="font-semibold text-base hidden md:block">{isManager ? '직원 휴가 캘린더' : '전체 휴가 캘린더'}</h3>
+              <div className="p-4 border-b flex items-center justify-between shrink-0 bg-white md:bg-slate-50/50">
+                <h1 className="text-base md:text-2xl font-semibold md:font-bold tracking-tight w-full text-center md:text-left">{isManager ? '직원 휴가 캘린더' : '전체 휴가 캘린더'}</h1>
                 <div className="hidden md:flex gap-2 text-[11px] font-medium w-full md:w-auto justify-center md:justify-end">
                   <div className="flex items-center gap-1.5 bg-blue-50 text-blue-700 px-2 py-1 rounded border border-blue-200">
                     <div className="w-2 h-2 rounded-full bg-blue-500" /> 연차
@@ -264,9 +257,9 @@ export function LeaveClientPage({
           </TabsContent>
 
           <TabsContent value="requests" className="m-0 mt-0 h-full flex flex-col outline-none">
-            <div className="bg-white rounded-lg border shadow-sm overflow-hidden flex-1 flex flex-col">
-              <div className="p-4 border-b flex items-center justify-between">
-                <h3 className="font-semibold text-base">{isManager ? '휴가 및 연차 신청함' : '나의 휴가 신청 내역'}</h3>
+            <div className="bg-white md:rounded-lg border shadow-sm overflow-hidden flex-1 flex flex-col">
+              <div className="p-4 border-b flex items-center justify-between bg-white md:bg-transparent">
+                <h1 className="text-base md:text-2xl font-semibold md:font-bold tracking-tight w-full text-center md:text-left">{isManager ? '휴가 및 연차 신청함' : '나의 휴가 신청 내역'}</h1>
               </div>
               <div className="flex-1 overflow-auto bg-slate-50/50 p-6">
                 {(isManager ? requests : myRequests).length === 0 ? (
@@ -388,13 +381,13 @@ export function LeaveClientPage({
 
           <TabsContent value="balances" className="m-0 mt-0 h-full flex flex-col outline-none">
             <div className={cn(
-              "bg-white rounded-lg border shadow-sm overflow-hidden flex flex-col",
+              "bg-white md:rounded-lg border shadow-sm overflow-hidden flex flex-col",
               isManager ? "flex-1" : "h-fit"
             )}>
-              <div className="p-4 border-b flex items-center justify-between">
-                <div className="flex flex-col">
-                  <h3 className="font-semibold text-base">{isManager ? '직원별 잔여 연차 관리' : '나의 잔여 연차 정보'}</h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">산정 방식: <span className="font-semibold text-foreground">{leaveCalcType === 'hire_date' ? '입사일 기준' : '회계연도 기준'}</span> (오늘 시점 보유량)</p>
+              <div className="p-4 border-b flex items-center justify-between bg-white md:bg-transparent">
+                <div className="flex flex-col w-full text-center md:text-left">
+                  <h1 className="text-base md:text-2xl font-semibold md:font-bold tracking-tight">{isManager ? '직원별 잔여 연차 관리' : '나의 잔여 연차 정보'}</h1>
+                  <p className="text-[10px] md:text-xs text-muted-foreground mt-0.5">산정 방식: <span className="font-semibold text-foreground">{leaveCalcType === 'hire_date' ? '입사일 기준' : '회계연도 기준'}</span> (오늘 시점 보유량)</p>
                 </div>
               </div>
               <div className={cn("overflow-auto", isManager && "flex-1")}>

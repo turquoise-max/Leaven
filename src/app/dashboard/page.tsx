@@ -108,7 +108,7 @@ function AdminDashboard({ pendingCount, store, announcements, stats }: { pending
   }
 
   return (
-    <div className="flex flex-col gap-8 h-full">
+    <div className="flex flex-col gap-8 h-full p-4 md:p-0">
       {pendingCount > 0 && (
         <div className="bg-yellow-50 dark:bg-yellow-950/30 border-l-4 border-yellow-400 p-4 rounded-r-md flex items-center justify-between shadow-sm">
           <div className="flex items-center">
@@ -126,11 +126,13 @@ function AdminDashboard({ pendingCount, store, announcements, stats }: { pending
         </div>
       )}
 
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">대시보드</h1>
-        <p className="text-muted-foreground">
-          {store ? `${store.name}의 현황입니다.` : '매장이 없습니다.'}
-        </p>
+      <div className="p-4 border-b flex items-center justify-between bg-white md:bg-transparent -mx-4 -mt-4 md:m-0 md:p-0 md:border-none md:mb-6">
+        <div className="w-full">
+          <h1 className="text-base md:text-2xl font-semibold md:font-bold tracking-tight text-center md:text-left">대시보드</h1>
+          <p className="hidden md:block text-sm text-muted-foreground mt-1">
+            {store ? `${store.name}의 현황입니다.` : '매장이 없습니다.'}
+          </p>
+        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-12">

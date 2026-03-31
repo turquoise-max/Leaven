@@ -42,11 +42,14 @@ export function MonthlyCalendarView({
   const monthStart = startOfMonth(currentDate)
   const monthEnd = endOfMonth(monthStart)
   const startDate = startOfWeek(monthStart, { weekStartsOn: 0 })
-  const endDate = endOfWeek(monthEnd, { weekStartsOn: 0 })
+  let endDate = endOfWeek(monthEnd, { weekStartsOn: 0 })
   
   const calendarDays = []
   let day = startDate
-  while (day <= endDate) {
+  
+  // 최소 5주(35일) 또는 6주(42일)가 렌더링되도록 보장
+  // startDate부터 계산하여 달력이 항상 화면의 일정한 높이를 차지하도록 함
+  while (day <= endDate || calendarDays.length < 35) {
     calendarDays.push(day)
     day = addDays(day, 1)
   }
@@ -124,7 +127,7 @@ export function MonthlyCalendarView({
       {/* 달력 그리드 */}
       <div className="flex-1 overflow-y-auto bg-[#fbfbfb]">
         {weeks.map((week, weekIndex) => (
-          <div key={weekIndex} className="grid grid-cols-7 border-b border-black/5 last:border-b-0 min-h-[70px] md:min-h-[120px]">
+          <div key={weekIndex} className="grid grid-cols-7 border-b border-black/5 last:border-b-0 min-h-[50px] md:min-h-[120px]">
             {week.map((date, dayIndex) => {
               const isCurrentMonth = isSameMonth(date, currentDate)
               const isToday = isSameDay(date, new Date())
@@ -157,7 +160,7 @@ export function MonthlyCalendarView({
                     }
                   }}
                   className={cn(
-                    "border-r border-black/5 last:border-r-0 p-1.5 md:p-2 flex flex-col md:gap-1 relative transition-all bg-white",
+                    "border-r border-black/5 last:border-r-0 p-1 md:p-2 flex flex-col md:gap-1 relative transition-all bg-white",
                     "items-center md:items-stretch justify-start md:justify-start", // 모바일에서는 중앙(가로) 정렬, PC에서는 기존 유지
                     isToday && "bg-primary/[0.03] ring-1 ring-inset ring-primary/20",
                     isManager ? "group/cell" : ""
@@ -173,7 +176,7 @@ export function MonthlyCalendarView({
                 >
                   {/* 날짜 표시 */}
                   <div className={cn(
-                    "text-[13px] md:text-[12px] font-medium px-1 flex md:justify-between items-center mb-1 md:mb-1",
+                    "text-[12px] md:text-[12px] font-medium px-0.5 flex md:justify-between items-center mb-0 md:mb-1",
                     !isCurrentMonth ? "text-muted-foreground opacity-50" :
                     isToday ? "text-primary font-bold" :
                     dayIndex === 0 ? "text-red-500" :
@@ -182,7 +185,7 @@ export function MonthlyCalendarView({
                   )}>
                     <span className={cn(
                       "flex items-center justify-center",
-                      isToday ? "bg-primary text-white w-6 h-6 md:w-5 md:h-5 rounded-full md:-ml-1" : "w-6 h-6 md:w-auto md:h-auto"
+                      isToday ? "bg-primary text-white w-5 h-5 md:w-5 md:h-5 rounded-full md:-ml-1" : "w-5 h-5 md:w-auto md:h-auto"
                     )}>
                       {format(date, 'd')}
                     </span>
@@ -194,7 +197,7 @@ export function MonthlyCalendarView({
                   </div>
 
                   {/* 스케줄 목록 (모바일 뷰 - Dot 아이콘) */}
-                  <div className="flex md:hidden flex-wrap gap-1 mt-1 px-1 justify-center">
+                  <div className="flex md:hidden flex-wrap gap-1 mt-0.5 px-1 justify-center">
                     {daySchedules.slice(0, 3).map(sch => {
                       const staffId = sch.schedule_members?.[0]?.member_id
                       const staff = staffList.find(s => s.id === staffId)

@@ -50,12 +50,10 @@ export default async function LeavePage() {
   return (
     <div className="h-[calc(100vh-100px)] flex flex-col space-y-4">
       {/* Header Area */}
-      <div className="relative flex items-center justify-center md:justify-between w-full min-h-[40px]">
-        <div className="text-center md:text-left">
-          <div className="flex items-center justify-center md:justify-start gap-2">
-            <h1 className="text-xl md:text-3xl font-bold tracking-tight">휴가 및 연차</h1>
-          </div>
-          <p className="hidden md:block text-muted-foreground mt-1">
+      <div className="pt-8 pb-4 px-4 border-b flex flex-col justify-center items-center bg-white md:bg-transparent md:items-start md:flex-row md:justify-between -mx-4 -mt-4 mb-0 md:m-0 md:p-0 md:border-none md:mb-6">
+        <div className="text-center md:text-left w-full">
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight">휴가 및 연차</h1>
+          <p className="text-sm text-muted-foreground hidden md:block mt-1">
             직원 휴가 신청을 관리하고 스케줄 누수를 방지합니다.
           </p>
         </div>

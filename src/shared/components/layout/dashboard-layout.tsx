@@ -64,7 +64,7 @@ export function DashboardClientLayout({
       {/* Mobile Layout (Hidden on LG and above) */}
       <div className="flex flex-col h-full w-full lg:hidden pb-16 relative">
         <Header storeName={storeName} />
-        <main className="flex-1 overflow-auto p-4 bg-muted/5 hide-scrollbar">
+        <main className="flex-1 overflow-auto bg-muted/5 hide-scrollbar">
           {children}
         </main>
         <MobileBottomNav role={role} permissions={permissions} />

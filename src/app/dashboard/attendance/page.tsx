@@ -68,10 +68,10 @@ export default async function AttendancePage() {
   return (
     <div className="h-[calc(100vh-60px)] md:h-[calc(100vh-100px)] flex flex-col space-y-2 md:space-y-4">
       {/* Header Area */}
-      <div className="flex items-center justify-center md:justify-between pt-2 md:pt-0">
-        <div className="flex flex-col items-center md:items-start gap-1">
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">출퇴근 관리</h1>
-          <p className="text-muted-foreground hidden md:block">
+      <div className="pt-8 pb-4 px-4 border-b flex flex-col justify-center items-center bg-white md:bg-transparent md:items-start md:flex-row md:justify-between -mx-4 -mt-4 mb-0 md:m-0 md:p-0 md:border-none md:mb-6">
+        <div className="text-center md:text-left w-full">
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight">출퇴근 관리</h1>
+          <p className="text-sm text-muted-foreground hidden md:block mt-1">
             실시간 직원 근무 현황과 출퇴근 기록을 확인합니다.
           </p>
         </div>

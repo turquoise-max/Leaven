@@ -27,12 +27,14 @@ export function MyTasksClientWrapper({
   const [attendanceStatus, setAttendanceStatus] = useState<'none' | 'working' | 'completed'>('none')
 
   return (
-    <div className="flex flex-col gap-3 md:gap-6 h-full max-w-3xl mx-auto w-full pt-4 pb-8 overflow-y-auto">
-      <div className="px-2 text-center md:text-left">
-        <h1 className="text-xl md:text-2xl font-bold tracking-tight">오늘의 할 일</h1>
-        <p className="hidden md:block text-muted-foreground text-sm mt-1">
-          {storeName}에서 오늘 나에게 배정된 업무입니다.
-        </p>
+    <div className="flex flex-col gap-3 md:gap-6 h-full max-w-3xl mx-auto w-full pt-0 md:pt-4 pb-8 overflow-y-auto">
+      <div className="pt-8 pb-4 px-4 border-b flex flex-col justify-center items-center bg-white md:bg-transparent md:items-start md:flex-row md:justify-between -mx-4 -mt-4 mb-0 md:m-0 md:p-0 md:border-none md:mb-6">
+        <div className="text-center md:text-left w-full">
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight">오늘의 할 일</h1>
+          <p className="hidden md:block text-sm text-muted-foreground mt-1">
+            {storeName}에서 오늘 나에게 배정된 업무입니다.
+          </p>
+        </div>
       </div>
 
       <div className="px-2">

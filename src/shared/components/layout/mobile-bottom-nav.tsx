@@ -6,9 +6,10 @@ import { cn } from '@/lib/utils'
 import { 
   CalendarDays, 
   CalendarRange,
-  Settings, 
+  User, 
   CheckSquare,
-  Umbrella
+  Umbrella,
+  LayoutDashboard
 } from 'lucide-react'
 
 interface MobileBottomNavProps {
@@ -23,36 +24,45 @@ export function MobileBottomNav({ role, permissions = {} }: MobileBottomNavProps
 
   const navItems = [
     {
-      title: '출결',
+      title: '출·퇴근',
       href: '/dashboard/attendance',
       icon: CalendarDays,
     },
     {
-      title: '주간 스케줄',
+      title: '스케줄',
       href: '/dashboard/schedule',
       icon: CalendarRange,
     },
+    ...(permissions.view_dashboard ? [
+      {
+        title: '대시보드',
+        href: '/dashboard',
+        icon: LayoutDashboard,
+      }
+    ] : []),
     {
       title: '할 일',
-      href: isManager ? '/dashboard/my-tasks' : '/dashboard',
+      href: '/dashboard/my-tasks',
       icon: CheckSquare,
     },
     {
-      title: '휴가 신청',
+      title: '휴가',
       href: '/dashboard/leave',
       icon: Umbrella,
     },
     {
-      title: '설정',
-      href: '/account?next=/dashboard',
-      icon: Settings,
+      title: '마이페이지',
+      href: '/dashboard/mypage',
+      icon: User,
     }
   ]
 
   return (
     <div className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-background border-t flex items-center justify-around px-2 pb-safe z-40">
       {navItems.map((item) => {
-        const isActive = pathname === item.href
+        const isActive = item.href === '/dashboard' 
+          ? pathname === '/dashboard' 
+          : pathname.startsWith(item.href)
         return (
           <Link
             key={item.href}

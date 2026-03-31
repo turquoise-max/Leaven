@@ -68,29 +68,29 @@ export function CalendarHeader({
   }
 
   return (
-    <div className="px-4 md:px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4 shrink-0 bg-[#fbfbfb] border-b border-black/5">
+    <div className="px-4 md:px-6 pt-4 pb-0 md:py-4 flex flex-col md:flex-row items-center justify-between gap-2 md:gap-4 shrink-0 bg-[#fbfbfb] border-b border-black/5">
       
       {/* 왼쪽: 뷰 토글 및 날짜 이동 */}
-      <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
+      <div className="flex flex-col md:flex-row items-center gap-2 md:gap-4 w-full md:w-auto">
         {/* 뷰 토글 */}
         <div className="flex w-full md:w-auto bg-[#f3f2ef] rounded-md p-0.5 shrink-0 shadow-inner border border-black/5">
           <button 
             className={`hidden md:block flex-1 md:flex-none text-[12px] px-4 py-1.5 rounded-md transition-all ${viewMode === 'timeline' ? 'bg-white font-semibold text-[#1a1a1a] shadow-sm' : 'text-[#6b6b6b] hover:text-[#1a1a1a]'}`}
             onClick={() => setViewMode('timeline')}
           >
-            타임라인
+            일간
           </button>
           <button 
             className={`flex-1 md:flex-none text-[12px] px-4 py-1.5 rounded-md transition-all ${viewMode === 'matrix' ? 'bg-white font-semibold text-[#1a1a1a] shadow-sm' : 'text-[#6b6b6b] hover:text-[#1a1a1a]'}`}
             onClick={() => setViewMode('matrix')}
           >
-            직원 스케줄
+            주간
           </button>
           <button 
             className={`flex-1 md:flex-none text-[12px] px-4 py-1.5 rounded-md transition-all ${viewMode === 'calendar' ? 'bg-white font-semibold text-[#1a1a1a] shadow-sm' : 'text-[#6b6b6b] hover:text-[#1a1a1a]'}`}
             onClick={() => setViewMode('calendar')}
           >
-            월간 캘린더
+            월간
           </button>
         </div>
 
@@ -138,7 +138,7 @@ export function CalendarHeader({
         </div>
 
         {/* 날짜 이동 (모바일 뷰 - 양끝 화살표, 중앙 날짜) */}
-        <div className="flex md:hidden items-center justify-between w-full px-2">
+        <div className="flex md:hidden items-center justify-between w-full px-2 pb-0">
           {viewMode === 'timeline' ? (
             <>
               <button className="flex items-center justify-center w-8 h-8 border border-black/15 rounded-md bg-white text-[#6b6b6b] hover:text-[#1a1a1a] transition-colors shadow-sm" onClick={() => setTimelineDate(addDays(timelineDate, -1))}>‹</button>

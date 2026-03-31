@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Activity, Clock, FileClock, CheckSquare, Search, Download, PlayCircle, StopCircle, PenBox, Check, X } from 'lucide-react'
+import { Activity, Clock, FileClock, CheckSquare, Search, Download, PlayCircle, StopCircle, PenBox, Check, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { getDailyAttendanceOverview, clockIn, clockOut, startBreak, endBreak, getAttendanceRequests, resolveAttendanceRequest, createAttendanceRequest, AttendanceRecord } from '@/features/attendance/actions'
 import { toast } from 'sonner'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -113,25 +113,67 @@ export function AttendanceClientPage({
       isManager ? "h-full" : "h-auto"
     )}>
       {/* Header / Controls */}
-      <div className="flex md:flex-row md:items-center justify-between p-3 md:p-4 border-b bg-slate-50/50 shrink-0 gap-3 md:gap-4">
-        <div className="flex items-center gap-3 md:gap-4 flex-1">
-          <Input 
-            type="date" 
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="w-[130px] md:w-40 h-8 md:h-9 text-xs md:text-sm px-2"
-          />
-          <div className="text-[10px] md:text-sm font-medium text-muted-foreground flex items-center gap-1.5 md:gap-2">
-            <Clock className="w-3.5 h-3.5 md:w-4 md:h-4" /> 
-            {format(new Date(), 'a h:mm', { locale: ko })}
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {isManager && (
-            <Button variant="outline" size="sm" className="gap-1.5 md:gap-2 text-muted-foreground h-8 md:h-9 px-2 md:px-3 text-xs md:text-sm">
-              <Download className="w-3.5 h-3.5 md:w-4 md:h-4" /> <span className="hidden md:inline">엑셀 다운로드</span><span className="md:hidden">엑셀</span>
+      <div className="flex flex-col md:flex-row justify-between p-3 md:p-4 border-b bg-slate-50/50 shrink-0 gap-3 md:gap-4">
+        {/* Desktop View & Mobile Download Button Layout */}
+        <div className="flex items-center justify-between w-full md:w-auto md:flex-1 gap-2">
+          {/* Mobile Date Navigation (Hidden on Desktop) */}
+          <div className="flex items-center justify-between bg-white border rounded-lg px-2 py-1.5 shadow-sm md:hidden flex-1">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="w-7 h-7 rounded-md"
+              onClick={() => {
+                const date = new Date(selectedDate)
+                date.setDate(date.getDate() - 1)
+                setSelectedDate(format(date, 'yyyy-MM-dd'))
+              }}
+            >
+              <ChevronLeft className="w-4 h-4" />
             </Button>
-          )}
+            
+            <div className="relative flex items-center justify-center gap-1.5 font-semibold text-sm">
+              <CalendarDays className="w-4 h-4 text-primary" />
+              <span>{format(new Date(selectedDate), 'yyyy. MM. dd')}</span>
+              <Input 
+                type="date" 
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" 
+              />
+            </div>
+
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="w-7 h-7 rounded-md"
+              onClick={() => {
+                const date = new Date(selectedDate)
+                date.setDate(date.getDate() + 1)
+                setSelectedDate(format(date, 'yyyy-MM-dd'))
+              }}
+            >
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+
+          {/* Desktop Date Navigation (Hidden on Mobile) */}
+          <div className="hidden md:flex items-center gap-3">
+            <Input 
+              type="date" 
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="w-40 h-9 text-sm px-2"
+            />
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex items-center gap-2 shrink-0">
+            {isManager && (
+              <Button variant="outline" size="sm" className="gap-1.5 md:gap-2 text-muted-foreground h-9 md:h-9 px-3 text-xs md:text-sm">
+                <Download className="w-3.5 h-3.5 md:w-4 md:h-4" /> <span className="hidden md:inline">엑셀 다운로드</span><span className="md:hidden">엑셀</span>
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -223,8 +265,8 @@ export function AttendanceClientPage({
                         </div>
 
                         <div className="bg-white md:rounded-lg border-y md:border shadow-none md:shadow-sm overflow-hidden flex-1 flex flex-col">
-                      <div className="p-4 border-b flex items-center justify-between">
-                        <h3 className="font-semibold text-base">직원 출퇴근 상태</h3>
+                      <div className="p-4 border-b flex items-center justify-between bg-white md:bg-transparent">
+                        <h1 className="text-base md:text-2xl font-semibold md:font-bold tracking-tight text-center md:text-left">직원 출퇴근 상태</h1>
                         <div className="relative">
                           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                           <Input 
@@ -398,8 +440,8 @@ export function AttendanceClientPage({
 
           <TabsContent value="history" className={cn("m-0 mt-0 flex flex-col outline-none", isManager ? "h-full" : "h-auto")}>
             <div className={cn("bg-white md:rounded-lg border-y md:border shadow-none md:shadow-sm overflow-hidden flex flex-col", isManager ? "flex-1" : "h-auto")}>
-              <div className="p-4 border-b flex items-center justify-center md:justify-between">
-                <h3 className="font-semibold text-base text-center md:text-left">{isManager ? "전체 출퇴근 기록부" : "출퇴근 관리"}</h3>
+              <div className="p-4 border-b hidden md:flex items-center justify-between bg-white md:bg-transparent">
+                <h1 className="text-base md:text-2xl font-semibold md:font-bold tracking-tight text-center md:text-left w-full md:w-auto">{isManager ? "전체 출퇴근 기록부" : "출퇴근 관리"}</h1>
               </div>
               <div className={cn("overflow-auto", isManager ? "flex-1" : "h-auto")}>
                 {/* Desktop View Table */}
@@ -408,8 +450,8 @@ export function AttendanceClientPage({
                     <tr>
                       <th className="px-4 py-3 font-semibold border-b text-center">이름 (역할)</th>
                       <th className="px-4 py-3 font-semibold border-b text-center">예정된 스케줄</th>
-                      <th className="px-4 py-3 font-semibold border-b text-center">실제 출근</th>
-                      <th className="px-4 py-3 font-semibold border-b text-center">실제 퇴근</th>
+                      <th className="px-4 py-3 font-semibold border-b text-center">출근</th>
+                      <th className="px-4 py-3 font-semibold border-b text-center">퇴근</th>
                       <th className="px-4 py-3 font-semibold border-b text-center">총 근무시간</th>
                       <th className="px-4 py-3 font-semibold border-b text-center">상태</th>
                       <th className="px-4 py-3 font-semibold border-b text-center">관리</th>
@@ -428,31 +470,33 @@ export function AttendanceClientPage({
 
                       const formatT = (iso?: string | null) => iso ? format(new Date(iso), 'HH:mm') : '-'
 
-                      let scheduleText = '-'
+                      let scheduleText = '오늘 스케줄 없음'
                       if (staffSchedule) {
                         scheduleText = `${formatT(staffSchedule.start_time)} ~ ${formatT(staffSchedule.end_time)}`
                       }
 
-                      let stateBadge = <Badge variant="secondary" className="bg-slate-100 text-slate-500">대기/정상</Badge>
-                      
                       const schStartTime = staffSchedule ? new Date(staffSchedule.start_time).getTime() : null
                       const attStartTime = attendance?.clock_in_time ? new Date(attendance.clock_in_time).getTime() : null
                       
+                      const isLate = attendance && schStartTime && attStartTime && attStartTime > schStartTime + (5 * 60 * 1000)
+                      
+                      let statusBadge = <Badge variant="secondary" className="bg-slate-100 text-slate-500">대기/정상</Badge>
+                      
                       if (attendance) {
-                         if (schStartTime && attStartTime && attStartTime > schStartTime + (5 * 60 * 1000)) {
-                           stateBadge = <Badge variant="destructive" className="bg-red-100 text-red-700 border-red-200">지각</Badge>
-                         } else if (attendance.status === 'completed') {
-                           stateBadge = <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-200">퇴근 완료</Badge>
-                         } else if (attendance.status === 'working') {
-                           stateBadge = <Badge className="bg-primary/10 text-primary">근무 중</Badge>
-                         }
+                        if (attendance.status === 'completed') {
+                          statusBadge = <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-200">퇴근 완료</Badge>
+                        } else if (attendance.status === 'working') {
+                          statusBadge = <Badge className="bg-primary/10 text-primary">근무 중</Badge>
+                        }
                       } else if (staffSchedule) {
-                         const now = new Date()
-                         const isToday = selectedDate === format(now, 'yyyy-MM-dd')
-                         if (isToday && schStartTime && now.getTime() > schStartTime + (5 * 60 * 1000)) {
-                           stateBadge = <Badge variant="destructive" className="bg-red-100 text-red-700 border-red-200">결근 / 미출근</Badge>
-                         }
+                        const now = new Date()
+                        const isToday = selectedDate === format(now, 'yyyy-MM-dd')
+                        if (isToday && schStartTime && now.getTime() > schStartTime + (5 * 60 * 1000)) {
+                          statusBadge = <Badge variant="destructive" className="bg-red-100 text-red-700 border-red-200">결근 / 미출근</Badge>
+                        }
                       }
+
+                      const stateBadge = statusBadge
 
                       let totalHours = '-'
                       if (attendance?.clock_in_time && attendance?.clock_out_time) {
@@ -473,7 +517,16 @@ export function AttendanceClientPage({
                             </div>
                           </td>
                           <td className="px-4 py-3 text-center text-muted-foreground font-medium">{scheduleText}</td>
-                          <td className="px-4 py-3 text-center font-semibold">{formatT(attendance?.clock_in_time)}</td>
+                          <td className="px-4 py-3 text-center font-semibold">
+                            {isLate ? (
+                              <div className="flex items-center justify-center gap-1 text-red-600">
+                                <span>{formatT(attendance?.clock_in_time)}</span>
+                                <span className="text-[10px] bg-red-100 text-red-700 px-1 rounded-sm font-bold">지각</span>
+                              </div>
+                            ) : (
+                              formatT(attendance?.clock_in_time)
+                            )}
+                          </td>
                           <td className="px-4 py-3 text-center font-semibold">{formatT(attendance?.clock_out_time)}</td>
                           <td className="px-4 py-3 text-center font-bold">{totalHours}</td>
                           <td className="px-4 py-3 text-center">{stateBadge}</td>
@@ -507,7 +560,7 @@ export function AttendanceClientPage({
                 </table>
 
                 {/* Mobile View Card Layout */}
-                <div className="md:hidden divide-y">
+                <div className="md:hidden flex flex-col gap-4 p-4">
                   {sortedStaffList.filter(s => isManager || s.user_id === currentUserId).map(staff => {
                     const roleInfo = getStaffRoleInfo(staff)
                     const attendance = attendanceData.find(a => a.member_id === staff.id)
@@ -520,31 +573,33 @@ export function AttendanceClientPage({
 
                     const formatT = (iso?: string | null) => iso ? format(new Date(iso), 'HH:mm') : '-'
 
-                    let scheduleText = '-'
+                    let scheduleText = '오늘 스케줄 없음'
                     if (staffSchedule) {
                       scheduleText = `${formatT(staffSchedule.start_time)} ~ ${formatT(staffSchedule.end_time)}`
                     }
 
-                    let stateBadge = <Badge variant="secondary" className="bg-slate-100 text-slate-500 text-[10px]">대기/정상</Badge>
-                    
                     const schStartTime = staffSchedule ? new Date(staffSchedule.start_time).getTime() : null
                     const attStartTime = attendance?.clock_in_time ? new Date(attendance.clock_in_time).getTime() : null
                     
+                    const isLate = attendance && schStartTime && attStartTime && attStartTime > schStartTime + (5 * 60 * 1000)
+
+                    let statusBadge = <Badge variant="secondary" className="bg-slate-100 text-slate-500 text-[10px]">대기/정상</Badge>
+                    
                     if (attendance) {
-                       if (schStartTime && attStartTime && attStartTime > schStartTime + (5 * 60 * 1000)) {
-                         stateBadge = <Badge variant="destructive" className="bg-red-100 text-red-700 border-red-200 text-[10px]">지각</Badge>
-                       } else if (attendance.status === 'completed') {
-                         stateBadge = <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-200 text-[10px]">퇴근 완료</Badge>
-                       } else if (attendance.status === 'working') {
-                         stateBadge = <Badge className="bg-primary/10 text-primary text-[10px]">근무 중</Badge>
-                       }
+                      if (attendance.status === 'completed') {
+                        statusBadge = <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-200 text-[10px]">퇴근 완료</Badge>
+                      } else if (attendance.status === 'working') {
+                        statusBadge = <Badge className="bg-primary/10 text-primary text-[10px]">근무 중</Badge>
+                      }
                     } else if (staffSchedule) {
-                       const now = new Date()
-                       const isToday = selectedDate === format(now, 'yyyy-MM-dd')
-                       if (isToday && schStartTime && now.getTime() > schStartTime + (5 * 60 * 1000)) {
-                         stateBadge = <Badge variant="destructive" className="bg-red-100 text-red-700 border-red-200 text-[10px]">결근/미출근</Badge>
-                       }
+                      const now = new Date()
+                      const isToday = selectedDate === format(now, 'yyyy-MM-dd')
+                      if (isToday && schStartTime && now.getTime() > schStartTime + (5 * 60 * 1000)) {
+                        statusBadge = <Badge variant="destructive" className="bg-red-100 text-red-700 border-red-200 text-[10px]">결근/미출근</Badge>
+                      }
                     }
+
+                    const stateBadge = statusBadge
 
                     let totalHours = '-'
                     if (attendance?.clock_in_time && attendance?.clock_out_time) {
@@ -555,65 +610,71 @@ export function AttendanceClientPage({
                     }
 
                     return (
-                      <div key={staff.id} className="p-5 flex flex-col gap-6">
-                        {/* Name & Role (Centered) */}
-                        <div className="flex flex-col items-center gap-1.5">
-                          <span className="text-base font-bold">{staff.name || staff.profile?.full_name}</span>
-                          <Badge variant="outline" className="text-[10px] font-normal" style={{ color: roleInfo?.color, borderColor: roleInfo?.color }}>
-                            {roleInfo?.name || '직원'}
-                          </Badge>
-                        </div>
-
-                        {/* 3 columns row: Schedule | Clock In | Clock Out */}
-                        <div className="grid grid-cols-3 w-full border-y py-3 gap-2">
-                          <div className="flex flex-col items-center gap-1">
-                            <span className="text-[10px] font-semibold text-muted-foreground">예정 스케줄</span>
-                            <span className="text-[11px] font-medium text-center leading-tight">{scheduleText}</span>
+                      <div key={staff.id} className="bg-white border rounded-xl shadow-sm p-4 flex flex-col gap-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-10 w-10 border">
+                              <AvatarFallback>{staff.name.substring(0, 2)}</AvatarFallback>
+                            </Avatar>
+                            <div className="flex flex-col justify-center">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-bold text-sm">{staff.name || staff.profile?.full_name}</span>
+                                <Badge variant="outline" className="text-[9px] font-normal px-1 h-4" style={{ color: roleInfo?.color, borderColor: roleInfo?.color }}>
+                                  {roleInfo?.name || '직원'}
+                                </Badge>
+                              </div>
+                            </div>
                           </div>
-                          <div className="flex flex-col items-center gap-1 border-x px-2">
-                            <span className="text-[10px] font-semibold text-muted-foreground">실제 출근</span>
-                            <span className="text-xs font-bold">{formatT(attendance?.clock_in_time)}</span>
-                          </div>
-                          <div className="flex flex-col items-center gap-1">
-                            <span className="text-[10px] font-semibold text-muted-foreground">실제 퇴근</span>
-                            <span className="text-xs font-bold">{formatT(attendance?.clock_out_time)}</span>
+                          <div className="shrink-0 pt-0.5">
+                            {stateBadge}
                           </div>
                         </div>
 
-                        {/* 3 columns row: Total Hours | Status | Management */}
-                        <div className="grid grid-cols-3 w-full items-center gap-2">
-                          <div className="flex flex-col items-center gap-1">
+                        <div className="bg-slate-50/80 rounded-lg p-3 grid grid-cols-3 gap-2 border">
+                          <div className="flex flex-col items-center justify-center gap-1 border-r border-slate-200/60">
+                            <span className="text-[10px] font-semibold text-muted-foreground">출근 시각</span>
+                            {isLate ? (
+                              <div className="flex items-center gap-1 text-red-600">
+                                <span className="text-sm font-bold">{formatT(attendance?.clock_in_time)}</span>
+                                <span className="text-[9px] bg-red-100 text-red-700 px-1 rounded-sm font-bold">지각</span>
+                              </div>
+                            ) : (
+                              <span className="text-sm font-bold">{formatT(attendance?.clock_in_time)}</span>
+                            )}
+                          </div>
+                          <div className="flex flex-col items-center justify-center gap-1 border-r border-slate-200/60">
+                            <span className="text-[10px] font-semibold text-muted-foreground">퇴근 시각</span>
+                            <span className="text-sm font-bold">{formatT(attendance?.clock_out_time)}</span>
+                          </div>
+                          <div className="flex flex-col items-center justify-center gap-1">
                             <span className="text-[10px] font-semibold text-muted-foreground">총 근무시간</span>
                             <span className="text-sm font-black text-primary">{totalHours}</span>
                           </div>
-                          <div className="flex flex-col items-center gap-1 border-x px-2">
-                            <span className="text-[10px] font-semibold text-muted-foreground">상태</span>
-                            {stateBadge}
-                          </div>
-                          <div className="flex flex-col items-center gap-1">
-                            <span className="text-[10px] font-semibold text-muted-foreground mb-0.5">관리</span>
-                            {staff.user_id === currentUserId && (
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="h-7 px-2 text-[10px] font-bold"
-                                onClick={() => {
-                                  const formatT = (iso?: string | null) => iso ? format(new Date(iso), 'HH:mm') : ''
-                                  setRequestDraft({
-                                    memberId: staff.id,
-                                    attendanceId: attendance?.id || '',
-                                    inTime: formatT(attendance?.clock_in_time) || '09:00',
-                                    outTime: formatT(attendance?.clock_out_time) || '18:00',
-                                    reason: ''
-                                  })
-                                  setIsRequestModalOpen(true)
-                                }}
-                              >
-                                수정 요청
-                              </Button>
-                            )}
-                          </div>
                         </div>
+
+                        {staff.user_id === currentUserId && (
+                          <div className="pt-1">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="w-full h-9 text-xs font-semibold"
+                              onClick={() => {
+                                const formatT = (iso?: string | null) => iso ? format(new Date(iso), 'HH:mm') : ''
+                                setRequestDraft({
+                                  memberId: staff.id,
+                                  attendanceId: attendance?.id || '',
+                                  inTime: formatT(attendance?.clock_in_time) || '09:00',
+                                  outTime: formatT(attendance?.clock_out_time) || '18:00',
+                                  reason: ''
+                                })
+                                setIsRequestModalOpen(true)
+                              }}
+                            >
+                              <PenBox className="w-3.5 h-3.5 mr-1.5" />
+                              내 기록 수정 요청
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     )
                   })}
