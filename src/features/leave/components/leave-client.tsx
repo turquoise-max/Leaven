@@ -146,12 +146,12 @@ export function LeaveClientPage({
             </TabsTrigger>
             <TabsTrigger 
               value="requests" 
-              className="relative rounded-none px-1 pb-3 pt-2 text-sm md:text-base font-semibold text-muted-foreground hover:text-foreground data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none outline-none focus-visible:outline-none !shadow-none bg-transparent group whitespace-nowrap"
+              className="relative rounded-none px-1 pb-3 pt-2 text-sm md:text-base font-semibold text-muted-foreground hover:text-foreground data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none outline-none focus-visible:outline-none !shadow-none bg-transparent group flex items-center whitespace-nowrap"
             >
               <FileText className="w-4 h-4 mr-1.5 md:mr-2" />
               휴가 신청함
               {pendingCount > 0 && (
-                <Badge variant="destructive" className="absolute -top-1 -right-2 md:-right-4 w-4 h-4 md:w-5 md:h-5 flex items-center justify-center p-0 text-[10px]">
+                <Badge variant="destructive" className="ml-1.5 w-4 h-4 md:w-5 md:h-5 flex items-center justify-center p-0 text-[10px] rounded-full">
                   {pendingCount}
                 </Badge>
               )}
@@ -629,7 +629,7 @@ export function LeaveClientPage({
 
             <div className="flex flex-col gap-1">
               <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-0.5">사유 및 증빙</Label>
-              <Textarea placeholder="사유를 입력하세요" value={requestDraft.reason} onChange={(e) => setRequestDraft(prev => ({...prev, reason: e.target.value}))} className="min-h-[60px] bg-slate-50/50 border-slate-100 focus:bg-white transition-colors resize-none rounded-lg p-2.5 text-xs" />
+              <Textarea placeholder="사유를 입력하세요" value={requestDraft.reason} onChange={(e) => setRequestDraft(prev => ({...prev, reason: e.target.value}))} className="min-h-[60px] bg-slate-50/50 border-slate-100 focus:bg-white transition-colors resize-none rounded-lg py-[22px] px-2.5 text-xs text-center leading-[16px]" />
               <div className="mt-1 bg-slate-50/50 rounded-lg border border-dashed border-slate-200 p-0.5">
                 <LeaveAttachmentUpload storeId={storeId} onUpload={(url) => setRequestDraft(prev => ({...prev, attachmentUrl: url || ''}))} />
               </div>

@@ -76,7 +76,7 @@ export function StoreCodeDisplay({ code, className }: StoreCodeDisplayProps) {
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="sm:max-w-[425px] p-0 overflow-hidden bg-slate-50">
+      <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-[500px] p-0 overflow-hidden bg-slate-50">
         <DialogHeader className="p-6 pb-4 bg-white border-b">
           <DialogTitle className="text-xl flex items-center gap-2">
             <Share2 className="w-5 h-5 text-primary" /> 매장 직원 초대하기

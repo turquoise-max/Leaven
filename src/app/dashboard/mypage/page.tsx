@@ -15,13 +15,32 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { logout } from '@/features/auth/actions'
 import Link from 'next/link'
+import { cookies } from 'next/headers'
+import { ActionButtons } from './components/action-buttons'
 
 export default async function MyPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  const cookieStore = await cookies()
+  const currentStoreId = cookieStore.get('current_store_id')?.value
 
   if (!user) {
     redirect('/login')
+  }
+
+  // 매장 멤버 정보에서 근로계약서 유무 조회
+  let hasContract = false
+  if (currentStoreId) {
+    const { data: member } = await supabase
+      .from('store_members')
+      .select('modusign_document_id')
+      .eq('store_id', currentStoreId)
+      .eq('user_id', user.id)
+      .single()
+    
+    if (member?.modusign_document_id) {
+      hasContract = true
+    }
   }
 
   const fullName = user.user_metadata?.full_name || '사용자'
@@ -39,7 +58,7 @@ export default async function MyPage() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-4 px-4 pb-20 flex-1 min-h-0">
+      <div className="flex flex-col gap-4 px-4 pb-20 flex-1 min-h-0 mt-4">
         {/* 내 정보 섹션 (초슬림형) */}
         <Card className="border-none shadow-sm overflow-hidden">
           <CardContent className="p-2">
@@ -56,37 +75,27 @@ export default async function MyPage() {
                   <span className="text-[10px] text-muted-foreground">{email}</span>
                 </div>
               </div>
-              <Link 
-                href="/account?next=/dashboard/mypage"
-                className="text-[10px] font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full hover:bg-blue-100 transition-colors"
+              <button 
+                type="button"
+                className="text-[10px] font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full hover:bg-blue-100 transition-colors cursor-default"
               >
                 수정
-              </Link>
+              </button>
             </div>
           </CardContent>
         </Card>
 
         {/* 퀵 액션 (2분할) */}
-        <div className="grid grid-cols-2 gap-3">
-          <Link href="/dashboard/mypage" className="bg-white p-3 rounded-xl shadow-sm border border-slate-100 flex flex-col items-center justify-center gap-2 active:bg-slate-50 transition-colors">
-            <div className="bg-indigo-50 p-2.5 rounded-full text-indigo-600">
-              <FileText className="w-5 h-5" />
-            </div>
-            <span className="text-xs font-medium text-slate-700">내 근로계약서</span>
-          </Link>
-          <Link href="/dashboard/mypage" className="bg-white p-3 rounded-xl shadow-sm border border-slate-100 flex flex-col items-center justify-center gap-2 active:bg-slate-50 transition-colors">
-            <div className="bg-emerald-50 p-2.5 rounded-full text-emerald-600">
-              <Store className="w-5 h-5" />
-            </div>
-            <span className="text-xs font-medium text-slate-700">매장 전환/관리</span>
-          </Link>
-        </div>
+        <ActionButtons 
+          currentStoreId={currentStoreId} 
+          hasContract={hasContract} 
+        />
 
         {/* 설정 및 지원 리스트 (압축형) */}
         <div className="flex flex-col bg-white rounded-xl shadow-sm border overflow-hidden mt-2">
           <Link 
             href="/account?next=/dashboard/mypage" 
-            className="flex items-center justify-between p-3.5 active:bg-slate-50 transition-colors border-b border-slate-100"
+            className="flex items-center justify-between p-3.5 active:bg-slate-50 transition-colors"
           >
             <div className="flex items-center gap-3">
               <div className="bg-slate-100 p-1.5 rounded-md text-slate-600">
@@ -96,33 +105,10 @@ export default async function MyPage() {
             </div>
             <ChevronRight className="w-4 h-4 text-slate-300" />
           </Link>
-          
-          <button className="flex items-center justify-between p-3.5 active:bg-slate-50 transition-colors border-b border-slate-100 w-full text-left">
-            <div className="flex items-center gap-3">
-              <div className="bg-slate-100 p-1.5 rounded-md text-slate-600">
-                <Bell className="w-4 h-4" />
-              </div>
-              <span className="text-sm font-medium text-slate-700">알림 설정</span>
-            </div>
-            <ChevronRight className="w-4 h-4 text-slate-300" />
-          </button>
-
-          <button className="flex items-center justify-between p-3.5 active:bg-slate-50 transition-colors w-full text-left">
-            <div className="flex items-center gap-3">
-              <div className="bg-slate-100 p-1.5 rounded-md text-slate-600">
-                <HeadphonesIcon className="w-4 h-4" />
-              </div>
-              <span className="text-sm font-medium text-slate-700">고객센터 및 도움말</span>
-            </div>
-            <ChevronRight className="w-4 h-4 text-slate-300" />
-          </button>
         </div>
 
-        {/* 하단 여백 채우기 */}
-        <div className="flex-1"></div>
-
         {/* 로그아웃 및 버전 */}
-        <div className="mt-auto flex flex-col items-center gap-3">
+        <div className="mt-6 flex flex-col items-center gap-3">
           <form action={async () => {
             'use server'
             await logout()

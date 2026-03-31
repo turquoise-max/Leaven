@@ -203,13 +203,13 @@ export function AttendanceClientPage({
             </TabsTrigger>
             <TabsTrigger 
               value="requests" 
-              className="relative rounded-none px-0.5 pb-2 md:pb-3 pt-2 text-sm md:text-base font-semibold text-muted-foreground hover:text-foreground data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none outline-none focus-visible:outline-none !shadow-none bg-transparent group whitespace-nowrap"
+              className="relative rounded-none px-0.5 pb-2 md:pb-3 pt-2 text-sm md:text-base font-semibold text-muted-foreground hover:text-foreground data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none outline-none focus-visible:outline-none !shadow-none bg-transparent group flex items-center whitespace-nowrap"
             >
               <CheckSquare className="w-3.5 h-3.5 md:w-4 md:h-4 mr-1.5 md:mr-2" />
               <span className="hidden md:inline">{isManager ? "수정 내역 및 관리" : "수정 요청 현황"}</span>
               <span className="md:hidden">{isManager ? "관리" : "수정요청"}</span>
               {requestsData.filter(r => r.status === 'pending' && (isManager || r.member_id === myStaff?.id)).length > 0 && (
-                <Badge variant="destructive" className="absolute -top-1 -right-3 md:-right-4 w-4 h-4 md:w-5 md:h-5 flex items-center justify-center p-0 text-[9px] md:text-[10px]">
+                <Badge variant="destructive" className="ml-1.5 w-4 h-4 md:w-5 md:h-5 flex items-center justify-center p-0 text-[9px] md:text-[10px] rounded-full">
                   {requestsData.filter(r => r.status === 'pending' && (isManager || r.member_id === myStaff?.id)).length}
                 </Badge>
               )}
