@@ -108,7 +108,7 @@ export function MonthlyCalendarView({
   }
 
   return (
-    <div className="flex flex-col h-full bg-white rounded-xl border border-black/10 shadow-sm overflow-hidden select-none">
+    <div className="flex flex-col bg-white rounded-xl border border-black/10 shadow-sm overflow-hidden select-none">
       {/* 요일 헤더 */}
       <div className="grid grid-cols-7 border-b border-black/5 bg-[#fbfbfb]">
         {weekDays.map((dayName, i) => (
@@ -125,7 +125,7 @@ export function MonthlyCalendarView({
       </div>
 
       {/* 달력 그리드 */}
-      <div className="flex-1 overflow-y-auto bg-[#fbfbfb]">
+      <div className="flex flex-col bg-[#fbfbfb]">
         {weeks.map((week, weekIndex) => (
           <div key={weekIndex} className="grid grid-cols-7 border-b border-black/5 last:border-b-0 min-h-[50px] md:min-h-[120px]">
             {week.map((date, dayIndex) => {
