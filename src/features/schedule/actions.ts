@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/features/auth/permissions'
-import { toUTCISOString, getCurrentISOString, getNextDateString, getDiffInMinutes, addMinutesToTime } from '@/shared/lib/date-utils'
+import { toUTCISOString, getCurrentISOString, getNextDateString, getDiffInMinutes, addMinutesToTime, toKSTISOString } from '@/shared/lib/date-utils'
 
 // 스케줄 조회 (기간) 및 해당 기간의 승인된 휴가 정보 함께 반환
 export async function getSchedules(storeId: string, startDate: string, endDate: string) {
@@ -324,7 +324,7 @@ export async function updateSchedule(storeId: string, scheduleId: string, formDa
     .eq('id', scheduleId)
     .single()
 
-  const oldDateStr = oldSchedule?.start_time?.split('T')[0] || date
+  const oldDateStr = oldSchedule?.start_time ? toKSTISOString(oldSchedule.start_time).split('T')[0] : date
 
   // 1. 스케줄 정보 업데이트
   const { error: updateError } = await supabase
