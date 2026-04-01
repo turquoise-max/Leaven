@@ -176,9 +176,17 @@ export function UnifiedCalendar({
     })
   }
 
+  const [isMobile, setIsMobile] = useState(false)
   useEffect(() => {
-    if (!isManager && currentUserId) {
-      // 관리자가 아니면 본인의 스케줄만 필터링
+    const handleResize = () => setIsMobile(window.innerWidth < 768)
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  useEffect(() => {
+    // 관리자가 아니거나, 관리자라도 모바일이면 본인의 스케줄만 필터링
+    if ((!isManager || isMobile) && currentUserId) {
       const myStaffId = staffList.find(s => s.user_id === currentUserId)?.id
       if (myStaffId) {
         setLocalSchedules((schedules || []).filter(sch => 
@@ -190,7 +198,7 @@ export function UnifiedCalendar({
     } else {
       setLocalSchedules(schedules || [])
     }
-  }, [schedules, isManager, currentUserId, staffList])
+  }, [schedules, isManager, currentUserId, staffList, isMobile])
 
   // 중복 스케줄 검사 유틸리티
   const checkOverlap = (staffId: string, newStart: Date, newEnd: Date, excludeScheduleId?: string) => {
@@ -632,8 +640,8 @@ export function UnifiedCalendar({
   const filteredStaff = useMemo(() => {
     let filtered = staffList
 
-    // 관리자가 아니면 본인만 보이도록 필터링
-    if (!isManager && currentUserId) {
+    // 관리자가 아니거나, 관리자라도 모바일이면 본인만 보이도록 필터링
+    if ((!isManager || isMobile) && currentUserId) {
       filtered = filtered.filter(s => s.user_id === currentUserId)
       return filtered
     }
@@ -763,7 +771,7 @@ export function UnifiedCalendar({
               isManager={isManager}
               hours={hours}
               onCellClick={(staff, date, hour) => {
-                if (!isManager) return;
+                if (!isManager || isMobile) return;
                 const displayHour = Math.floor(hour) >= 24 ? Math.floor(hour) - 24 : Math.floor(hour);
                 const startStr = `${displayHour.toString().padStart(2, '0')}:00`;
                 const endHour = displayHour + 1;
@@ -780,11 +788,11 @@ export function UnifiedCalendar({
                 setIsCreateModalOpen(true)
               }}
               onScheduleClick={(sch, staff) => {
-                if (!isManager) return;
+                if (!isManager || isMobile) return;
                 handleScheduleClick(sch, staff)
               }}
               onScheduleCreateDrag={(staffId, date, startStr, endStr) => {
-                if (!isManager) return;
+                if (!isManager || isMobile) return;
                 setCreateForm({
                   title: '근무',
                   date: format(date, 'yyyy-MM-dd'),
@@ -796,7 +804,7 @@ export function UnifiedCalendar({
                 setIsCreateModalOpen(true)
               }}
               onScheduleUpdateDrag={(scheduleId, date, startStr, endStr) => {
-                if (!isManager) return;
+                if (!isManager || isMobile) return;
                 const sch = localSchedulesRef.current.find(s => s.id === scheduleId)
                 if (!sch) return;
 
@@ -853,7 +861,7 @@ export function UnifiedCalendar({
               approvedLeaves={approvedLeaves}
               isManager={isManager}
               onCellClick={(staff, date) => {
-                if (!isManager) return;
+                if (!isManager || isMobile) return;
                 setCreateForm({
                   title: '근무',
                   date: format(date, 'yyyy-MM-dd'),
@@ -865,7 +873,7 @@ export function UnifiedCalendar({
                 setIsCreateModalOpen(true)
               }}
               onScheduleClick={(sch, staff) => {
-                if (!isManager) return;
+                if (!isManager || isMobile) return;
                 handleScheduleClick(sch, staff)
               }}
               onHeaderDateClick={(date) => {
@@ -873,7 +881,7 @@ export function UnifiedCalendar({
                 setViewMode('timeline')
               }}
               onScheduleDrop={async (scheduleId: string, sourceStaffId: string, targetStaffId: string, targetDate: Date) => {
-                if (!isManager) return;
+                if (!isManager || isMobile) return;
                 
                 const sch = localSchedulesRef.current.find(s => s.id === scheduleId)
                 if (!sch) return
@@ -1022,7 +1030,7 @@ export function UnifiedCalendar({
               approvedLeaves={approvedLeaves}
               isManager={isManager}
               onDateClick={(date) => {
-                if (!isManager) return;
+                if (!isManager || isMobile) return;
                 setCreateForm({
                   title: '근무',
                   date: format(date, 'yyyy-MM-dd'),
@@ -1034,11 +1042,11 @@ export function UnifiedCalendar({
                 setIsCreateModalOpen(true)
               }}
               onScheduleClick={(sch, staff) => {
-                if (!isManager) return;
+                if (!isManager || isMobile) return;
                 handleScheduleClick(sch, staff)
               }}
               onScheduleDrop={async (scheduleId: string, sourceStaffId: string, targetStaffId: string, targetDate: Date) => {
-                if (!isManager) return;
+                if (!isManager || isMobile) return;
                 
                 const sch = localSchedulesRef.current.find(s => s.id === scheduleId)
                 if (!sch) return

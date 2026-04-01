@@ -103,11 +103,11 @@ export function AnnouncementList({ storeId, announcements, isManager }: Announce
             <p className="text-sm">등록된 공지사항이 없습니다.</p>
           </div>
         ) : (
-          <div className="space-y-4 pr-2">
+          <div className="space-y-2 md:space-y-4 pr-2">
             {announcements.map((announcement) => (
               <div 
                 key={announcement.id} 
-                className={`p-4 rounded-lg border relative group transition-colors hover:bg-muted/50 ${
+                className={`p-3 md:p-4 rounded-lg border relative group transition-colors hover:bg-muted/50 ${
                   announcement.is_important ? 'bg-primary/5 border-primary/20' : 'bg-card'
                 }`}
               >
@@ -131,7 +131,7 @@ export function AnnouncementList({ storeId, announcements, isManager }: Announce
                   )}
                 </div>
                 
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-3 mb-3">
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-3 mb-2 md:mb-3">
                   {announcement.content}
                 </p>
                 

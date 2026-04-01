@@ -40,6 +40,19 @@ export function AttendanceClientPage({
   const [selectedDate, setSelectedDate] = useState(initialDate)
   const [activeTab, setActiveTab] = useState(isManager ? 'live' : 'history')
   const [attendanceData, setAttendanceData] = useState<any[]>([])
+
+  useEffect(() => {
+    if (isManager) {
+      const checkMobile = () => {
+        if (window.innerWidth < 768) {
+          setActiveTab(prev => prev === 'live' ? 'history' : prev)
+        }
+      }
+      checkMobile()
+      window.addEventListener('resize', checkMobile)
+      return () => window.removeEventListener('resize', checkMobile)
+    }
+  }, [isManager])
   const [searchTerm, setSearchTerm] = useState('')
   const [schedulesData, setSchedulesData] = useState<any[]>([])
   const [requestsData, setRequestsData] = useState<any[]>([])
@@ -166,14 +179,7 @@ export function AttendanceClientPage({
             />
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex items-center gap-2 shrink-0">
-            {isManager && (
-              <Button variant="outline" size="sm" className="gap-1.5 md:gap-2 text-muted-foreground h-9 md:h-9 px-3 text-xs md:text-sm">
-                <Download className="w-3.5 h-3.5 md:w-4 md:h-4" /> <span className="hidden md:inline">엑셀 다운로드</span><span className="md:hidden">엑셀</span>
-              </Button>
-            )}
-          </div>
+          {/* Action Buttons removed */}
         </div>
       </div>
 
@@ -184,7 +190,7 @@ export function AttendanceClientPage({
             {isManager && (
               <TabsTrigger 
                 value="live" 
-                className="relative rounded-none px-0.5 pb-2 md:pb-3 pt-2 text-sm md:text-base font-semibold text-muted-foreground hover:text-foreground data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none outline-none focus-visible:outline-none !shadow-none bg-transparent group whitespace-nowrap"
+                className="relative rounded-none px-0.5 pb-2 md:pb-3 pt-2 text-sm md:text-base font-semibold text-muted-foreground hover:text-foreground data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none outline-none focus-visible:outline-none !shadow-none bg-transparent group whitespace-nowrap hidden md:inline-flex items-center"
               >
                 <Activity className="w-3.5 h-3.5 md:w-4 md:h-4 mr-1.5 md:mr-2" />
                 <span className="hidden md:inline">실시간 현황</span>

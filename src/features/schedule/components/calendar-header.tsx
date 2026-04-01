@@ -176,7 +176,7 @@ export function CalendarHeader({
       </div>
 
       {/* 오른쪽: 필터 칩, 검색창, 액션 버튼 */}
-      <div className="flex items-center gap-3 w-full md:w-auto md:ml-auto flex-wrap justify-between md:justify-end">
+      <div className="items-center gap-3 w-full md:w-auto md:ml-auto flex-wrap justify-between md:justify-end hidden md:flex">
         
         {isManager && (
           <>
