@@ -974,12 +974,6 @@ export async function getDashboardTasks(storeId: string, date: string) {
          
          if (assignedRoles.includes('all')) return true;
          
-         // Owner 권한 처리 (DB의 role은 'owner', 역할 ID는 별개일 수 있음)
-         if (isOwner) {
-            // Owner는 모든 루틴을 열람할 수 있음
-            return true;
-         }
-         
          if (userRoles.some(r => assignedRoles.includes(r))) return true;
          
          return false;

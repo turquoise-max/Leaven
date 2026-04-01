@@ -404,7 +404,7 @@ export function ScheduleDetailPanel({
   });
 
   return (
-    <div className={`flex flex-col h-[85vh] max-h-[750px] w-full ${isCreate ? '' : 'md:flex-row'}`}>
+    <div className={`flex flex-col h-[85vh] max-h-[750px] overflow-hidden w-full ${isCreate ? '' : 'md:flex-row'}`}>
       {/* Left Column: Schedule Info & Slider */}
       <div className={`w-full flex flex-col border-black/10 ${isCreate ? '' : 'md:w-1/2 border-r'}`}>
         <div className="p-5 flex flex-col h-full overflow-y-auto custom-scrollbar">
@@ -665,30 +665,32 @@ export function ScheduleDetailPanel({
                   
                   <div className="flex flex-col gap-1.5 bg-white p-2 rounded-md border border-black/5">
                     <label className="text-[10px] font-semibold text-muted-foreground mb-1">세부 할 일 (체크리스트)</label>
-                    {editChecklists.map((item, index) => (
-                      <div key={item.id} className="flex items-center gap-2">
-                        <Checkbox disabled className="w-3.5 h-3.5 opacity-50" />
-                        <Input
-                          id={`checklist-edit-${index}`}
-                          placeholder={index === editChecklists.length - 1 ? "할 일 추가... (엔터 입력)" : "할 일 내용"}
-                          className="h-7 text-[11px] bg-transparent border-transparent hover:border-black/10 focus-visible:border-primary/50 focus-visible:ring-0 px-1 shadow-none transition-colors"
-                          value={item.text}
-                          onChange={(e) => handleChecklistChange(index, e.target.value, true)}
-                          onKeyDown={(e) => handleChecklistKeyDown(e, index, true)}
-                        />
-                        {item.text && index !== editChecklists.length - 1 && (
-                          <button 
-                            className="w-6 h-6 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors shrink-0"
-                            onClick={() => {
-                              const newItems = editChecklists.filter((_, i) => i !== index)
-                              setEditChecklists(newItems)
-                            }}
-                          >
-                            ✕
-                          </button>
-                        )}
-                      </div>
-                    ))}
+                    <div className="flex flex-col gap-1.5 max-h-[140px] overflow-y-auto custom-scrollbar pr-1">
+                      {editChecklists.map((item, index) => (
+                        <div key={item.id} className="flex items-center gap-2">
+                          <Checkbox disabled className="w-3.5 h-3.5 opacity-50" />
+                          <Input
+                            id={`checklist-edit-${index}`}
+                            placeholder={index === editChecklists.length - 1 ? "할 일 추가... (엔터 입력)" : "할 일 내용"}
+                            className="h-7 text-[11px] bg-transparent border-transparent hover:border-black/10 focus-visible:border-primary/50 focus-visible:ring-0 px-1 shadow-none transition-colors"
+                            value={item.text}
+                            onChange={(e) => handleChecklistChange(index, e.target.value, true)}
+                            onKeyDown={(e) => handleChecklistKeyDown(e, index, true)}
+                          />
+                          {item.text && index !== editChecklists.length - 1 && (
+                            <button 
+                              className="w-6 h-6 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                              onClick={() => {
+                                const newItems = editChecklists.filter((_, i) => i !== index)
+                                setEditChecklists(newItems)
+                              }}
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                   
                   <div className="flex items-center justify-between border-t border-black/5 pt-2">
@@ -963,30 +965,32 @@ export function ScheduleDetailPanel({
                 
                 <div className="flex flex-col gap-1.5 bg-white p-2 rounded-md border border-black/5">
                   <label className="text-[10px] font-semibold text-muted-foreground mb-1">세부 할 일 (체크리스트)</label>
-                  {newChecklists.map((text, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <Checkbox disabled className="w-3.5 h-3.5 opacity-50" />
-                      <Input
-                        id={`checklist-new-${index}`}
-                        placeholder={index === newChecklists.length - 1 ? "할 일 추가... (엔터 입력)" : "할 일 내용"}
-                        className="h-7 text-[11px] bg-transparent border-transparent hover:border-black/10 focus-visible:border-primary/50 focus-visible:ring-0 px-1 shadow-none transition-colors"
-                        value={text}
-                        onChange={(e) => handleChecklistChange(index, e.target.value, false)}
-                        onKeyDown={(e) => handleChecklistKeyDown(e, index, false)}
-                      />
-                      {text && index !== newChecklists.length - 1 && (
-                        <button 
-                          className="w-6 h-6 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors shrink-0"
-                          onClick={() => {
-                            const newItems = newChecklists.filter((_, i) => i !== index)
-                            setNewChecklists(newItems)
-                          }}
-                        >
-                          ✕
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                  <div className="flex flex-col gap-1.5 max-h-[140px] overflow-y-auto custom-scrollbar pr-1">
+                    {newChecklists.map((text, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <Checkbox disabled className="w-3.5 h-3.5 opacity-50" />
+                        <Input
+                          id={`checklist-new-${index}`}
+                          placeholder={index === newChecklists.length - 1 ? "할 일 추가... (엔터 입력)" : "할 일 내용"}
+                          className="h-7 text-[11px] bg-transparent border-transparent hover:border-black/10 focus-visible:border-primary/50 focus-visible:ring-0 px-1 shadow-none transition-colors"
+                          value={text}
+                          onChange={(e) => handleChecklistChange(index, e.target.value, false)}
+                          onKeyDown={(e) => handleChecklistKeyDown(e, index, false)}
+                        />
+                        {text && index !== newChecklists.length - 1 && (
+                          <button 
+                            className="w-6 h-6 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                            onClick={() => {
+                              const newItems = newChecklists.filter((_, i) => i !== index)
+                              setNewChecklists(newItems)
+                            }}
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between border-t border-black/5 pt-2">
