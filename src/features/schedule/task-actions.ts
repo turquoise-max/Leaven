@@ -470,7 +470,9 @@ export async function deleteTask(id: string) {
     return { error: '업무 삭제 중 오류가 발생했습니다.' }
   }
 
-  revalidatePath('/dashboard/tasks')
+  revalidatePath('/dashboard')
+  revalidatePath('/dashboard/my-tasks')
+  revalidatePath('/dashboard/schedule')
   return { success: true }
 }
 
