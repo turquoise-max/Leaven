@@ -9,10 +9,10 @@ import { Switch } from '@/components/ui/switch'
 import { TimePicker } from '@/components/ui/time-picker'
 import { toast } from 'sonner'
 import { updateSchedule, deleteSchedule, createSchedule } from '@/features/schedule/actions'
-import { createTask, assignTask, deleteTask, updateTaskAssignment, toggleTaskCheckitem } from '@/features/schedule/task-actions'
+import { createTask, assignTask, deleteTask, updateTaskAssignment, toggleTaskCheckitem, createDirectScheduleTask } from '@/features/schedule/task-actions'
 import { useRouter } from 'next/navigation'
 import { Pencil, Trash2 } from 'lucide-react'
-import { toKSTISOString } from '@/shared/lib/date-utils'
+import { toKSTISOString, toUTCISOString, addMinutesToTime } from '@/shared/lib/date-utils'
 
 function hexToRgba(hex: string, alpha: number) {
   if (!hex) return `rgba(0,0,0,${alpha})`
@@ -143,18 +143,18 @@ export function TimeSlider({
 }
 
 // 자동 파생 상태 계산 헬퍼 (시간 기반)
-export function getDerivedTaskStatus(ta: any, scheduleDateStr: string, now: Date): 'todo' | 'in_progress' | 'pending' | 'done' {
-  if (ta.task?.status === 'done') return 'done'
-  if (!ta.start_time) return 'todo'
+export function getDerivedTaskStatus(t: any, scheduleDateStr: string, now: Date): 'todo' | 'in_progress' | 'pending' | 'done' {
+  if (t.status === 'done') return 'done'
+  if (!t.start_time) return 'todo'
 
   let taskDateObj = null;
-  if (ta.start_time.includes('T')) {
-    taskDateObj = new Date(ta.start_time)
+  if (t.start_time.includes('T')) {
+    taskDateObj = new Date(t.start_time)
   } else {
-    const dateStr = ta.assigned_date || scheduleDateStr
+    const dateStr = t.assigned_date || scheduleDateStr
     if (!dateStr) return 'todo'
     // 만약 start_time이 "09:00" 처럼 초가 없으면 추가
-    const timeStr = ta.start_time.length === 5 ? `${ta.start_time}:00` : ta.start_time
+    const timeStr = t.start_time.length === 5 ? `${t.start_time}:00` : t.start_time
     taskDateObj = new Date(`${dateStr}T${timeStr}`)
   }
 
@@ -640,18 +640,18 @@ export function ScheduleDetailPanel({
       {!isCreate && (
         <div className="w-full md:w-1/2 flex flex-col bg-[#fafafa] overflow-y-auto custom-scrollbar p-5 border-t md:border-t-0 border-black/10">
           {(() => {
-          const allTasks = state.task_assignments || []
+          const allTasks = state.tasks || []
           const customTasks = allTasks
 
-          const renderTaskItem = (ta: any) => {
-            const derivedStatus = getDerivedTaskStatus(ta, selectedSchedule.editDate, now)
+          const renderTaskItem = (t: any) => {
+            const derivedStatus = getDerivedTaskStatus(t, selectedSchedule.editDate, now)
             const sInfo = STATUS_INFO[derivedStatus]
             const isDone = derivedStatus === 'done'
             const isPending = derivedStatus === 'pending'
             
-            if (editingTaskId === ta.task?.id) {
+            if (editingTaskId === t.id) {
               return (
-                <div key={ta.id} className="border border-primary/30 bg-primary/5 rounded-md p-3 flex flex-col gap-3 animate-in fade-in duration-200">
+                <div key={t.id} className="border border-primary/30 bg-primary/5 rounded-md p-3 flex flex-col gap-3 animate-in fade-in duration-200">
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[10px] font-semibold text-[#1a1a1a]">업무 그룹 (대표 제목)</label>
                     <Input 
@@ -739,8 +739,8 @@ export function ScheduleDetailPanel({
                           .map(c => ({ id: c.id, text: c.text.trim(), is_completed: c.is_completed }))
 
                         const res = await updateTaskAssignment(
-                          ta.id, 
-                          ta.task.id, 
+                          t.id, 
+                          t.id, 
                           storeId, 
                           editTaskDraft.title, 
                           startTimeToUse,
@@ -749,7 +749,7 @@ export function ScheduleDetailPanel({
                         
                         const { createClient } = await import('@/lib/supabase/client')
                         const supabase = createClient()
-                        await supabase.from('tasks').update({ checklist: finalChecklist }).eq('id', ta.task.id)
+                        await supabase.from('tasks').update({ checklist: finalChecklist }).eq('id', t.id)
 
                         if (res.error) {
                           toast.dismiss(loadingToast)
@@ -759,20 +759,16 @@ export function ScheduleDetailPanel({
 
                         const updatedSchedule = {
                           ...selectedSchedule,
-                          task_assignments: selectedSchedule.task_assignments.map((assignment: any) => {
-                            if (assignment.id === ta.id) {
+                          tasks: selectedSchedule.tasks.map((task: any) => {
+                            if (task.id === t.id) {
                               return {
-                                ...assignment,
-                                start_time: editTaskDraft.hasTime ? editTaskDraft.startTime : null,
-                                task: {
-                                  ...assignment.task,
-                                  title: editTaskDraft.title,
-                                  start_time: startTimeToUse,
-                                  checklist: finalChecklist
-                                }
+                                ...task,
+                                title: editTaskDraft.title,
+                                start_time: startTimeToUse || (editTaskDraft.hasTime ? editTaskDraft.startTime : null),
+                                checklist: finalChecklist
                               }
                             }
-                            return assignment
+                            return task
                           })
                         }
                         if (setSelectedSchedule) setSelectedSchedule(updatedSchedule)
@@ -792,7 +788,7 @@ export function ScheduleDetailPanel({
             }
 
             return (
-              <div key={ta.id} className={`relative flex flex-col gap-1 p-2.5 bg-[#fcfcfc] border ${isPending ? 'border-orange-300 bg-orange-50/30' : 'border-black/10'} rounded-md shadow-sm group hover:border-black/20 transition-colors`}>
+              <div key={t.id} className={`relative flex flex-col gap-1 p-2.5 bg-[#fcfcfc] border ${isPending ? 'border-orange-300 bg-orange-50/30' : 'border-black/10'} rounded-md shadow-sm group hover:border-black/20 transition-colors`}>
                 
                 {/* Hover Actions (Edit / Delete) */}
                 <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -800,18 +796,18 @@ export function ScheduleDetailPanel({
                      className="p-1 rounded bg-white border border-black/10 text-muted-foreground hover:text-black hover:bg-muted/50 shadow-sm"
                      onClick={() => {
                         setEditTaskDraft({
-                          title: ta.task?.title || '',
-                          hasTime: !!ta.start_time,
-                          startTime: ta.start_time ? (ta.start_time.includes('T') ? format(new Date(ta.start_time), 'HH:mm') : ta.start_time.substring(0, 5)) : ''
+                          title: t.title || '',
+                          hasTime: !!t.start_time,
+                          startTime: t.start_time ? (t.start_time.includes('T') ? format(new Date(t.start_time), 'HH:mm') : t.start_time.substring(0, 5)) : ''
                         })
                         
-                        const existingList = ta.task?.checklist || []
+                        const existingList = t.checklist || []
                         setEditChecklists([
                             ...existingList,
                             { id: crypto.randomUUID(), text: '', is_completed: false }
                         ])
                         
-                        setEditingTaskId(ta.task?.id)
+                        setEditingTaskId(t.id)
                      }}
                      title="수정"
                    >
@@ -822,7 +818,7 @@ export function ScheduleDetailPanel({
                      onClick={async () => {
                        if (window.confirm('이 업무를 정말 삭제하시겠습니까?')) {
                          const loadingToast = toast.loading('업무 삭제 중...')
-                         const res = await deleteTask(ta.task?.id)
+                         const res = await deleteTask(t.id)
                          if (res.error) {
                            toast.dismiss(loadingToast)
                            toast.error(res.error)
@@ -831,7 +827,7 @@ export function ScheduleDetailPanel({
                          
                          const updatedSchedule = {
                            ...selectedSchedule,
-                           task_assignments: selectedSchedule.task_assignments.filter((assignment: any) => assignment.id !== ta.id)
+                           tasks: selectedSchedule.tasks.filter((task: any) => task.id !== t.id)
                          }
                          if (setSelectedSchedule) setSelectedSchedule(updatedSchedule)
                          setLocalSchedules(prev => prev.map(s => s.id === updatedSchedule.id ? updatedSchedule : s))
@@ -849,56 +845,53 @@ export function ScheduleDetailPanel({
 
                 <div className="flex items-start gap-2 pr-12">
                   <Checkbox 
-                    id={`panel-task-${ta.task?.id}`} 
+                    id={`panel-task-${t.id}`} 
                     checked={isDone}
-                    onCheckedChange={() => handleTaskToggle?.(ta.task?.id, ta.task?.status)}
+                    onCheckedChange={() => handleTaskToggle?.(t.id, t.status)}
                     className="mt-0.5 w-4 h-4 border-black/30 data-[state=checked]:bg-[#16a34a] data-[state=checked]:border-[#16a34a]"
                   />
                   <div className="flex flex-col flex-1 leading-tight mt-0.5">
                     <label 
-                      htmlFor={`panel-task-${ta.task?.id}`}
+                      htmlFor={`panel-task-${t.id}`}
                       className={`text-[12px] font-medium cursor-pointer ${isDone ? 'line-through text-muted-foreground/60' : 'text-[#1a1a1a]'}`}
                     >
-                      {ta.task?.title}
+                      {t.title}
                     </label>
-                    {ta.task?.checklist && ta.task.checklist.length > 0 && (
+                    {t.checklist && t.checklist.length > 0 && (
                       <div className="flex flex-col gap-1.5 mt-2">
-                        {ta.task.checklist.map((item: any) => (
+                        {t.checklist.map((item: any) => (
                           <div key={item.id} className="flex items-start gap-1.5 group/chk">
                             <Checkbox 
                               id={`chk-${item.id}`}
                               checked={item.is_completed}
                               onCheckedChange={async (val) => {
-                                const newTasks = selectedSchedule.task_assignments.map((assignment: any) => {
-                                  if (assignment.task?.id === ta.task.id) {
-                                    const newChecklist = assignment.task.checklist.map((c: any) => 
+                                const newTasks = selectedSchedule.tasks.map((task: any) => {
+                                  if (task.id === t.id) {
+                                    const newChecklist = task.checklist.map((c: any) => 
                                       c.id === item.id ? { ...c, is_completed: !!val } : c
                                     )
                                     
                                     const allCompleted = newChecklist.length > 0 && newChecklist.every((c: any) => c.is_completed)
-                                    let newStatus = assignment.task.status
+                                    let newStatus = task.status
                                     if (allCompleted) {
                                       newStatus = 'done'
-                                    } else if (assignment.task.status === 'done') {
+                                    } else if (task.status === 'done') {
                                       newStatus = 'todo'
                                     }
 
                                     return {
-                                      ...assignment,
-                                      task: {
-                                        ...assignment.task,
-                                        checklist: newChecklist,
-                                        status: newStatus
-                                      }
+                                      ...task,
+                                      checklist: newChecklist,
+                                      status: newStatus
                                     }
                                   }
-                                  return assignment
+                                  return task
                                 });
-                                const updatedSchedule = { ...selectedSchedule, task_assignments: newTasks };
+                                const updatedSchedule = { ...selectedSchedule, tasks: newTasks };
                                 if (setSelectedSchedule) setSelectedSchedule(updatedSchedule);
                                 setLocalSchedules((prev: any[]) => prev.map(s => s.id === updatedSchedule.id ? updatedSchedule : s));
                                 
-                                await toggleTaskCheckitem(ta.task.id, item.id, !!val);
+                                await toggleTaskCheckitem(t.id, item.id, !!val);
                                 router.refresh();
                               }}
                               className="mt-0.5 w-3 h-3 rounded-[3px] border-black/20 data-[state=checked]:bg-[#1a1a1a] data-[state=checked]:border-[#1a1a1a]"
@@ -915,7 +908,7 @@ export function ScheduleDetailPanel({
                     )}
                   </div>
                   
-                  {ta.start_time && (
+                  {t.start_time && (
                     <div 
                       className="text-[9px] px-1.5 py-0.5 rounded font-medium flex-shrink-0"
                       style={{ backgroundColor: sInfo.bg, color: sInfo.color, border: `1px solid ${sInfo.border}` }}
@@ -925,10 +918,10 @@ export function ScheduleDetailPanel({
                   )}
                 </div>
                 
-                {ta.start_time && (
+                {t.start_time && (
                   <div className="flex items-center gap-2 mt-1.5 pl-6">
                     <span className={`text-[9px] font-medium flex items-center gap-1 bg-white px-1.5 py-0.5 rounded border ${isPending ? 'text-orange-500 border-orange-200' : isDone ? 'text-muted-foreground/50 border-black/5' : 'text-primary/80 border-primary/20'}`}>
-                      🕒 {ta.start_time.includes('T') ? format(new Date(ta.start_time), 'HH:mm') : ta.start_time.substring(0, 5)}
+                      🕒 {t.start_time.includes('T') ? format(new Date(t.start_time), 'HH:mm') : t.start_time.substring(0, 5)}
                     </span>
                   </div>
                 )}
@@ -941,13 +934,13 @@ export function ScheduleDetailPanel({
               <div className="flex items-center justify-between pb-3 border-b border-black/10 shrink-0">
                 <span className="text-[14px] font-semibold text-[#1a1a1a]">오늘의 할 일 (체크리스트)</span>
                 <span className="text-[11px] text-muted-foreground bg-black/5 px-2 py-0.5 rounded-full font-medium">
-                  완료: {customTasks.filter((ta: any) => ta.task?.status === 'done').length} / {customTasks.length}
+                  완료: {customTasks.filter((t: any) => t.status === 'done').length} / {customTasks.length}
                 </span>
               </div>
                 
                 <div className="flex flex-col gap-2">
                   {customTasks.length > 0 ? (
-                    customTasks.map((ta: any) => renderTaskItem(ta))
+                    customTasks.map((t: any) => renderTaskItem(t))
                   ) : (
                     <div className="text-[11px] text-muted-foreground text-center py-5 border border-dashed border-black/10 rounded-md bg-[#fcfcfc]">
                       등록된 개별 업무가 없습니다.
@@ -1036,8 +1029,9 @@ export function ScheduleDetailPanel({
 
                       const loadingToast = toast.loading('업무를 추가하는 중...')
                       
-                      const startTimeStr = newTaskDraft.hasTime && newTaskDraft.startTime 
-                        ? `${selectedSchedule.editDate}T${newTaskDraft.startTime}:00` 
+                      // startTimeStr은 입력된 시간을 UTC 형태 문자열로 생성할지 여부
+                      const assignStartTime = newTaskDraft.hasTime && newTaskDraft.startTime 
+                        ? newTaskDraft.startTime // "HH:mm" 포맷
                         : null;
                         
                       const finalChecklist = newChecklists
@@ -1048,51 +1042,32 @@ export function ScheduleDetailPanel({
                            is_completed: false
                         }))
 
-                      const taskRes = await createTask({
+                      // 바로 스케줄과 연결되는 개별 업무로 생성 (is_template = false)
+                      const result = await createDirectScheduleTask({
                         store_id: storeId,
                         title: newTaskDraft.title,
                         task_type: newTaskDraft.hasTime ? 'scheduled' : 'always',
-                        start_time: startTimeStr ? new Date(startTimeStr).toISOString() : null,
-                        estimated_minutes: 30, // 기본값
-                        checklist: finalChecklist
-                      });
-                      
-                      if (taskRes.error || !taskRes.data) {
-                        toast.dismiss(loadingToast)
-                        toast.error('업무 생성에 실패했습니다.')
-                        return;
-                      }
-                      
-                      // 시간 지정 여부에 따라 null 혹은 시간('HH:mm') 전달
-                      const assignStartTime = newTaskDraft.hasTime && newTaskDraft.startTime 
-                        ? newTaskDraft.startTime 
-                        : null;
-
-                      const assignRes = await assignTask({
-                        store_id: storeId,
-                        task_id: taskRes.data.id,
-                        member_id: selectedSchedule.editStaffId,
-                        assigned_date: selectedSchedule.editDate,
-                        start_time: assignStartTime,
+                        start_time: assignStartTime ? toUTCISOString(selectedSchedule.editDate, assignStartTime) : null,
+                        end_time: assignStartTime ? toUTCISOString(selectedSchedule.editDate, addMinutesToTime(assignStartTime, 30)) : null,
                         estimated_minutes: 30,
-                        schedule_id: selectedSchedule.id
-                      });
-                      
-                      if (assignRes.error || !assignRes.data) {
+                        checklist: finalChecklist,
+                        staff_id: targetStaffId,
+                        schedule_id: selectedSchedule.id,
+                        assigned_date: selectedSchedule.editDate
+                      })
+
+                      if (result.error) {
                         toast.dismiss(loadingToast)
-                        toast.error('업무 할당에 실패했습니다.')
-                        return;
+                        toast.error(result.error)
+                        return
                       }
+
+                      const task = result.data
 
                       // 성공적으로 생성되었으므로 UI 상태 업데이트
-                      const newTaskAssignment = {
-                        ...assignRes.data,
-                        task: taskRes.data
-                      };
-                      
                       const updatedSchedule = {
                         ...selectedSchedule,
-                        task_assignments: [...(selectedSchedule.task_assignments || []), newTaskAssignment]
+                        tasks: [...(selectedSchedule.tasks || []), task]
                       };
                       
                       if (setSelectedSchedule) setSelectedSchedule(updatedSchedule);

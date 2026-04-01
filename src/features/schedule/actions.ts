@@ -25,11 +25,15 @@ export async function getSchedules(storeId: string, startDate: string, endDate: 
         member_id,
         member:store_members (name, user_id, profile:profiles(full_name, avatar_url))
       ),
-      task_assignments(
+      tasks!schedule_id(
         id,
+        title,
+        description,
+        status,
+        checklist,
         start_time,
         end_time,
-        task:tasks(id, title, description, status, checklist)
+        task_type
       )
     `)
     .eq('store_id', storeId)
@@ -226,34 +230,37 @@ export async function updateScheduleTime(
     return { error: error.message }
   }
 
-  // 개별 업무 시간 연동 이동 로직 (timezone 이슈 없이 순수 문자열 연산)
+  // 개별 업무 시간 연동 이동 로직
   if (moveTasks && deltaMinutes !== 0) {
-    const { data: assignments } = await supabase
-      .from('task_assignments')
+    const { data: tasks } = await supabase
+      .from('tasks')
       .select('id, start_time, end_time, assigned_date')
       .eq('schedule_id', scheduleId)
       .eq('store_id', storeId)
+      .eq('is_template', false)
 
-    if (assignments && assignments.length > 0) {
-      for (const assignment of assignments) {
-        if (assignment.start_time) {
+    if (tasks && tasks.length > 0) {
+      for (const task of tasks) {
+        if (task.start_time) {
           try {
             const updates: any = {}
             
-            // start_time 업데이트 (형식: HH:mm:ss)
-            const newStartStr = addMinutesToTime(assignment.start_time, deltaMinutes)
-            updates.start_time = newStartStr.length === 5 ? newStartStr + ':00' : newStartStr
+            // start_time 업데이트
+            const tStart = new Date(task.start_time)
+            tStart.setUTCMinutes(tStart.getUTCMinutes() + deltaMinutes)
+            updates.start_time = tStart.toISOString()
 
             // end_time 업데이트
-            if (assignment.end_time) {
-              const newEndStr = addMinutesToTime(assignment.end_time, deltaMinutes)
-              updates.end_time = newEndStr.length === 5 ? newEndStr + ':00' : newEndStr
+            if (task.end_time) {
+              const tEnd = new Date(task.end_time)
+              tEnd.setUTCMinutes(tEnd.getUTCMinutes() + deltaMinutes)
+              updates.end_time = tEnd.toISOString()
             }
 
             await supabase
-              .from('task_assignments')
+              .from('tasks')
               .update(updates)
-              .eq('id', assignment.id)
+              .eq('id', task.id)
 
           } catch (e) {
             console.error('Task time update error:', e)
@@ -352,24 +359,19 @@ export async function updateSchedule(storeId: string, scheduleId: string, formDa
   // userIds: 새로 할당될 member_id들의 배열
   const isMemberChanged = userIds.length > 0 && (oldMemberIds.length !== userIds.length || !oldMemberIds.includes(userIds[0]))
 
+  // 날짜가 변경되었거나 직원이 변경되었을 경우 해당 스케줄에 속한 tasks 업데이트
   if (oldDateStr !== date || isMemberChanged) {
-    // start_time / end_time 은 그대로 두고 날짜만 업데이트
-    // start_time / end_time 에 기존 날짜 정보가 포함되어 있으므로 재계산이 필요할 수 있지만
-    // assigned_date만 바꾸거나, getDiffInMinutes 처럼 세밀한 처리가 필요.
-    // 여기서는 가장 치명적인 assigned_date 만 1차로 변경.
-    // 시간이 지정된 Task의 경우 원래 날짜기준 타임스탬프를 가지고 있으므로
-    // 날짜 차이(deltaDays)를 계산하여 처리.
     const deltaMs = new Date(date).getTime() - new Date(oldDateStr).getTime()
     const deltaMinutes = Math.round(deltaMs / 60000)
 
-    const { data: assignments } = await supabase
-      .from('task_assignments')
+    const { data: tasks } = await supabase
+      .from('tasks')
       .select('id, start_time, end_time, assigned_date, user_id')
       .eq('schedule_id', scheduleId)
       .eq('store_id', storeId)
+      .eq('is_template', false)
 
-    if (assignments && assignments.length > 0) {
-      // 새 멤버의 auth.user_id 조회 (task_assignments.user_id 컬럼용)
+    if (tasks && tasks.length > 0) {
       let newUserId: string | null = null;
       if (isMemberChanged && userIds.length > 0) {
           const { data: newMemberData } = await supabase
@@ -377,20 +379,15 @@ export async function updateSchedule(storeId: string, scheduleId: string, formDa
               .select('user_id')
               .eq('id', userIds[0])
               .single()
-          // 만약 store_members.user_id가 null 이라면 (아직 미가입 직원), 
-          // task_assignments의 user_id를 null로 업데이트할 수는 없음 (schema.sql에서 user_id는 NOT NULL 제약이 걸려있음).
-          // 따라서 여기서는 null이라도 처리하거나 빈 문자열로 할 수 없으므로 무시하는 예외처리가 필요할 수도 있음.
           if (newMemberData && newMemberData.user_id) {
               newUserId = newMemberData.user_id
           }
       }
 
-      // Bulk update를 위한 배열 생성
       const assignmentsToUpdate = []
 
-      for (const assignment of assignments) {
-        const updates: any = { id: assignment.id } // upsert 대신 개별 update를 배열에 담아 처리하거나, upsert를 위해 기존 값 유지
-        
+      for (const task of tasks) {
+        const updates: any = { id: task.id }
         let hasChanges = false;
 
         if (oldDateStr !== date) {
@@ -398,42 +395,37 @@ export async function updateSchedule(storeId: string, scheduleId: string, formDa
            hasChanges = true;
         }
 
-        // 직원이 변경되었고, 대상 직원이 가입된 유저(auth.users)라면 user_id 업데이트
-        // 가입되지 않은 직원이라면 task_assignments 생성이 원래도 안 되거나 에러가 났을 것임.
         if (isMemberChanged && newUserId) {
             updates.user_id = newUserId
             hasChanges = true;
         }
         
-        if (oldDateStr !== date && assignment.start_time && deltaMinutes !== 0) {
-            // 시간 이동 (날짜만 바뀌어도 deltaMinutes 만큼 이동)
+        if (oldDateStr !== date && task.start_time && deltaMinutes !== 0) {
             try {
-              const newStartStr = addMinutesToTime(assignment.start_time, deltaMinutes)
-              updates.start_time = newStartStr.length === 5 ? newStartStr + ':00' : newStartStr
+              const tStart = new Date(task.start_time)
+              tStart.setUTCMinutes(tStart.getUTCMinutes() + deltaMinutes)
+              updates.start_time = tStart.toISOString()
 
-              if (assignment.end_time) {
-                const newEndStr = addMinutesToTime(assignment.end_time, deltaMinutes)
-                updates.end_time = newEndStr.length === 5 ? newEndStr + ':00' : newEndStr
+              if (task.end_time) {
+                const tEnd = new Date(task.end_time)
+                tEnd.setUTCMinutes(tEnd.getUTCMinutes() + deltaMinutes)
+                updates.end_time = tEnd.toISOString()
               }
               hasChanges = true;
             } catch(e) {
-                console.error("Task assignment time update error:", e)
+                console.error("Task time update error:", e)
             }
         }
 
         if (hasChanges) { 
-            // id 값만 들어간 객체가 아니면(실제 변경점이 있으면) 업데이트 배열에 담음
             assignmentsToUpdate.push(updates)
         }
       }
 
-      // 일괄(Batch) 업데이트 실행 (N+1 문제 해결)
-      // Supabase(PostgreSQL)의 upsert는 필수 컬럼이 누락되면 에러가 나므로, 
-      // 개별 update 쿼리를 Promise.all로 던지거나 (갯수가 적으므로) 처리하는 편이 안전함.
       if (assignmentsToUpdate.length > 0) {
           await Promise.all(
             assignmentsToUpdate.map(updateObj => 
-              supabase.from('task_assignments').update(updateObj).eq('id', updateObj.id)
+              supabase.from('tasks').update(updateObj).eq('id', updateObj.id)
             )
           )
       }

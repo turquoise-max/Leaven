@@ -25,18 +25,18 @@ import { MonthlyCalendarView } from './monthly-calendar-view'
 import { DailyTimelineView } from './daily-timeline-view'
 
 // 자동 파생 상태 계산 헬퍼 (시간 기반)
-export function getDerivedTaskStatus(ta: any, scheduleDateStr: string, now: Date): 'todo' | 'in_progress' | 'pending' | 'done' {
-  if (ta.task?.status === 'done') return 'done'
-  if (!ta.start_time) return 'todo'
+export function getDerivedTaskStatus(t: any, scheduleDateStr: string, now: Date): 'todo' | 'in_progress' | 'pending' | 'done' {
+  if (t.status === 'done') return 'done'
+  if (!t.start_time) return 'todo'
 
   let taskDateObj = null;
-  if (ta.start_time.includes('T')) {
-    taskDateObj = new Date(ta.start_time)
+  if (t.start_time.includes('T')) {
+    taskDateObj = new Date(t.start_time)
   } else {
-    const dateStr = ta.assigned_date || scheduleDateStr
+    const dateStr = t.assigned_date || scheduleDateStr
     if (!dateStr) return 'todo'
     // 만약 start_time이 "09:00" 처럼 초가 없으면 추가
-    const timeStr = ta.start_time.length === 5 ? `${ta.start_time}:00` : ta.start_time
+    const timeStr = t.start_time.length === 5 ? `${t.start_time}:00` : t.start_time
     taskDateObj = new Date(`${dateStr}T${timeStr}`)
   }
 
@@ -368,7 +368,7 @@ export function UnifiedCalendar({
             toast.error('해당 시간대에 이미 다른 스케줄이 있어 변경할 수 없습니다.')
           } else {
             // 개별 시간 지정 업무가 있는지 확인
-            const hasTimeSpecificTasks = sch.task_assignments?.some((ta: any) => ta.start_time)
+            const hasTimeSpecificTasks = sch.tasks?.some((t: any) => t.start_time)
             const deltaMinutes = getDiffInMinutes(sch.start_time, newStartUTC)
             
             if (hasTimeSpecificTasks) {
@@ -415,24 +415,25 @@ export function UnifiedCalendar({
     // 로컬 상태 업데이트
     setLocalSchedules(prev => prev.map(s => {
       if (s.id === scheduleId) {
-        let updatedAssignments = s.task_assignments;
+        let updatedTasks = s.tasks;
         
-        if (moveTasks && updatedAssignments && deltaMinutes !== 0) {
-          updatedAssignments = updatedAssignments.map((ta: any) => {
-            if (!ta.start_time) return ta;
+        if (moveTasks && updatedTasks && deltaMinutes !== 0) {
+          updatedTasks = updatedTasks.map((t: any) => {
+            if (!t.start_time) return t;
             
-            // date-utils.ts의 순수 문자열 연산 활용
-            const newStartStr = addMinutesToTime(ta.start_time, deltaMinutes)
-            let newEndStr = ta.end_time;
-            if (ta.end_time) {
-              newEndStr = addMinutesToTime(ta.end_time, deltaMinutes)
-              newEndStr = newEndStr.length === 5 ? newEndStr + ':00' : newEndStr
+            const tStart = new Date(t.start_time)
+            tStart.setUTCMinutes(tStart.getUTCMinutes() + deltaMinutes)
+            const updates: any = { start_time: tStart.toISOString() }
+            
+            if (t.end_time) {
+              const tEnd = new Date(t.end_time)
+              tEnd.setUTCMinutes(tEnd.getUTCMinutes() + deltaMinutes)
+              updates.end_time = tEnd.toISOString()
             }
 
             return {
-              ...ta,
-              start_time: newStartStr.length === 5 ? newStartStr + ':00' : newStartStr,
-              end_time: newEndStr
+              ...t,
+              ...updates
             }
           })
         }
@@ -441,7 +442,7 @@ export function UnifiedCalendar({
           ...s,
           start_time: newStartUTC,
           end_time: newEndUTC,
-          task_assignments: updatedAssignments
+          tasks: updatedTasks
         }
       }
       return s
@@ -459,20 +460,22 @@ export function UnifiedCalendar({
           endHour += 24
         }
         
-        let updatedAssignments = prev.task_assignments;
-        if (moveTasks && updatedAssignments && deltaMinutes !== 0) {
-          updatedAssignments = updatedAssignments.map((ta: any) => {
-            if (!ta.start_time) return ta;
-            const newStartStr = addMinutesToTime(ta.start_time, deltaMinutes)
-            let newEndStr = ta.end_time;
-            if (ta.end_time) {
-              newEndStr = addMinutesToTime(ta.end_time, deltaMinutes)
-              newEndStr = newEndStr.length === 5 ? newEndStr + ':00' : newEndStr
+        let updatedTasks = prev.tasks;
+        if (moveTasks && updatedTasks && deltaMinutes !== 0) {
+          updatedTasks = updatedTasks.map((t: any) => {
+            if (!t.start_time) return t;
+            const tStart = new Date(t.start_time)
+            tStart.setUTCMinutes(tStart.getUTCMinutes() + deltaMinutes)
+            const updates: any = { start_time: tStart.toISOString() }
+            
+            if (t.end_time) {
+              const tEnd = new Date(t.end_time)
+              tEnd.setUTCMinutes(tEnd.getUTCMinutes() + deltaMinutes)
+              updates.end_time = tEnd.toISOString()
             }
             return {
-              ...ta,
-              start_time: newStartStr.length === 5 ? newStartStr + ':00' : newStartStr,
-              end_time: newEndStr
+              ...t,
+              ...updates
             }
           })
         }
@@ -485,7 +488,7 @@ export function UnifiedCalendar({
           editDate: format(start, 'yyyy-MM-dd'),
           editStartTime: format(start, 'HH:mm'),
           editEndTime: format(end, 'HH:mm'),
-          task_assignments: updatedAssignments
+          tasks: updatedTasks
         }
       }
       return prev
@@ -500,10 +503,10 @@ export function UnifiedCalendar({
       if (!prev) return prev
       return {
         ...prev,
-        task_assignments: prev.task_assignments?.map((ta: any) => 
-          ta.task?.id === taskId 
-            ? { ...ta, task: { ...ta.task, status: newStatus } }
-            : ta
+        tasks: prev.tasks?.map((t: any) => 
+          t.id === taskId 
+            ? { ...t, status: newStatus }
+            : t
         )
       }
     })
@@ -513,10 +516,10 @@ export function UnifiedCalendar({
       if (s.id === selectedSchedule?.id) {
         return {
           ...s,
-          task_assignments: s.task_assignments?.map((ta: any) => 
-            ta.task?.id === taskId 
-              ? { ...ta, task: { ...ta.task, status: newStatus } }
-              : ta
+          tasks: s.tasks?.map((t: any) => 
+            t.id === taskId 
+              ? { ...t, status: newStatus }
+              : t
           )
         }
       }
@@ -940,37 +943,38 @@ export function UnifiedCalendar({
                   setLocalSchedules(prev => prev.map(s => {
                     if (s.id === sch.id) {
                       // 하위 태스크의 시간과 날짜도 계산해서 밀어줌 (낙관적 업데이트용)
-                      let updatedAssignments = s.task_assignments;
+                      let updatedTasks = s.tasks;
                       const oldDateStr = format(startObj, 'yyyy-MM-dd')
                       const deltaMs = targetDate.getTime() - new Date(oldDateStr).getTime()
                       const deltaMinutes = Math.round(deltaMs / 60000)
 
-                      if (updatedAssignments && updatedAssignments.length > 0) {
-                         updatedAssignments = updatedAssignments.map((ta: any) => {
+                      if (updatedTasks && updatedTasks.length > 0) {
+                         updatedTasks = updatedTasks.map((t: any) => {
                             // 날짜 및 직원 ID(user_id) 갱신
-                            // ta의 기존 user_id를 targetStaff(새 직원)의 user_id로 교체
-                            const updatedTa = { 
-                               ...ta, 
+                            const updatedTask = { 
+                               ...t, 
                                assigned_date: newDateStr,
-                               user_id: targetStaff?.user_id || ta.user_id 
+                               user_id: targetStaff?.user_id || t.user_id 
                             }
                             
-                            if (!ta.start_time || deltaMinutes === 0) {
-                               return updatedTa
+                            if (!t.start_time || deltaMinutes === 0) {
+                               return updatedTask
                             }
                             
                             // 시간 이동 적용
-                            const newStartStr = addMinutesToTime(ta.start_time, deltaMinutes)
-                            let newEndStr = ta.end_time;
-                            if (ta.end_time) {
-                              newEndStr = addMinutesToTime(ta.end_time, deltaMinutes)
-                              newEndStr = newEndStr.length === 5 ? newEndStr + ':00' : newEndStr
+                            const tStart = new Date(t.start_time)
+                            tStart.setUTCMinutes(tStart.getUTCMinutes() + deltaMinutes)
+                            const updates: any = { start_time: tStart.toISOString() }
+                            
+                            if (t.end_time) {
+                              const tEnd = new Date(t.end_time)
+                              tEnd.setUTCMinutes(tEnd.getUTCMinutes() + deltaMinutes)
+                              updates.end_time = tEnd.toISOString()
                             }
                             
                             return {
-                              ...updatedTa,
-                              start_time: newStartStr.length === 5 ? newStartStr + ':00' : newStartStr,
-                              end_time: newEndStr
+                              ...updatedTask,
+                              ...updates
                             }
                          })
                       }
@@ -984,7 +988,7 @@ export function UnifiedCalendar({
                           member_id: targetStaffId,
                           member: staffList.find(st => st.id === targetStaffId)
                         }],
-                        task_assignments: updatedAssignments
+                        tasks: updatedTasks
                       }
                     }
                     return s
@@ -1103,37 +1107,38 @@ export function UnifiedCalendar({
                   setLocalSchedules(prev => prev.map(s => {
                     if (s.id === sch.id) {
                       // 하위 태스크의 시간과 날짜도 계산해서 밀어줌 (낙관적 업데이트용)
-                      let updatedAssignments = s.task_assignments;
+                      let updatedTasks = s.tasks;
                       const oldDateStr = format(startObj, 'yyyy-MM-dd')
                       const deltaMs = targetDate.getTime() - new Date(oldDateStr).getTime()
                       const deltaMinutes = Math.round(deltaMs / 60000)
 
-                      if (updatedAssignments && updatedAssignments.length > 0) {
-                         updatedAssignments = updatedAssignments.map((ta: any) => {
+                      if (updatedTasks && updatedTasks.length > 0) {
+                         updatedTasks = updatedTasks.map((t: any) => {
                             // 날짜 및 직원 ID(user_id) 갱신
-                            // ta의 기존 user_id를 targetStaff(새 직원)의 user_id로 교체
-                            const updatedTa = { 
-                               ...ta, 
+                            const updatedTask = { 
+                               ...t, 
                                assigned_date: newDateStr,
-                               user_id: targetStaff?.user_id || ta.user_id 
+                               user_id: targetStaff?.user_id || t.user_id 
                             }
                             
-                            if (!ta.start_time || deltaMinutes === 0) {
-                               return updatedTa
+                            if (!t.start_time || deltaMinutes === 0) {
+                               return updatedTask
                             }
                             
                             // 시간 이동 적용
-                            const newStartStr = addMinutesToTime(ta.start_time, deltaMinutes)
-                            let newEndStr = ta.end_time;
-                            if (ta.end_time) {
-                              newEndStr = addMinutesToTime(ta.end_time, deltaMinutes)
-                              newEndStr = newEndStr.length === 5 ? newEndStr + ':00' : newEndStr
+                            const tStart = new Date(t.start_time)
+                            tStart.setUTCMinutes(tStart.getUTCMinutes() + deltaMinutes)
+                            const updates: any = { start_time: tStart.toISOString() }
+                            
+                            if (t.end_time) {
+                              const tEnd = new Date(t.end_time)
+                              tEnd.setUTCMinutes(tEnd.getUTCMinutes() + deltaMinutes)
+                              updates.end_time = tEnd.toISOString()
                             }
                             
                             return {
-                              ...updatedTa,
-                              start_time: newStartStr.length === 5 ? newStartStr + ':00' : newStartStr,
-                              end_time: newEndStr
+                              ...updatedTask,
+                              ...updates
                             }
                          })
                       }
@@ -1147,7 +1152,7 @@ export function UnifiedCalendar({
                           member_id: targetStaffId,
                           member: staffList.find(st => st.id === targetStaffId)
                         }],
-                        task_assignments: updatedAssignments
+                        tasks: updatedTasks
                       }
                     }
                     return s

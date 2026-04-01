@@ -27,32 +27,34 @@ export interface Task {
   assigned_role_ids: string[] | null
   assigned_role_id?: string | null // Deprecated
   checklist: ChecklistItem[] | null
-  status: 'todo' | 'in_progress' | 'pending' | 'done'
+  status: 'todo' | 'in_progress' | 'done'
   is_template?: boolean
   recurrence_rule?: any
   is_routine?: boolean
+  
+  // New fields merged from task_assignments
+  user_id?: string | null
+  role_id?: string | null
+  schedule_id?: string | null
+  assigned_date?: string | null
+  
   role?: {
     name: string
     color: string
   }
-}
-
-export interface TaskAssignment {
-  id: string
-  task_id: string
-  member_id: string
-  schedule_id: string | null
-  assigned_date: string
-  start_time: string | null
-  end_time: string | null
-  status: 'pending' | 'in_progress' | 'completed' | 'verified'
-  task?: Task
   member?: {
     name: string
     profile?: {
       full_name: string
     }
   }
+}
+
+// Deprecated, keep as alias to Task to avoid too many immediate breakages during refactor
+export interface TaskAssignment extends Task {
+  task_id?: string
+  member_id?: string
+  task?: Task
 }
 
 export interface RepeatConfig {
@@ -435,19 +437,17 @@ export async function deleteTask(id: string) {
     
   if (!task) return { error: 'Task not found' }
 
-  // Check if it's a personal task (not a template, no assigned roles)
+  // Check if it's a personal task
+  const { data: existingTask } = await supabase
+    .from('tasks')
+    .select('user_id')
+    .eq('id', id)
+    .single()
+
   const isPersonalTask = !task.is_template && (!task.assigned_role_ids || task.assigned_role_ids.length === 0)
 
   if (isPersonalTask) {
-    // For personal tasks, check if the user is the one who owns the assignment
-    const { data: assignment } = await supabase
-      .from('task_assignments')
-      .select('id')
-      .eq('task_id', id)
-      .eq('user_id', user.id)
-      .maybeSingle()
-
-    if (!assignment) {
+    if (existingTask?.user_id !== user.id) {
       // If not the owner, check for management permission
       await requirePermission(user.id, task.store_id, 'manage_tasks')
     }
@@ -477,22 +477,25 @@ export async function deleteTask(id: string) {
 export async function getTaskAssignments(storeId: string, date: string) {
   const supabase = await createClient()
 
+  // Simplified select to avoid postgrest-js parser errors with complex jsonb extractions
   const { data, error } = await supabase
-    .from('task_assignments')
+    .from('tasks')
     .select(`
-      *,
-      task:tasks(*),
-      member:store_members(name, profile:profiles(full_name))
+      *
     `)
     .eq('store_id', storeId)
     .eq('assigned_date', date)
+    .eq('is_template', false)
 
   if (error) {
-    console.error('Error fetching task assignments:', error)
+    console.error('Error fetching tasks (formerly task assignments):', error)
     return []
   }
 
-  return data as TaskAssignment[]
+  // NOTE: If member profile is strictly needed by components consuming this, 
+  // additional joins or separate queries mapping user_id to profiles might be needed.
+  // We'll keep it simple for now as we transition.
+  return data as Task[]
 }
 
 export async function assignTask(input: AssignTaskInput) {
@@ -519,24 +522,46 @@ export async function assignTask(input: AssignTaskInput) {
     end_time = addMinutesToTime(input.start_time, input.estimated_minutes)
   }
 
+  // Fetch template task details
+  const { data: templateTask } = await supabase
+    .from('tasks')
+    .select('*')
+    .eq('id', input.task_id)
+    .single()
+
+  if (!templateTask) {
+    return { error: '원본 템플릿을 찾을 수 없습니다.' }
+  }
+
+  // start_time / end_time 은 "09:00" 형태의 문자열이 올 수 있고, DB의 timestamptz 형식에 맞춰야 하므로 
+  // 기존 toUTCISOString 등을 사용해 KST -> UTC 변환 적용
+  const startUTC = input.start_time ? toUTCISOString(input.assigned_date, input.start_time) : null;
+  const endUTC = end_time ? toUTCISOString(input.assigned_date, end_time) : null;
+
   const { data, error } = await supabase
-    .from('task_assignments')
+    .from('tasks')
     .insert([{
       store_id: input.store_id,
-      task_id: input.task_id,
-      user_id: targetMember.user_id, // member_id 대신 user_id 사용
+      title: templateTask.title,
+      description: templateTask.description,
+      checklist: templateTask.checklist,
+      estimated_minutes: input.estimated_minutes,
+      task_type: input.start_time ? 'scheduled' : 'always',
+      user_id: targetMember.user_id,
       assigned_date: input.assigned_date,
-      start_time: input.start_time || null,
-      end_time: end_time,
-      status: 'pending',
-      schedule_id: input.schedule_id || null
+      start_time: startUTC,
+      end_time: endUTC,
+      status: 'todo',
+      schedule_id: input.schedule_id || null,
+      is_template: false,
+      is_routine: true
     }])
     .select()
     .single()
 
   if (error) {
-    console.error('Error assigning task:', error)
-    return { error: '업무 할당 중 오류가 발생했습니다.' }
+    console.error('Error creating task from assignment:', error)
+    return { error: '업무 할당(생성) 중 오류가 발생했습니다.' }
   }
 
   revalidatePath(`/dashboard/schedule/${input.assigned_date}`)
@@ -546,7 +571,7 @@ export async function assignTask(input: AssignTaskInput) {
 
 export async function updateTaskAssignment(
   assignmentId: string,
-  taskId: string,
+  taskId: string, // No longer strictly needed since assignmentId == taskId now, keeping for signature compatibility
   storeId: string,
   title: string,
   startTime: string | null,
@@ -557,8 +582,8 @@ export async function updateTaskAssignment(
   if (!user) throw new Error('User not found')
   await requirePermission(user.id, storeId, 'manage_tasks')
 
-  const { data: assignment } = await supabase
-    .from('task_assignments')
+  const { data: task } = await supabase
+    .from('tasks')
     .select('assigned_date')
     .eq('id', assignmentId)
     .single()
@@ -566,39 +591,32 @@ export async function updateTaskAssignment(
   // 상시 업무(시간 미지정)일 경우, 해당 날짜의 자정으로 설정
   const finalStartTime = startTime 
     ? new Date(startTime).toISOString() 
-    : (assignment ? `${assignment.assigned_date}T00:00:00Z` : null)
+    : (task && task.assigned_date ? `${task.assigned_date}T00:00:00Z` : null)
 
-  // Update task table
-  const { error: taskError } = await supabase
-    .from('tasks')
-    .update({ 
-      title, 
-      start_time: finalStartTime,
-      estimated_minutes: estimatedMinutes,
-      task_type: startTime ? 'scheduled' : 'always',
-      updated_at: getCurrentISOString()
-    })
-    .eq('id', taskId)
-
-  if (taskError) return { error: 'Failed to update task' }
-
-  // Update assignment table
   let endTime = null
   if (startTime) {
     endTime = addMinutesToTime(startTime.split('T')[1]?.substring(0, 5) || startTime, estimatedMinutes)
   }
 
-  const { data, error: assignError } = await supabase
-    .from('task_assignments')
-    .update({
-      start_time: startTime ? (startTime.includes('T') ? startTime.split('T')[1].substring(0, 5) : startTime) : null,
-      end_time: endTime
+  // Update unified task table
+  const { data, error } = await supabase
+    .from('tasks')
+    .update({ 
+      title, 
+      start_time: finalStartTime,
+      end_time: endTime ? (task && task.assigned_date ? `${task.assigned_date}T${endTime}` : null) : null,
+      estimated_minutes: estimatedMinutes,
+      task_type: startTime ? 'scheduled' : 'always',
+      updated_at: getCurrentISOString()
     })
     .eq('id', assignmentId)
     .select()
     .single()
 
-  if (assignError) return { error: 'Failed to update assignment' }
+  if (error) {
+    console.error('Failed to update task:', error)
+    return { error: 'Failed to update task' }
+  }
 
   revalidatePath('/dashboard/schedule')
   return { data }
@@ -608,20 +626,21 @@ export async function unassignTask(assignmentId: string, date: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Get store_id from assignment
-  const { data: assignment } = await supabase.from('task_assignments').select('store_id').eq('id', assignmentId).single()
-  if (!assignment) return { error: 'Assignment not found' }
+  // Get store_id from task
+  const { data: task } = await supabase.from('tasks').select('store_id').eq('id', assignmentId).single()
+  if (!task) return { error: 'Task not found' }
 
   if (!user) throw new Error('User not found')
-  await requirePermission(user.id, assignment.store_id, 'manage_tasks')
+  await requirePermission(user.id, task.store_id, 'manage_tasks')
 
+  // Just delete the assigned task
   const { error } = await supabase
-    .from('task_assignments')
+    .from('tasks')
     .delete()
     .eq('id', assignmentId)
 
   if (error) {
-    console.error('Error unassigning task:', error)
+    console.error('Error deleting assigned task:', error)
     return { error: '업무 할당 취소 중 오류가 발생했습니다.' }
   }
 
@@ -659,21 +678,20 @@ export async function getTaskAssignmentsBySchedule(storeId: string, scheduleId: 
   const supabase = await createClient()
 
   const { data, error } = await supabase
-    .from('task_assignments')
+    .from('tasks')
     .select(`
-      *,
-      task:tasks(*),
-      member:store_members(name, profile:profiles(full_name))
+      *
     `)
     .eq('store_id', storeId)
     .eq('schedule_id', scheduleId)
+    .eq('is_template', false)
 
   if (error) {
     console.error('Error fetching task assignments by schedule:', error)
     return []
   }
 
-  return data as TaskAssignment[]
+  return data as Task[]
 }
 
 // 업무 상태 업데이트
@@ -781,7 +799,7 @@ export async function createPersonalDashboardTask(input: {
     }
   }
 
-  // 3. Task 생성
+  // 3. Task 단일 생성 (user_id와 schedule_id를 포함시켜 한 번에 Insert)
   const { data: task, error: taskError } = await supabase
     .from('tasks')
     .insert({
@@ -794,7 +812,10 @@ export async function createPersonalDashboardTask(input: {
       assigned_role_ids: [],
       checklist: input.checklist || [],
       is_template: false,
-      status: 'todo'
+      status: 'todo',
+      user_id: user.id,
+      schedule_id: scheduleId,
+      assigned_date: input.assigned_date
     })
     .select()
     .single()
@@ -804,58 +825,8 @@ export async function createPersonalDashboardTask(input: {
      return { error: '업무 생성 실패' }
   }
 
-  // 4. Assignment 생성
-  let assignStartTime = null;
-  let assignEndTime = null;
-
-  if (input.task_type === 'scheduled' && input.start_time) {
-    // Assignment에는 "HH:mm:ss" 형태로 저장 (task는 UTC지만, assignment는 로컬 시간 문자열이 주로 쓰임)
-    // input.start_time이 UTC 문자열(T 포함)인 경우, 원래 사용자가 입력했던 HH:mm을 복원해야 함
-    // (프론트에서 UTC로 변환해서 보냈을 경우)
-    if (input.start_time.includes('T')) {
-      // 프론트엔드에서 보낸 시간은 이미 "19:30" 같은 시간을 "T...Z"로 바꾼 것.
-      // 다시 KST "HH:mm" 형태로 추출
-      const kstTime = new Date(input.start_time)
-      kstTime.setHours(kstTime.getHours() + 9)
-      const h = kstTime.getUTCHours().toString().padStart(2, '0')
-      const m = kstTime.getUTCMinutes().toString().padStart(2, '0')
-      assignStartTime = `${h}:${m}:00`
-      
-      if (input.end_time && input.end_time.includes('T')) {
-        const kstEnd = new Date(input.end_time)
-        kstEnd.setHours(kstEnd.getHours() + 9)
-        const eh = kstEnd.getUTCHours().toString().padStart(2, '0')
-        const em = kstEnd.getUTCMinutes().toString().padStart(2, '0')
-        assignEndTime = `${eh}:${em}:00`
-      }
-    } else {
-      assignStartTime = `${input.start_time}:00`
-      if (input.end_time) {
-          assignEndTime = `${input.end_time}:00`
-      }
-    }
-  }
-
-  const { error: assignError } = await supabase
-    .from('task_assignments')
-    .insert({
-      store_id: input.store_id,
-      task_id: task.id,
-      user_id: user.id,
-      assigned_date: input.assigned_date,
-      start_time: assignStartTime,
-      end_time: assignEndTime,
-      status: 'pending',
-      schedule_id: scheduleId
-    })
-
-  if (assignError) {
-     console.error('Task assignment error:', assignError)
-     return { error: '업무 할당 실패' }
-  }
-
   revalidatePath('/dashboard/my-tasks')
-  return { success: true }
+  return { success: true, data: task }
 }
 
 // 캘린더용 이벤트 조회
@@ -930,61 +901,43 @@ export async function getDashboardTasks(storeId: string, date: string) {
         }
     }
 
-    // 나에게 할당된 업무를 가져오는 쿼리 문자열 작성 (Supabase Filter Chain 대신 .or() 안에서 처리하기 위함)
-    // PostgREST 에서는 릴레이션 필터 조인 조건식을 직접 or()에 넣기 어렵기 때문에,
-    // 최선의 방법은 'task_assignments'가 매칭되는 레코드만 필터링하는 것입니다.
-    
-    // [핵심 변경] 오늘 날짜의 세부 업무(내 task_assignments에 포함된)와
-    // 내 역할의 템플릿(가이드라인)을 한 번에 통합해서 가져오는 쿼리입니다.
-
-    // 1. 내 task_assignments (세부 할 일) ID 목록 추출 (user_id 컬럼 사용)
-    const { data: myAssignments } = await supabase
-        .from('task_assignments')
-        .select('*, task:tasks(*)') // task 테이블도 함께 join
+    // 1. 내 당일 배정된 개별 업무 목록 가져오기 (단일 테이블 tasks에서)
+    const { data: myTasks } = await supabase
+        .from('tasks')
+        .select('*')
         .eq('store_id', storeId)
-        .eq('user_id', user.id) // 최신 스키마에서는 user_id로 연결됨
+        .eq('user_id', user.id)
         .eq('assigned_date', date)
+        .eq('is_template', false)
 
-    // 조인된 task 객체들 추출 (실제로는 assignment의 start_time이 오버라이드 됨)
     const assignedTasks: Task[] = []
-    myAssignments?.forEach(a => {
-      if (a.task) {
-        // DB에 저장된 a.start_time은 주로 'HH:mm:ss' (ex: "09:00:00") 형태로 저장되어 있을 가능성이 높습니다.
-        // 이를 T와 Z를 조합하여 ISO String 형태로 완벽히 조립해야 프론트엔드의 new Date() 에서 Invalid Date가 나지 않습니다.
-        
-        let safeStartTime = null;
-        if (a.start_time) {
-           // 이미 ISO 포맷이면 그대로, 아니면 KST 시간으로 간주하여 UTC로 변환
-           safeStartTime = a.start_time.includes('T') ? a.start_time : toUTCISOString(date, a.start_time.substring(0, 5));
-        } else if (a.task.start_time) {
-           safeStartTime = a.task.start_time.includes('T') ? a.task.start_time : toUTCISOString(date, a.task.start_time.substring(0, 5));
+    myTasks?.forEach((t: any) => {
+        let safeStartTime = t.start_time;
+        // 마이그레이션된 데이터가 HH:mm:ss 텍스트일 경우 처리
+        if (t.start_time && !t.start_time.includes('T')) {
+           safeStartTime = toUTCISOString(date, t.start_time.substring(0, 5));
         }
 
-        let safeEndTime = null;
-        if (a.end_time) {
-           safeEndTime = a.end_time.includes('T') ? a.end_time : toUTCISOString(date, a.end_time.substring(0, 5));
-        } else if (a.task.end_time) {
-           safeEndTime = a.task.end_time.includes('T') ? a.task.end_time : toUTCISOString(date, a.task.end_time.substring(0, 5));
+        let safeEndTime = t.end_time;
+        if (t.end_time && !t.end_time.includes('T')) {
+           safeEndTime = toUTCISOString(date, t.end_time.substring(0, 5));
         }
 
         assignedTasks.push({
-          ...a.task,
+          ...t,
           start_time: safeStartTime,
           end_time: safeEndTime,
-          status: a.status === 'completed' || a.status === 'verified' ? 'done' : 'todo',
           task_type: safeStartTime ? 'scheduled' : 'always',
-          assignment_id: a.id // 참조용
-        } as any)
-      }
+        } as Task)
     })
     
-    // 2. 내 역할의 플레이북(가이드라인) 조회 (is_template = true)
-    // DB의 배열 필터(`contains`)를 사용하여 더 정확하고 안전하게 가져옵니다.
+    // 2. 내 역할의 플레이북(가이드라인) 조회 (is_routine = true)
+    // 기존 is_template 플래그는 마이그레이션으로 인해 오염되었을 수 있으므로 is_routine 사용
     let templateQuery = supabase
         .from('tasks')
         .select('*')
         .eq('store_id', storeId)
-        .eq('is_template', true)
+        .eq('is_routine', true)
 
     // DB의 배열을 직접 .cs (contains)로 조회 시 owner와 같이 UUID 형태가 아닌 문자열일 경우
     // Supabase PostgREST에서 오류가 나거나 조회가 안 되는 버그가 존재합니다.
@@ -993,14 +946,42 @@ export async function getDashboardTasks(storeId: string, date: string) {
 
     let templateData: any[] = []
     if (!error && rawTemplates) {
-      const currentRoleMatch = member?.role_id || member?.role;
+      // getStoreMemberRole이나 supabase에서 조회한 memberData.role_id를 확인
+      // memberData (store_members 테이블 조회 결과)에는 role_id 필드가 있을 수 있음
+      const { data: fullMemberData } = await supabase
+        .from('store_members')
+        .select('id, role, role_id')
+        .eq('store_id', storeId)
+        .eq('user_id', user.id)
+        .single()
+        
+      const userRoles = [
+        fullMemberData?.role_id,
+        fullMemberData?.role,
+        member?.role_id,
+        member?.role
+      ].filter(Boolean);
 
       // 1. 메모리 상에서 안전하게 현재 로그인한 사람의 역할에 맞는 플레이북만 필터링
       const filteredTemplates = rawTemplates.filter(t => {
+         // 이미 개별 할당된 업무(user_id가 있는 경우)는 플레이북 원본이 아니므로 제외
+         if (t.user_id) return false;
+
          const assignedRoles = t.assigned_role_ids || [];
+         
+         // 역할이 지정되지 않은 플레이북은 모두에게 보이게 처리
+         if (assignedRoles.length === 0) return true;
+         
          if (assignedRoles.includes('all')) return true;
-         if (currentRoleMatch === 'owner' && assignedRoles.includes('owner')) return true;
-         if (currentRoleMatch && assignedRoles.includes(currentRoleMatch)) return true;
+         
+         // Owner 권한 처리 (DB의 role은 'owner', 역할 ID는 별개일 수 있음)
+         if (isOwner) {
+            // Owner는 모든 루틴을 열람할 수 있음
+            return true;
+         }
+         
+         if (userRoles.some(r => assignedRoles.includes(r))) return true;
+         
          return false;
       });
 
@@ -1079,4 +1060,63 @@ export async function toggleTaskCheckitem(taskId: string, itemId: string, isComp
   
   revalidatePath('/dashboard')
   return { success: true }
+}
+
+export async function createDirectScheduleTask(input: {
+  store_id: string
+  title: string
+  task_type: 'scheduled' | 'always'
+  start_time: string | null
+  end_time: string | null
+  estimated_minutes: number
+  checklist: any[]
+  staff_id: string
+  schedule_id: string
+  assigned_date: string
+}) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  try {
+    await requirePermission(user.id, input.store_id, 'manage_tasks')
+  } catch (e) {
+    return { error: '권한이 없습니다.' }
+  }
+
+  const { data: memberData } = await supabase
+    .from('store_members')
+    .select('user_id')
+    .eq('id', input.staff_id)
+    .single()
+
+  const insertPayload = {
+    store_id: input.store_id,
+    title: input.title,
+    task_type: input.task_type,
+    start_time: input.start_time,
+    end_time: input.end_time,
+    estimated_minutes: input.estimated_minutes,
+    checklist: input.checklist,
+    status: 'todo',
+    is_template: false,
+    is_routine: false,
+    user_id: memberData?.user_id || null,
+    schedule_id: input.schedule_id,
+    assigned_date: input.assigned_date
+  }
+
+  const { data: task, error: taskError } = await supabase
+    .from('tasks')
+    .insert(insertPayload)
+    .select()
+    .single()
+
+  if (taskError) {
+    console.error('Task creation error details:', taskError)
+    return { error: `업무 생성 실패: ${taskError.message || '알 수 없는 오류'}` }
+  }
+
+  revalidatePath('/dashboard/schedule')
+  return { success: true, data: task }
 }

@@ -163,8 +163,9 @@ export function DashboardTaskList({ storeId, roleId, attendanceStatus, currentUs
       const data = await getDashboardTasks(storeId, today)
       
       // 받은 데이터를 클라이언트에서 용도에 맞게 분리합니다.
-      const normalTasks = data?.filter(t => !t.is_template) || []
-      const playbookTasks = data?.filter(t => t.is_template) || []
+      // 이제 루틴/플레이북 여부는 is_routine을 기준으로 합니다.
+      const normalTasks = data?.filter(t => !t.is_routine) || []
+      const playbookTasks = data?.filter(t => t.is_routine) || []
       
       setTasks(normalTasks)
       setRoleTasks(playbookTasks)
@@ -180,8 +181,8 @@ export function DashboardTaskList({ storeId, roleId, attendanceStatus, currentUs
     fetchTasks()
   }, [storeId, roleId])
 
-  const handleChecklistToggle = async (taskId: string, itemId: string, checked: boolean, isTemplate?: boolean) => {
-    if (isTemplate) {
+  const handleChecklistToggle = async (taskId: string, itemId: string, checked: boolean, isRoutine?: boolean) => {
+    if (isRoutine) {
       // 템플릿(루틴)인 경우 프론트엔드 로컬 상태만 업데이트
       const currentTaskStatus = routineStatus[taskId] || { status: 'todo', checkedItems: [] }
       let newCheckedItems = [...currentTaskStatus.checkedItems]
@@ -223,8 +224,8 @@ export function DashboardTaskList({ storeId, roleId, attendanceStatus, currentUs
     if (result.error) fetchTasks()
   }
 
-  const handleStatusChange = async (taskId: string, status: 'todo' | 'in_progress' | 'done', isTemplate?: boolean) => {
-      if (isTemplate) {
+  const handleStatusChange = async (taskId: string, status: 'todo' | 'in_progress' | 'done', isRoutine?: boolean) => {
+      if (isRoutine) {
         // 템플릿(루틴) 통째로 완료/미완료 토글 시 처리
         const task = roleTasks.find(t => t.id === taskId)
         let newCheckedItems: string[] = []
@@ -408,7 +409,7 @@ export function DashboardTaskList({ storeId, roleId, attendanceStatus, currentUs
                 </div>
                 <div className="space-y-2 md:space-y-2.5">
                   {mergedAnytimeTasks.map(task => {
-                    const rStatus = task.is_template ? routineStatus[task.id] : undefined;
+                    const rStatus = task.is_routine ? routineStatus[task.id] : undefined;
                     return (
                       <TaskCard 
                         key={task.id} 
@@ -472,7 +473,7 @@ export function DashboardTaskList({ storeId, roleId, attendanceStatus, currentUs
                       {/* 카드 목록 */}
                       <div className={cn("flex-1 flex flex-col gap-1.5 md:gap-2 pl-3 md:pl-4 transition-opacity", isPast ? "opacity-60 hover:opacity-100" : "")}>
                         {group.tasks.map(task => {
-                          const rStatus = task.is_template ? routineStatus[task.id] : undefined;
+                          const rStatus = task.is_routine ? routineStatus[task.id] : undefined;
                           return (
                             <TaskCard 
                               key={task.id} 
@@ -540,22 +541,22 @@ interface TaskCardProps {
   task: Task
   now: Date
   routineStatus?: { status: 'todo' | 'done', checkedItems: string[] }
-  onCheck: (taskId: string, itemId: string, checked: boolean, isTemplate?: boolean) => void
-  onStatusChange: (taskId: string, status: 'todo' | 'in_progress' | 'done', isTemplate?: boolean) => void
+  onCheck: (taskId: string, itemId: string, checked: boolean, isRoutine?: boolean) => void
+  onStatusChange: (taskId: string, status: 'todo' | 'in_progress' | 'done', isRoutine?: boolean) => void
   onDelete: () => void
   isDeleting: boolean
 }
 
 function TaskCard({ task, now, routineStatus, onCheck, onStatusChange, onDelete, isDeleting }: TaskCardProps) {
-  const isTemplate = task.is_template === true
-  const isDone = isTemplate ? (routineStatus?.status === 'done') : (task.status === 'done')
+  const isRoutine = task.is_routine === true
+  const isDone = isRoutine ? (routineStatus?.status === 'done') : (task.status === 'done')
   
   // 템플릿(가이드) 이거나 역할에 배정된 경우 뱃지 표시
-  const isRoleTask = isTemplate || (task.assigned_role_ids && task.assigned_role_ids.length > 0)
-  const isPersonal = !isTemplate && (!task.assigned_role_ids || task.assigned_role_ids.length === 0)
+  const isRoleTask = isRoutine || (task.assigned_role_ids && task.assigned_role_ids.length > 0)
+  const isPersonal = !isRoutine && (!task.assigned_role_ids || task.assigned_role_ids.length === 0)
   
   // 템플릿의 경우 로컬 완료 상태 우선, 아니면 시간 기반 상태
-  const derivedStatus = isTemplate 
+  const derivedStatus = isRoutine 
     ? (routineStatus?.status === 'done' ? 'done' : getDerivedTaskStatus(task, now))
     : getDerivedTaskStatus(task, now)
 
@@ -577,15 +578,15 @@ function TaskCard({ task, now, routineStatus, onCheck, onStatusChange, onDelete,
   return (
     <div className={cn(
         "transition-all border-l-[3px] rounded-r-lg bg-white shadow-sm hover:shadow border-t border-r border-b border-black/5 flex flex-col p-2 md:p-3.5 gap-1 md:gap-2",
-        isTemplate ? "border-l-[#534AB7]/40 bg-slate-50/50" : statusColorClass // 템플릿은 별도 컬러 처리
+        isRoutine ? "border-l-[#534AB7]/40 bg-slate-50/50" : statusColorClass // 템플릿은 별도 컬러 처리
     )}>
         <div className="flex items-start gap-2 md:gap-2.5">
             <Checkbox 
                 checked={isDone}
-                onCheckedChange={() => onStatusChange(task.id, isDone ? 'todo' : 'done', isTemplate)}
+                onCheckedChange={() => onStatusChange(task.id, isDone ? 'todo' : 'done', isRoutine)}
                 className={cn(
                     "w-4 h-4 md:w-[18px] md:h-[18px] mt-0.5 rounded-md transition-colors",
-                    isTemplate ? "border-black/20 data-[state=checked]:bg-[#534AB7] data-[state=checked]:border-[#534AB7]" : checkboxClass
+                    isRoutine ? "border-black/20 data-[state=checked]:bg-[#534AB7] data-[state=checked]:border-[#534AB7]" : checkboxClass
                 )}
             />
             
@@ -595,7 +596,7 @@ function TaskCard({ task, now, routineStatus, onCheck, onStatusChange, onDelete,
                   <h4 className={cn("font-bold text-[12px] md:text-[13px] text-[#1a1a1a] leading-tight md:truncate break-all whitespace-normal", isDone && "line-through text-muted-foreground opacity-60")}>
                       {task.title}
                   </h4>
-                  {isTemplate ? (
+                  {isRoutine ? (
                     <Badge variant="secondary" className="text-[8px] md:text-[9px] px-1 md:px-1.5 py-0 h-4 md:h-[18px] font-medium bg-[#534AB7]/10 text-[#534AB7] border-none">루틴</Badge>
                   ) : isRoleTask ? (
                     <Badge variant="secondary" className="text-[8px] md:text-[9px] px-1 md:px-1.5 py-0 h-4 md:h-[18px] font-medium bg-blue-500/10 text-blue-600 border-none">역할 업무</Badge>
@@ -620,7 +621,7 @@ function TaskCard({ task, now, routineStatus, onCheck, onStatusChange, onDelete,
               </div>
               
               {task.description && (
-                <p className={cn("text-[11px] whitespace-pre-wrap leading-snug break-all", isTemplate ? "text-muted-foreground" : "text-[#6b6b6b]", isDone && !isTemplate && "opacity-60")}>
+                <p className={cn("text-[11px] whitespace-pre-wrap leading-snug break-all", isRoutine ? "text-muted-foreground" : "text-[#6b6b6b]", isDone && !isRoutine && "opacity-60")}>
                     {task.description}
                 </p>
               )}
@@ -630,7 +631,7 @@ function TaskCard({ task, now, routineStatus, onCheck, onStatusChange, onDelete,
         {task.checklist && task.checklist.length > 0 && (
           <div className="pl-6 md:pl-7 space-y-1.5 md:space-y-2 mt-0.5 md:mt-1">
             {task.checklist.map(item => {
-              const isItemCompleted = isTemplate 
+              const isItemCompleted = isRoutine 
                 ? (routineStatus?.checkedItems?.includes(item.id) || false) 
                 : item.is_completed
               
@@ -638,10 +639,10 @@ function TaskCard({ task, now, routineStatus, onCheck, onStatusChange, onDelete,
                 <div key={item.id} className="flex items-start gap-1.5 md:gap-2">
                    <Checkbox 
                       checked={isItemCompleted}
-                      onCheckedChange={(c) => onCheck(task.id, item.id, !!c, isTemplate)}
+                      onCheckedChange={(c) => onCheck(task.id, item.id, !!c, isRoutine)}
                       className={cn(
                         "w-3 md:w-3.5 h-3 md:h-3.5 mt-0.5 rounded-sm border-black/20 transition-colors shrink-0", 
-                        isTemplate 
+                        isRoutine 
                           ? (isItemCompleted && "data-[state=checked]:bg-[#534AB7] data-[state=checked]:border-[#534AB7]")
                           : (isItemCompleted && "data-[state=checked]:bg-[#1D9E75] data-[state=checked]:border-[#1D9E75]")
                       )}

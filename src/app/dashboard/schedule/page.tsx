@@ -80,11 +80,15 @@ export default async function UnifiedSchedulePage() {
         member_id,
         member:store_members (name, user_id)
       ),
-      task_assignments(
+      tasks!schedule_id(
         id,
+        title,
+        description,
+        status,
+        checklist,
         start_time,
         end_time,
-        task:tasks(id, title, description, status, checklist)
+        task_type
       )
     `)
     .eq('store_id', member.store_id)

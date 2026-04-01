@@ -177,7 +177,7 @@ export function CreatePersonalTaskDialog({ storeId, open, onOpenChange, onSucces
               placeholder="추가 내용을 입력하세요" 
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full resize-none min-h-[50px] sm:min-h-[60px] text-sm py-1.5 sm:py-2 break-all"
+              className="w-full resize-none h-[50px] sm:h-[60px] overflow-y-auto text-sm py-1.5 sm:py-2 break-all"
               rows={2}
             />
           </div>

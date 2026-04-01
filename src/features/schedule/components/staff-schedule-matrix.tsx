@@ -391,21 +391,21 @@ export function StaffScheduleMatrix({
                                     {!isLeave ? (
                                       <TooltipContent side="top" className="p-3 max-w-[250px] bg-white border border-black/10 shadow-lg text-[#1a1a1a]">
                                         <div className="font-semibold text-[12px] mb-2 border-b border-black/5 pb-1 flex justify-between items-center">
-                                          <span>세부 할 일 ({(sch.task_assignments || []).length}개)</span>
+                                          <span>세부 할 일 ({(sch.tasks || []).length}개)</span>
                                           <span className="text-[10px] text-muted-foreground font-normal bg-black/5 px-1.5 py-0.5 rounded">
                                             {format(start, 'HH:mm')} - {format(end, 'HH:mm')}
                                           </span>
                                         </div>
                                         <div className="flex flex-col gap-1.5 max-h-[150px] overflow-y-auto no-scrollbar">
-                                          {(sch.task_assignments || []).length > 0 ? (
-                                            (sch.task_assignments || []).map((ta: any) => (
-                                              <div key={ta.id} className="flex items-start gap-1.5 text-[11px]">
+                                          {(sch.tasks || []).length > 0 ? (
+                                            (sch.tasks || []).map((t: any) => (
+                                              <div key={t.id} className="flex items-start gap-1.5 text-[11px]">
                                                 <CheckSquare className={cn(
                                                   "w-3.5 h-3.5 shrink-0 mt-[1px]", 
-                                                  ta.task?.status === 'done' ? "text-[#1D9E75]" : "text-muted-foreground/50"
+                                                  t.status === 'done' ? "text-[#1D9E75]" : "text-muted-foreground/50"
                                                 )} />
-                                                <span className={cn("leading-tight", ta.task?.status === 'done' && "line-through text-muted-foreground")}>
-                                                  {ta.task?.title || '할 일'}
+                                                <span className={cn("leading-tight", t.status === 'done' && "line-through text-muted-foreground")}>
+                                                  {t.title || '할 일'}
                                                 </span>
                                               </div>
                                             ))
