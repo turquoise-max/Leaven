@@ -150,7 +150,7 @@ export function CreatePersonalTaskDialog({ storeId, open, onOpenChange, onSucces
               </div>
               <div className="flex gap-1.5">
                 <Input 
-                  placeholder="항목 추가 후 엔터..." 
+                  placeholder="항목 입력" 
                   value={newChecklistItem}
                   onChange={(e) => setNewChecklistItem(e.target.value)}
                   onKeyDown={handleAddChecklist}

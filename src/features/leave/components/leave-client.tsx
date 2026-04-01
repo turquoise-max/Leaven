@@ -171,7 +171,7 @@ export function LeaveClientPage({
           </TabsList>
         </div>
 
-        <div className={cn("bg-slate-50/30 p-4 md:p-6 flex-1 min-h-0 overflow-y-auto no-scrollbar relative flex flex-col", activeTab === 'requests' ? 'pb-24 md:pb-6' : 'pb-4 md:pb-6')}>
+        <div className={cn("bg-slate-50/30 p-4 md:p-6 flex-1 min-h-0 overflow-y-auto no-scrollbar relative flex flex-col", activeTab === 'requests' ? 'pb-8 md:pb-6' : 'pb-4 md:pb-6')}>
           <TabsContent value="calendar" className="m-0 mt-0 flex flex-col gap-2 md:gap-6 outline-none h-full flex-1">
             <div className="bg-transparent md:bg-white md:rounded-lg md:border md:shadow-sm flex flex-col h-full">
               <div className="p-0 md:p-3 relative leave-calendar-container h-full">
@@ -330,11 +330,11 @@ export function LeaveClientPage({
           </TabsContent>
 
           <TabsContent value="requests" className="m-0 mt-0 flex flex-col outline-none h-full min-h-0 flex-1">
-            <div className="bg-white md:rounded-lg border shadow-sm flex flex-col h-full overflow-hidden">
+            <div className="bg-white md:rounded-lg border shadow-sm flex flex-col h-full overflow-hidden min-h-[calc(100dvh-18rem)] md:min-h-0">
               <div className="p-4 border-b flex items-center justify-between bg-white md:bg-transparent shrink-0">
                 <h1 className="text-base md:text-2xl font-semibold md:font-bold tracking-tight w-full text-center md:text-left">{isManager ? '휴가 및 연차 신청함' : '나의 휴가 신청 내역'}</h1>
               </div>
-              <div className="bg-slate-50/50 p-6 overflow-y-auto no-scrollbar flex-1">
+              <div className="bg-slate-50/50 p-4 md:p-6 overflow-y-auto no-scrollbar flex-1">
                 {(isManager ? requests : myRequests).length === 0 ? (
                   <div className="flex flex-col items-center justify-center text-muted-foreground min-h-[200px] h-full bg-white rounded-xl border border-dashed border-border/50">
                     <FileText className="w-12 h-12 mb-4 opacity-20" />
@@ -458,7 +458,7 @@ export function LeaveClientPage({
               <div className="p-4 border-b flex items-center justify-between bg-white md:bg-transparent shrink-0">
                 <div className="flex flex-col w-full text-center md:text-left">
                   <h1 className="text-base md:text-2xl font-semibold md:font-bold tracking-tight">{isManager ? '직원별 잔여 연차 관리' : '나의 잔여 연차 정보'}</h1>
-                  <p className="text-[10px] md:text-xs text-muted-foreground mt-0.5">산정 방식: <span className="font-semibold text-foreground">{leaveCalcType === 'hire_date' ? '입사일 기준' : '회계연도 기준'}</span> (오늘 시점 보유량)</p>
+                  <p className="text-[10px] md:text-xs text-muted-foreground mt-0.5">산정 방식: <span className="font-semibold text-foreground">{leaveCalcType === 'hire_date' ? '입사일 기준' : '회계연도 기준'}</span></p>
                 </div>
               </div>
               <div className="overflow-y-auto no-scrollbar flex-1 bg-white">

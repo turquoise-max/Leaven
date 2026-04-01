@@ -341,7 +341,7 @@ export async function POST(req: Request) {
     if (documentId) {
       await supabase
         .from('store_members')
-        .update({ 
+        .update({
           contract_status: 'sent',
           modusign_document_id: documentId
         })

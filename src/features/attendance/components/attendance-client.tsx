@@ -264,7 +264,7 @@ export function AttendanceClientPage({
                           </Card>
                         </div>
 
-                        <div className="bg-white md:rounded-lg border-y md:border shadow-none md:shadow-sm overflow-hidden flex-1 flex flex-col">
+                        <div className="bg-white md:rounded-lg md:border-y border-t md:border shadow-none md:shadow-sm overflow-hidden flex-1 flex flex-col">
                       <div className="p-4 border-b flex items-center justify-between bg-white md:bg-transparent">
                         <h1 className="text-base md:text-2xl font-semibold md:font-bold tracking-tight text-center md:text-left">직원 출퇴근 상태</h1>
                         <div className="relative">
@@ -439,7 +439,7 @@ export function AttendanceClientPage({
           )}
 
           <TabsContent value="history" className={cn("m-0 mt-0 flex flex-col outline-none", "h-full")}>
-            <div className={cn("bg-white md:rounded-lg border-y md:border shadow-none md:shadow-sm overflow-hidden flex flex-col", "flex-1")}>
+            <div className={cn("bg-white md:rounded-lg md:border-y border-t md:border shadow-none md:shadow-sm overflow-hidden flex flex-col", "flex-1")}>
               <div className="p-4 border-b hidden md:flex items-center justify-between bg-white md:bg-transparent">
                 <h1 className="text-base md:text-2xl font-semibold md:font-bold tracking-tight text-center md:text-left w-full md:w-auto">{isManager ? "전체 출퇴근 기록부" : "출퇴근 관리"}</h1>
               </div>
@@ -527,9 +527,8 @@ export function AttendanceClientPage({
                           <td className="px-4 py-3 text-center text-muted-foreground font-medium">{scheduleText}</td>
                           <td className="px-4 py-3 text-center font-semibold">
                             {isLate ? (
-                              <div className="flex items-center justify-center gap-1 text-red-600">
-                                <span>{formatT(attendance?.clock_in_time)}</span>
-                                <span className="text-[10px] bg-red-100 text-red-700 px-1 rounded-sm font-bold">지각</span>
+                              <div className="text-red-600">
+                                {formatT(attendance?.clock_in_time)}
                               </div>
                             ) : (
                               formatT(attendance?.clock_in_time)
@@ -626,37 +625,37 @@ export function AttendanceClientPage({
                     }
 
                     return (
-                      <div key={staff.id} className="bg-white border rounded-xl shadow-sm p-4 flex flex-col gap-4">
+                      <div key={staff.id} className="bg-white border rounded-xl shadow-sm p-5 flex flex-col gap-5">
                         <div className="flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-bold text-sm leading-none">{staff.name || staff.profile?.full_name}</span>
-                            <Badge variant="outline" className="text-[9px] font-normal px-1 h-4 flex items-center justify-center" style={{ color: roleInfo?.color, borderColor: roleInfo?.color }}>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-base leading-none">{staff.name || staff.profile?.full_name}</span>
+                            <Badge variant="outline" className="text-[10px] font-normal px-1.5 h-5 flex items-center justify-center" style={{ color: roleInfo?.color, borderColor: roleInfo?.color }}>
                               {roleInfo?.name || '직원'}
                             </Badge>
                           </div>
-                          <div className="shrink-0 flex items-center">
+                          <div className="shrink-0 flex items-center scale-110 origin-right">
                             {stateBadge}
                           </div>
                         </div>
 
-                        <div className="bg-slate-50/80 rounded-lg p-3 grid grid-cols-3 gap-2 border">
-                          <div className="flex flex-col items-center justify-center gap-1 border-r border-slate-200/60">
-                            <span className="text-[10px] font-semibold text-muted-foreground">출근 시각</span>
+                        <div className="bg-slate-50/80 rounded-xl py-4 grid grid-cols-3 border">
+                          <div className="flex flex-col items-center justify-center gap-1.5 border-r border-slate-200/60 px-2">
+                            <span className="text-xs font-semibold text-muted-foreground">출근</span>
                             {isLate ? (
                               <div className="flex items-center gap-1 text-red-600">
-                                <span className="text-sm font-bold">{formatT(attendance?.clock_in_time)}</span>
+                                <span className="text-base font-bold">{formatT(attendance?.clock_in_time)}</span>
                               </div>
                             ) : (
-                              <span className="text-sm font-bold">{formatT(attendance?.clock_in_time)}</span>
+                              <span className="text-base font-bold">{formatT(attendance?.clock_in_time)}</span>
                             )}
                           </div>
-                          <div className="flex flex-col items-center justify-center gap-1 border-r border-slate-200/60">
-                            <span className="text-[10px] font-semibold text-muted-foreground">퇴근 시각</span>
-                            <span className="text-sm font-bold">{formatT(attendance?.clock_out_time)}</span>
+                          <div className="flex flex-col items-center justify-center gap-1.5 border-r border-slate-200/60 px-2">
+                            <span className="text-xs font-semibold text-muted-foreground">퇴근</span>
+                            <span className="text-base font-bold">{formatT(attendance?.clock_out_time)}</span>
                           </div>
-                          <div className="flex flex-col items-center justify-center gap-1">
-                            <span className="text-[10px] font-semibold text-muted-foreground">총 근무시간</span>
-                            <span className="text-sm font-black text-primary">{totalHours}</span>
+                          <div className="flex flex-col items-center justify-center gap-1.5 px-2">
+                            <span className="text-xs font-semibold text-muted-foreground">총 근무시간</span>
+                            <span className="text-base font-black text-primary">{totalHours}</span>
                           </div>
                         </div>
 
@@ -702,7 +701,7 @@ export function AttendanceClientPage({
           </TabsContent>
 
           <TabsContent value="requests" className={cn("m-0 mt-0 flex flex-col outline-none", "h-full")}>
-            <div className={cn("bg-white md:rounded-lg border-y md:border shadow-none md:shadow-sm overflow-hidden flex flex-col", "flex-1")}>
+            <div className={cn("bg-white md:rounded-lg md:border-y border-t md:border shadow-none md:shadow-sm overflow-hidden flex flex-col", "flex-1")}>
               <div className="p-4 border-b flex items-center justify-center md:justify-between">
                 <h3 className="font-semibold text-base">{isManager ? "출퇴근 시간 수정 요청 관리" : "나의 수정 요청 내역"}</h3>
               </div>

@@ -106,7 +106,10 @@ export function StaffAnnouncementList({ announcements }: StaffAnnouncementListPr
               {announcements.map((announcement) => (
                 <div 
                   key={announcement.id} 
-                  onClick={() => setSelectedAnnouncement(announcement)}
+                  onClick={() => {
+                    setShowAllList(false)
+                    setSelectedAnnouncement(announcement)
+                  }}
                   className={`p-2.5 md:p-3 rounded-lg border cursor-pointer transition-colors hover:bg-muted/50 ${
                     announcement.is_important ? 'bg-primary/5 border-primary/20 shadow-sm' : 'bg-card shadow-sm'
                   }`}
@@ -133,12 +136,23 @@ export function StaffAnnouncementList({ announcements }: StaffAnnouncementListPr
 
       <Dialog open={!!selectedAnnouncement} onOpenChange={(open) => !open && setSelectedAnnouncement(null)}>
         <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <div className="flex items-center gap-2 mb-1">
-              {selectedAnnouncement?.is_important && (
-                <Badge variant="destructive" className="text-[10px] px-1.5 py-0">중요</Badge>
-              )}
-              <DialogTitle className="text-lg leading-tight">{selectedAnnouncement?.title}</DialogTitle>
+          <button
+            onClick={() => {
+              setSelectedAnnouncement(null)
+              setShowAllList(true)
+            }}
+            className="absolute right-10 top-4 text-[11px] md:text-xs text-muted-foreground hover:text-primary transition-colors whitespace-nowrap underline underline-offset-2"
+          >
+            목록으로 돌아가기
+          </button>
+          <DialogHeader className="pt-6">
+            <div className="flex flex-col gap-2 mb-1">
+              <div className="flex items-center gap-2">
+                {selectedAnnouncement?.is_important && (
+                  <Badge variant="destructive" className="text-[10px] px-1.5 py-0">중요</Badge>
+                )}
+                <DialogTitle className="text-lg leading-tight text-left break-words pr-2">{selectedAnnouncement?.title}</DialogTitle>
+              </div>
             </div>
             <DialogDescription className="flex justify-between items-center text-xs">
               <span>작성자: {selectedAnnouncement?.author?.full_name || '관리자'}</span>

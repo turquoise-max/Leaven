@@ -73,12 +73,12 @@ export function MobileBottomNav({ role, permissions = {} }: MobileBottomNavProps
             )}
           >
             <div className={cn(
-              "flex flex-col items-center justify-center px-4 py-1.5 gap-1 rounded-xl transition-colors",
+              "flex flex-col items-center justify-center px-1 py-1.5 gap-1 rounded-xl transition-colors w-full",
               isActive && "bg-muted"
             )}>
               <item.icon className={cn("h-5 w-5", isActive && "stroke-[2.5px]")} />
               <span className={cn(
-                "text-[10px] font-medium tracking-tight",
+                "text-[10px] font-medium tracking-tighter whitespace-nowrap",
                 isActive && "font-bold"
               )}>
                 {item.title}

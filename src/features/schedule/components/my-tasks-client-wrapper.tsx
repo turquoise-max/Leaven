@@ -44,18 +44,14 @@ export function MyTasksClientWrapper({
       </div>
 
       {attendanceStatus === 'none' ? (
-        <div className="flex-1 flex flex-col justify-center items-center px-4 gap-2 md:gap-4 pb-4 md:pb-[10vh] min-h-0">
-          <div className="w-full shrink min-h-0 flex flex-col justify-center">
+        <div className="flex-1 flex flex-col px-4 pb-4 md:pb-6 min-h-0">
+          <div className="w-full flex-1 min-h-0 flex flex-col">
             <TaskAttendanceWidget 
               storeId={storeId} 
               currentUserId={currentUserId} 
               myStaffId={myStaffId}
               onStatusChange={(status) => setAttendanceStatus(status)}
             />
-          </div>
-          <div className="w-full flex flex-col items-center justify-center text-center text-muted-foreground bg-slate-50/50 rounded-xl border border-dashed text-sm leading-relaxed py-4 md:py-6 shrink-0">
-            <span>출근 전입니다.</span>
-            <span>출근하기 버튼을 눌러 업무를 시작해주세요.</span>
           </div>
         </div>
       ) : (

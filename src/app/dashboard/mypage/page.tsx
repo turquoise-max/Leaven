@@ -22,7 +22,7 @@ export default async function MyPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const cookieStore = await cookies()
-  const currentStoreId = cookieStore.get('current_store_id')?.value
+  const currentStoreId = cookieStore.get('leaven_current_store_id')?.value
 
   if (!user) {
     redirect('/login')
@@ -31,15 +31,32 @@ export default async function MyPage() {
   // 매장 멤버 정보에서 근로계약서 유무 조회
   let hasContract = false
   if (currentStoreId) {
-    const { data: member } = await supabase
+    // single() 대신 조회를 사용하여 중복 데이터나 에러 대응
+    const { data: members } = await supabase
       .from('store_members')
-      .select('modusign_document_id')
+      .select('modusign_document_id, contract_status, contract_file_url')
       .eq('store_id', currentStoreId)
       .eq('user_id', user.id)
-      .single()
+      .order('created_at', { ascending: false }) // 최신 멤버십 정보 우선
     
-    if (member?.modusign_document_id) {
+    // 서명 완료 상태이거나 모두싸인/직접업로드 문서가 있는 데이터가 하나라도 있으면 true
+    // note: 'completed' is also a valid status in modusign, though we use 'signed' generally, let's just make it robust.
+    const validMember = members?.find(m => 
+      m.contract_status === 'signed' || 
+      m.contract_status === 'completed' ||
+      m.modusign_document_id != null || 
+      m.contract_file_url != null
+    )
+
+    if (validMember) {
       hasContract = true
+    } else {
+      // For debugging
+      console.log('No valid contract found for user in store.', { 
+        currentStoreId, 
+        userId: user.id, 
+        members: members 
+      })
     }
   }
 
@@ -58,9 +75,9 @@ export default async function MyPage() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-4 px-4 pb-20 flex-1 min-h-0 mt-4">
+      <div className="flex flex-col gap-3 px-4 pb-20 flex-1 min-h-0">
         {/* 내 정보 섹션 (초슬림형) */}
-        <Card className="border-none shadow-sm overflow-hidden">
+        <Card className="border-none shadow-sm overflow-hidden mt-2">
           <CardContent className="p-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -75,12 +92,6 @@ export default async function MyPage() {
                   <span className="text-[10px] text-muted-foreground">{email}</span>
                 </div>
               </div>
-              <button 
-                type="button"
-                className="text-[10px] font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full hover:bg-blue-100 transition-colors cursor-default"
-              >
-                수정
-              </button>
             </div>
           </CardContent>
         </Card>
@@ -92,7 +103,7 @@ export default async function MyPage() {
         />
 
         {/* 설정 및 지원 리스트 (압축형) */}
-        <div className="flex flex-col bg-white rounded-xl shadow-sm border overflow-hidden mt-2">
+        <div className="flex flex-col bg-white rounded-xl shadow-sm border overflow-hidden">
           <Link 
             href="/account?next=/dashboard/mypage" 
             className="flex items-center justify-between p-3.5 active:bg-slate-50 transition-colors"

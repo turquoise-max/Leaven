@@ -11,6 +11,12 @@ interface ActionButtonsProps {
 
 export function ActionButtons({ currentStoreId, hasContract }: ActionButtonsProps) {
   const handleContractClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!currentStoreId) {
+      e.preventDefault()
+      toast.error('선택된 매장 정보가 없습니다. 매장을 먼저 선택해주세요.')
+      return
+    }
+
     if (!hasContract) {
       e.preventDefault()
       toast.error('아직 체결된 근로계약서가 없습니다.')
@@ -22,6 +28,7 @@ export function ActionButtons({ currentStoreId, hasContract }: ActionButtonsProp
       <Link 
         href={hasContract && currentStoreId ? `/api/contracts/download?storeId=${currentStoreId}` : '#'} 
         target={hasContract && currentStoreId ? "_blank" : undefined}
+        rel="noopener noreferrer"
         onClick={handleContractClick}
         className="bg-white p-3 rounded-xl shadow-sm border border-slate-100 flex flex-col items-center justify-center gap-2 active:bg-slate-50 transition-colors"
       >

@@ -217,7 +217,7 @@ export function TaskAttendanceWidget({ storeId, currentUserId, myStaffId, onStat
   if (myStatus === 'none') {
     return (
       <>
-        <div className="flex flex-col items-center justify-center gap-4 md:gap-8 bg-white rounded-xl border shadow-sm py-8 md:py-20 w-full min-h-0 shrink">
+        <div className="flex flex-col items-center justify-center gap-4 md:gap-8 bg-white rounded-xl border shadow-sm py-8 md:py-20 w-full h-full min-h-0 flex-1">
           <Button 
             size="lg" 
             className="w-36 h-36 md:w-48 md:h-48 rounded-full text-xl md:text-2xl font-bold shadow-xl flex flex-col gap-2 md:gap-4 bg-[#1D9E75] hover:bg-[#1D9E75]/90 hover:scale-105 transition-all shrink-0"
@@ -227,7 +227,9 @@ export function TaskAttendanceWidget({ storeId, currentUserId, myStaffId, onStat
             <PlayCircle className="w-12 h-12 md:w-16 md:h-16" />
             출근하기
           </Button>
-          <p className="text-muted-foreground text-sm md:text-base shrink-0">버튼을 눌러 업무를 시작하세요</p>
+          <p className="text-muted-foreground text-sm md:text-base shrink-0 text-center">
+            출근 전입니다.<br />버튼을 눌러 업무를 시작하세요
+          </p>
         </div>
         {renderPopupContent()}
       </>
