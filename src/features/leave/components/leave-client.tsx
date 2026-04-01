@@ -323,7 +323,7 @@ export function LeaveClientPage({
                     endDateObj.setDate(endDateObj.getDate() + 1)
                     return { id: r.id, title: `${name} (${label})`, start: r.start_date, end: endDateObj.toISOString().substring(0, 10), backgroundColor: color, textColor: '#fff', allDay: true }
                   })}
-                  height="auto"
+                  height="100%"
                 />
               </div>
             </div>

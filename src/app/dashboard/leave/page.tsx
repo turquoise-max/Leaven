@@ -50,7 +50,7 @@ export default async function LeavePage() {
   return (
     <div className="flex flex-col h-full overflow-hidden w-full max-w-full">
       {/* Header Area */}
-      <div className="pt-4 pb-4 px-4 border-b flex flex-col justify-center items-center bg-white shrink-0 z-10 md:bg-transparent md:items-start md:flex-row md:justify-between -mx-4 -mt-4 mb-0 md:m-0 md:p-0 md:border-none md:mb-6">
+      <div className="pt-4 pb-4 px-4 border-b flex flex-col justify-center items-center bg-white shrink-0 z-10 md:bg-transparent md:items-start md:flex-row md:justify-between md:p-0 md:border-none md:mb-6">
         <div className="text-center md:text-left w-full">
           <h1 className="text-xl md:text-2xl font-bold tracking-tight">휴가 및 연차</h1>
           <p className="text-sm text-muted-foreground hidden md:block mt-1">
