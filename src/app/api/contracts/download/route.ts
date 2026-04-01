@@ -20,16 +20,30 @@ export async function GET(request: Request) {
     }
 
     // 현재 선택된 매장에서 해당 사용자의 멤버 정보를 가져와서 문서 ID 확인
-    const { data: member, error: memberError } = await supabase
+    let { data: member, error: memberError } = await supabase
       .from('store_members')
       .select('modusign_document_id, contract_status, contract_file_url')
       .eq('store_id', storeId)
       .eq('user_id', user.id)
       .single()
 
-    if (memberError || !member) {
-      console.error('Download contract failed: member not found', { storeId, userId: user.id, memberError })
-      return new NextResponse('Member not found', { status: 404 })
+    // 만약 현재 매장에 계약서가 없다면 (fallback) 전체 매장 중에 사용자의 계약서가 있는지 찾음
+    if (memberError || !member || (!member.modusign_document_id && !member.contract_file_url)) {
+      console.warn('Contract not found in current store. Searching other stores for user...', { storeId, userId: user.id })
+      const { data: allMembers } = await supabase
+        .from('store_members')
+        .select('modusign_document_id, contract_status, contract_file_url')
+        .eq('user_id', user.id)
+        
+      const validFallback = allMembers?.find(m => m.modusign_document_id || m.contract_file_url)
+      
+      if (validFallback) {
+        member = validFallback
+        memberError = null
+      } else {
+        console.error('Download contract failed: member not found', { storeId, userId: user.id, memberError })
+        return new NextResponse('Member not found', { status: 404 })
+      }
     }
 
     // 모두싸인 문서가 있는 경우

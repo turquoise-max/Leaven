@@ -136,10 +136,10 @@ export function CreatePersonalTaskDialog({ storeId, open, onOpenChange, onSucces
                     checklist.map((item) => (
                       <div key={item.id} className="flex items-center gap-2 bg-black/5 px-2 py-1.5 rounded-md">
                         <div className="w-3.5 h-3.5 rounded-sm border border-black/20 bg-white shrink-0" />
-                        <span className="text-sm flex-1 leading-none">{item.text}</span>
+                        <span className="text-sm flex-1 leading-normal break-all min-w-0">{item.text}</span>
                         <button 
                           onClick={() => handleRemoveChecklist(item.id)}
-                          className="text-muted-foreground hover:text-red-500 transition-colors p-0.5"
+                          className="text-muted-foreground hover:text-red-500 transition-colors p-0.5 shrink-0"
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>

@@ -619,11 +619,23 @@ export function LeaveClientPage({
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1">
                 <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-0.5">시작일</Label>
-                <Input type="date" value={requestDraft.startDate} onChange={(e) => setRequestDraft(prev => ({...prev, startDate: e.target.value}))} className="h-9 bg-slate-50/50 border-slate-100 text-xs" />
+                <Input type="date" value={requestDraft.startDate} onChange={(e) => {
+                  const newStartDate = e.target.value;
+                  setRequestDraft(prev => {
+                    const newEndDate = newStartDate > prev.endDate ? newStartDate : prev.endDate;
+                    return { ...prev, startDate: newStartDate, endDate: newEndDate };
+                  });
+                }} className="h-9 bg-slate-50/50 border-slate-100 text-xs" />
               </div>
               <div className="flex flex-col gap-1">
                 <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-0.5">종료일</Label>
-                <Input type="date" value={requestDraft.endDate} onChange={(e) => setRequestDraft(prev => ({...prev, endDate: e.target.value}))} className="h-9 bg-slate-50/50 border-slate-100 text-xs" />
+                <Input type="date" value={requestDraft.endDate} onChange={(e) => {
+                  const newEndDate = e.target.value;
+                  setRequestDraft(prev => {
+                    const newStartDate = newEndDate < prev.startDate ? newEndDate : prev.startDate;
+                    return { ...prev, endDate: newEndDate, startDate: newStartDate };
+                  });
+                }} className="h-9 bg-slate-50/50 border-slate-100 text-xs" />
               </div>
             </div>
 

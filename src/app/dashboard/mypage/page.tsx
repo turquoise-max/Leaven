@@ -38,13 +38,13 @@ export default async function MyPage() {
       .eq('store_id', currentStoreId)
       .eq('user_id', user.id)
       .order('created_at', { ascending: false }) // 최신 멤버십 정보 우선
-    
+
     // 서명 완료 상태이거나 모두싸인/직접업로드 문서가 있는 데이터가 하나라도 있으면 true
     // note: 'completed' is also a valid status in modusign, though we use 'signed' generally, let's just make it robust.
-    const validMember = members?.find(m => 
-      m.contract_status === 'signed' || 
+    const validMember = members?.find(m =>
+      m.contract_status === 'signed' ||
       m.contract_status === 'completed' ||
-      m.modusign_document_id != null || 
+      m.modusign_document_id != null ||
       m.contract_file_url != null
     )
 
@@ -52,11 +52,30 @@ export default async function MyPage() {
       hasContract = true
     } else {
       // For debugging
-      console.log('No valid contract found for user in store.', { 
-        currentStoreId, 
-        userId: user.id, 
-        members: members 
+      console.log('No valid contract found for user in store.', {
+        currentStoreId,
+        userId: user.id,
+        members: members
       })
+      
+      // Fallback: Check if the user has ANY contract in ANY store, 
+      // just in case the currentStoreId is wrong or not set properly
+      const { data: allMembers } = await supabase
+        .from('store_members')
+        .select('store_id, modusign_document_id, contract_status, contract_file_url')
+        .eq('user_id', user.id)
+        
+      const anyValidMember = allMembers?.find(m =>
+        m.contract_status === 'signed' ||
+        m.contract_status === 'completed' ||
+        m.modusign_document_id != null ||
+        m.contract_file_url != null
+      )
+      
+      if (anyValidMember) {
+        console.log('User has contract in ANOTHER store. Temporarily allowing access.', anyValidMember)
+        hasContract = true
+      }
     }
   }
 

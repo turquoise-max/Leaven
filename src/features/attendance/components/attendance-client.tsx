@@ -511,7 +511,9 @@ export function AttendanceClientPage({
                         const start = new Date(attendance.clock_in_time).getTime()
                         const end = new Date(attendance.clock_out_time).getTime()
                         const diffMins = Math.max(0, Math.round((end - start) / 60000))
-                        totalHours = (diffMins / 60).toFixed(1) + 'h'
+                        const hours = Math.floor(diffMins / 60)
+                        const mins = diffMins % 60
+                        totalHours = `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`
                       }
 
                       return (
@@ -621,7 +623,9 @@ export function AttendanceClientPage({
                       const start = new Date(attendance.clock_in_time).getTime()
                       const end = new Date(attendance.clock_out_time).getTime()
                       const diffMins = Math.max(0, Math.round((end - start) / 60000))
-                      totalHours = (diffMins / 60).toFixed(1) + 'h'
+                      const hours = Math.floor(diffMins / 60)
+                      const mins = diffMins % 60
+                      totalHours = `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`
                     }
 
                     return (
@@ -747,9 +751,6 @@ export function AttendanceClientPage({
                           <div key={req.id} className={cn("bg-white md:border md:shadow-sm border-b md:rounded-xl p-4 md:p-5 flex flex-col gap-3 md:gap-4 transition-colors last:border-b-0", req.status !== 'pending' && "opacity-80 bg-slate-50/50")}>
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex items-center gap-2.5 md:gap-3 min-w-0">
-                                <Avatar className="h-9 w-9 md:h-10 md:w-10 border shrink-0">
-                                  <AvatarFallback>{req.member?.name?.substring(0,2)}</AvatarFallback>
-                                </Avatar>
                                 <div className="min-w-0">
                                   <div className="flex items-center gap-1.5 flex-wrap">
                                     <span className="font-bold text-sm md:text-base truncate">{req.member?.name || req.member?.profile?.full_name}</span>
@@ -838,25 +839,35 @@ export function AttendanceClientPage({
                 <Label className="text-sm font-medium text-foreground">수정 요청 시각 (출근)</Label>
                 <TimePicker 
                   value={requestDraft.inTime} 
-                  onChange={(val) => setRequestDraft(prev => ({...prev, inTime: val}))} 
+                  onChange={(val) => {
+                    setRequestDraft(prev => {
+                      const newOutTime = val > prev.outTime ? val : prev.outTime;
+                      return { ...prev, inTime: val, outTime: newOutTime };
+                    });
+                  }} 
                 />
               </div>
               <div className="flex flex-col gap-2">
                 <Label className="text-sm font-medium text-foreground">수정 요청 시각 (퇴근)</Label>
                 <TimePicker 
                   value={requestDraft.outTime} 
-                  onChange={(val) => setRequestDraft(prev => ({...prev, outTime: val}))} 
+                  onChange={(val) => {
+                    setRequestDraft(prev => {
+                      const newInTime = val < prev.inTime ? val : prev.inTime;
+                      return { ...prev, outTime: val, inTime: newInTime };
+                    });
+                  }} 
                 />
               </div>
             </div>
             
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 w-full">
               <Label className="text-sm font-medium text-foreground">사유 작성 (필수)</Label>
               <Textarea 
                 placeholder="예: 어제 마감 때 바빠서 퇴근 버튼 누르는 걸 깜빡했습니다."
                 value={requestDraft.reason}
                 onChange={(e) => setRequestDraft(prev => ({...prev, reason: e.target.value}))}
-                className="h-24 resize-none"
+                className="h-24 w-full resize-none ![field-sizing:fixed]"
               />
             </div>
           </div>
