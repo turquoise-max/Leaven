@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { headers } from 'next/headers'
+import { headers, cookies } from 'next/headers'
 
 export async function login(formData: FormData) {
   const supabase = await createClient()
@@ -143,6 +143,9 @@ export async function logout() {
   if (error) {
     return { error: error.message }
   }
+
+  const cookieStore = await cookies()
+  cookieStore.delete('leaven_current_store_id')
 
   revalidatePath('/', 'layout')
   redirect('/login')
