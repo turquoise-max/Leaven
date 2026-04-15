@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { signup, signInWithGoogle } from '../actions'
 import { Button } from '@/components/ui/button'
 import {
@@ -16,6 +17,7 @@ import { Label } from '@/components/ui/label'
 import { Store } from 'lucide-react'
 
 export function SignupForm({ nextUrl = '/home' }: { nextUrl?: string }) {
+  const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
 
@@ -36,6 +38,10 @@ export function SignupForm({ nextUrl = '/home' }: { nextUrl?: string }) {
     } else if (result?.message) {
       setMessage(result.message)
       setError(null)
+      
+      setTimeout(() => {
+        router.push('/login' + (nextUrl !== '/home' ? `?next=${encodeURIComponent(nextUrl)}` : ''))
+      }, 3000)
     }
   }
 

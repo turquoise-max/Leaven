@@ -128,10 +128,12 @@ export async function acceptInvitation(storeId: string) {
     .eq('user_id', user.id)
     .eq('status', 'invited')
 
-  if (error) return { error: error.message }
+  if (error) {
+    return { error: '초대 수락 중 오류가 발생했습니다: ' + error.message }
+  }
 
-  revalidatePath('/home')
-  return { success: true }
+  revalidatePath('/', 'layout')
+  redirect('/home')
 }
 
 // 2.1 초대 거절 (New)
@@ -234,21 +236,27 @@ export async function joinStoreByCode(code: string, name: string, phone: string)
 
   // 4. 수기 등록 직원 매칭 시도
   // 이름과 전화번호가 일치하는 수기 등록 직원(user_id is null)이 있으면 해당 레코드를 승계합니다.
-  const { data: claimed, error: claimError } = await supabase.rpc('claim_manual_staff', {
-    store_id_param: storeId,
-    name_param: name,
-    phone_param: phone,
-  })
+  let claimed = false
+  try {
+    const { data: claimResult, error: claimError } = await supabase.rpc('claim_manual_staff', {
+      store_id_param: storeId,
+      name_param: name,
+      phone_param: phone,
+    })
 
-  if (claimError) {
-    console.error('Claim manual staff error:', claimError)
-    // RPC 오류가 나도 일반 가입 시도로 넘어감
+    if (claimError) {
+      console.error('Claim manual staff error:', claimError)
+    } else {
+      claimed = !!claimResult
+    }
+  } catch (err) {
+    console.error('Exception during claim_manual_staff:', err)
   }
 
   // 매칭 성공 시 종료
   if (claimed) {
-    revalidatePath('/home')
-    return { success: true }
+    revalidatePath('/', 'layout')
+    redirect('/home')
   }
 
   // 5. 가입 요청 (Pending Approval) - 매칭된 직원이 없을 경우
@@ -263,8 +271,10 @@ export async function joinStoreByCode(code: string, name: string, phone: string)
     joined_at: new Date().toISOString(),
   })
 
-  if (error) return { error: error.message }
+  if (error) {
+    return { error: '가입 요청 중 오류가 발생했습니다: ' + error.message }
+  }
 
-  revalidatePath('/home')
-  return { success: true }
+  revalidatePath('/', 'layout')
+  redirect('/home')
 }

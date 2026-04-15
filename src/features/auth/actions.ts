@@ -85,11 +85,11 @@ export async function signup(formData: FormData) {
   })
 
   if (error) {
-    return { error: error.message }
+    return { error: '회원가입 중 오류가 발생했습니다. 다시 시도해주세요.' }
   }
 
   revalidatePath('/', 'layout')
-  return { message: 'Check email to continue sign in process' }
+  return { message: '회원가입이 완료되었습니다. 로그인해주세요.' }
 }
 
 export async function signInWithGoogle(formData?: FormData) {
