@@ -9,6 +9,8 @@ import { Label } from '@/components/ui/label'
 import Link from 'next/link'
 import { Store, Plus, Mail, Check, X, Building, Loader2, ArrowRight, LogOut, Package2, Settings, MapPin, User, ShieldCheck } from 'lucide-react'
 import { CancelRequestButton } from '@/features/onboarding/components/cancel-request-button'
+import { JoinStoreForm } from '@/features/onboarding/components/join-store-form'
+import { InvitationButtons } from '@/features/onboarding/components/invitation-buttons'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { cn } from '@/lib/utils'
@@ -166,32 +168,7 @@ export default async function HomePage(props: { searchParams?: Promise<{ [key: s
                   점장님에게 전달받은 6자리 합류 코드를 입력하고<br/>매장에 합류하세요.
                 </p>
                 <div className="w-full mt-auto">
-                  <form action={async (formData) => {
-                    'use server'
-                    const code = formData.get('code') as string
-                    const name = formData.get('name') as string
-                    const phone = formData.get('phone') as string
-                    await joinStoreByCode(code, name, phone)
-                  }} className="w-full space-y-3 text-left">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="code-phase1" className="text-xs font-bold text-slate-600">초대 코드</Label>
-                      <Input id="code-phase1" name="code" placeholder="6자리 문자/숫자" required className="uppercase tracking-widest font-bold bg-slate-50" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-1.5">
-                        <Label htmlFor="name-phase1" className="text-xs font-bold text-slate-600">이름 (본명)</Label>
-                        <Input id="name-phase1" name="name" defaultValue={userName !== '사용자' ? userName : ''} placeholder="홍길동" required className="bg-slate-50" />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="phone-phase1" className="text-xs font-bold text-slate-600">전화번호</Label>
-                        <Input id="phone-phase1" name="phone" defaultValue={userPhone} placeholder="01012345678" required className="bg-slate-50" />
-                      </div>
-                    </div>
-                    
-                    <Button type="submit" className="w-full bg-[#1D9E75] hover:bg-[#1D9E75]/90 font-bold tracking-wide mt-2">
-                      <Check className="w-4 h-4 mr-2" /> 초대 코드로 합류하기
-                    </Button>
-                  </form>
+                  <JoinStoreForm defaultName={userName !== '사용자' ? userName : ''} defaultPhone={userPhone} variant="large" />
                 </div>
               </Card>
             </div>
@@ -229,24 +206,7 @@ export default async function HomePage(props: { searchParams?: Promise<{ [key: s
                       <div className="text-sm text-muted-foreground">
                         초대일시: {new Date(invitation.invited_at).toLocaleDateString()}
                       </div>
-                      <div className="flex gap-3">
-                        <form action={async () => {
-                          'use server'
-                          await rejectInvitation(invitation.store.id)
-                        }}>
-                          <Button variant="outline" className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200">
-                            거절
-                          </Button>
-                        </form>
-                        <form action={async () => {
-                          'use server'
-                          await acceptInvitation(invitation.store.id)
-                        }}>
-                          <Button className="bg-primary shadow-sm font-bold">
-                            수락하고 합류하기
-                          </Button>
-                        </form>
-                      </div>
+                      <InvitationButtons storeId={invitation.store.id} variant="large" />
                     </div>
                   </CardContent>
                 </Card>
@@ -407,28 +367,7 @@ export default async function HomePage(props: { searchParams?: Promise<{ [key: s
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <form action={async (formData) => {
-                      'use server'
-                      const code = formData.get('code') as string
-                      const name = formData.get('name') as string
-                      const phone = formData.get('phone') as string
-                      await joinStoreByCode(code, name, phone)
-                    }} className="space-y-3">
-                      <div className="flex gap-2">
-                        <Input id="code-phase4" name="code" placeholder="6자리 초대 코드" required className="uppercase tracking-widest font-mono flex-1 bg-white" />
-                        <Button type="submit" className="bg-[#1D9E75] hover:bg-[#1D9E75]/90 px-6">신청</Button>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="space-y-1">
-                          <Label htmlFor="name-phase4" className="text-xs text-muted-foreground">이름</Label>
-                          <Input id="name-phase4" name="name" defaultValue={userName !== '사용자' ? userName : ''} required className="h-8 text-xs bg-white" />
-                        </div>
-                        <div className="space-y-1">
-                          <Label htmlFor="phone-phase4" className="text-xs text-muted-foreground">전화번호 (-제외)</Label>
-                          <Input id="phone-phase4" name="phone" defaultValue={userPhone} required className="h-8 text-xs bg-white" placeholder="01012345678" />
-                        </div>
-                      </div>
-                    </form>
+                    <JoinStoreForm defaultName={userName !== '사용자' ? userName : ''} defaultPhone={userPhone} variant="compact" />
                   </CardContent>
                 </Card>
 
@@ -467,22 +406,7 @@ export default async function HomePage(props: { searchParams?: Promise<{ [key: s
                         </CardDescription>
                       </CardHeader>
                       <CardFooter className="flex justify-end gap-2 bg-slate-50/50 p-3 border-t">
-                        <form action={async () => {
-                          'use server'
-                          await rejectInvitation(invitation.store.id)
-                        }}>
-                          <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 text-xs">
-                            거절
-                          </Button>
-                        </form>
-                        <form action={async () => {
-                          'use server'
-                          await acceptInvitation(invitation.store.id)
-                        }}>
-                          <Button size="sm" className="bg-primary hover:bg-primary/90 h-8 text-xs font-bold px-4">
-                            수락하기
-                          </Button>
-                        </form>
+                        <InvitationButtons storeId={invitation.store.id} variant="compact" />
                       </CardFooter>
                     </Card>
                   ))}
