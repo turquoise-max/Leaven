@@ -50,7 +50,8 @@ export function CreateRoleTaskDialog({ storeId, initialRoleIds, trigger, hideRol
         end_time: end_time,
         assigned_role_ids: data.assigned_role_ids,
         checklist: data.checklist,
-        is_template: true
+        is_template: true,
+        is_routine: true
       })
 
       if (result?.error) {

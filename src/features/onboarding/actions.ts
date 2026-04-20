@@ -33,6 +33,21 @@ export async function createStore(formData: FormData) {
     return { error: error?.message || '매장 생성에 실패했습니다.' }
   }
 
+  // 1.5 점주의 이름 가져오기 및 업데이트
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('full_name')
+    .eq('id', user.id)
+    .single()
+
+  const ownerName = profile?.full_name || user.user_metadata?.full_name || '점주'
+
+  await supabase
+    .from('store_members')
+    .update({ name: ownerName })
+    .eq('store_id', storeId)
+    .eq('user_id', user.id)
+
   // 2. 기본 직급 생성 및 점주 권한 연결 보정
   const { ownerRoleId } = await ensureDefaultRoles(storeId)
   
