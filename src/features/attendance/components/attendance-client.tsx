@@ -381,7 +381,7 @@ export function AttendanceClientPage({
                                 <div key={staff.id} className="flex items-center justify-between p-4 hover:bg-muted/30 transition-colors">
                                   <div className="flex items-center gap-4">
                                     <Avatar className="h-10 w-10 border">
-                                      <AvatarFallback>{staff.name.substring(0, 2)}</AvatarFallback>
+                                      <AvatarFallback>{getStaffName(staff).substring(0, 2) || '직원'}</AvatarFallback>
                                     </Avatar>
                                     <div className="flex flex-col">
                                       <div className="flex items-center gap-2">
