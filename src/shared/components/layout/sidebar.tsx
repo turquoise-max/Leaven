@@ -113,30 +113,6 @@ export function Sidebar({
           icon: Settings,
           isUpcoming: false
         }] : []),
-        ...(permissions.view_salary ? [{
-          title: '급여 및 인건비',
-          href: '/dashboard/payroll',
-          icon: Archive,
-          isUpcoming: true
-        }] : []) 
-      ]
-    },
-
-    {
-      title: '매출 및 자산 관리',
-      items: [
-        ...(permissions.view_sales ? [{
-          title: '매출 분석',
-          href: '#sales',
-          icon: BarChart3,
-          isUpcoming: true
-        }] : []),
-        ...(permissions.manage_inventory ? [{
-          title: '재고 관리',
-          href: '#inventory',
-          icon: Archive,
-          isUpcoming: true
-        }] : [])
       ]
     },
 
